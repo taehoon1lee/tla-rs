@@ -32,3 +32,11 @@ next: remaining perf (PCal/LamportMutex/SimpleRegular), liveness port (M6), Span
 LN formulas + tableau + processLiveness + behavior graph + SCC/lasso. Corpus: front 347, init 325, verdict 296 (was 258), trace 224, perf 283.
 ex/: MCRealTimeHourClock, MCDistributedReplicatedLog now pass verdict. Not yet: operator-argument formulas (Github1161/817/LetDef*), exact lasso order (FP64).
 next: remaining ex/ items (SpanTreeRandom RNG, ALIAS/IOExec, Json), perf (PCal 1.33, LamportMutex 1.24), TLCSailfish1 timeout.
+
+## 2026-11-23 ex/ pass 4: liveness perf, RandomElement, ALIAS, natives, label deferral, call memo (Sonnet 5.5)
+full corpus: verdict 304/364, trace 250, perf 298 (best), time x0.70 of Java over verdict-matching models. ex/ (non-heavy): verdict 150/150, trace 150/150.
+done: `java.util.Random` + `TLC.RandomElement` (SpanTreeRandom), ALIAS in traces, IOUtils.Serialize/SVGElemToString/SetToSeq/Json deserialize,
+string `\o`/`Len`, LET-local INSTANCE of native ops; perf: liveness behaviour-graph memo of state predicates, closed INSTANCE substs cache,
+16-byte Slot, function fingerprint memo, 4 KB allocator classes, no label tracking in the search (labels recomputed for traces),
+cached getenv, memoized pure constant-level set-building operator calls (MCQuicksort 5.9 s -> 0.5 s).
+next: ex/ perf borderline (MCLamportMutex ~1.12x, RandomGraphs, PCal), heavy ex/ models (see tmp/heavy1.log), remaining tt/ failures.

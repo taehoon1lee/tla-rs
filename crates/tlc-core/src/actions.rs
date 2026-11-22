@@ -840,7 +840,8 @@ to argument {}, which is not in the domain of the function.",
 
     /// Java: getNextStatesApplImpl for a user-defined operator: continue with the operator's body
     fn enum_def_call(&self, d: &Rc<CompiledDef>, args: &[Arg], mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
-        let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
+        // the arguments are evaluated in the caller's frame and pushed directly into the callee's frame
+        let nb = self.stack.borrow().len();
         for a in args {
             let s = {
                 let b = buf.borrow();
@@ -849,16 +850,22 @@ to argument {}, which is not in the domain of the function.",
                     Mode::Init => (&b, &empty),
                     Mode::Next => (s0, &b),
                 };
-                self.eval_arg_pub(a, z0, z1)?
+                self.eval_arg_pub(a, z0, z1)
             };
-            slots.push(s);
+            match s {
+                Ok(s) => self.stack.borrow_mut().push(s),
+                Err(e) => {
+                    self.stack.borrow_mut().truncate(nb);
+                    return Err(e);
+                }
+            }
         }
         let body = d.body.borrow().as_ref().unwrap().clone();
         let saved_label = if self.splitting.get() && mode == Mode::Next {
-            let base = if slots.is_empty() {
+            let base = if args.is_empty() {
                 d.label_base.get_or_init(|| Rc::new(LabelBase { name: d.name.clone(), params: vec![] })).clone()
             } else {
-                let params: Vec<Value> = slots.iter().filter_map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
+                let params: Vec<Value> = self.stack.borrow()[nb..].iter().filter_map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
                 Rc::new(LabelBase { name: d.name.clone(), params })
             };
             let stop = Rc::as_ptr(&body) as usize;
@@ -867,16 +874,9 @@ to argument {}, which is not in the domain of the function.",
             None
         };
         let caller_base = self.base.get();
-        let nslots = d.nslots.get().max(slots.len());
-        let old_len = self.stack.borrow().len();
-        let nb = old_len;
-        {
-            let mut st = self.stack.borrow_mut();
-            st.resize(nb + nslots, Slot::Unset);
-            for (i, s) in slots.drain(..).enumerate() {
-                st[nb + i] = s;
-            }
-        }
+        let nslots = d.nslots.get().max(args.len());
+        let old_len = nb;
+        self.stack.borrow_mut().resize(nb + nslots, Slot::Unset);
         self.base.set(nb);
         self.depth.set(self.depth.get() + 1);
         let callee_base = nb;

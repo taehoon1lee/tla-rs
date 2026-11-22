@@ -4732,6 +4732,7 @@
 "ex/Stones/Stones",
 "ex/TLC/TestGraphs",
 "ex/TeachingConcurrency/Simple",
+"ex/TeachingConcurrency/SimpleRegular",
 "ex/TransitiveClosure/TransitiveClosure",
 "ex/TwoPhase/MCTwoPhase",
 "ex/YoYo/MCYoYoNoPruning",
