@@ -11,6 +11,9 @@
 
 use std::path::{Path, PathBuf};
 
+/// directory shown in `Parsing file ...` for the embedded standard modules
+pub const STANDARD_DIR_DISPLAY: &str = "<standard-modules>";
+
 /// Where a module was found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Origin {

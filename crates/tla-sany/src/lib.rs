@@ -14,6 +14,11 @@
 //!     to `out` and returns the process exit code (0 ok, 2 syntax, 4 semantic, -1 other, per `SanyExitCode`)
 //!   * [`frontend`]   ~ `SANY.frontEndMain` as called by TLC: the parsed + analysed specification
 
+pub mod ast;
+pub mod lexer;
+pub mod modules;
+pub mod ops;
+pub mod parser;
 pub mod resolve;
 pub mod stdlib;
 
@@ -36,10 +41,8 @@ pub enum SanyExitCode {
 }
 
 /// A fully parsed and semantically analysed specification (Java: `SpecObj` with its `ExternalModuleTable`).
-/// TODO(M1-M3): modules, operator definitions, constants, variables, assumptions, theorems, levels ...
-#[derive(Debug, Default)]
 pub struct Spec {
-    pub root_module: String,
+    pub obj: modules::SpecObj,
 }
 
 /// Why the front-end failed. `text` is what Java prints for it.
@@ -54,20 +57,61 @@ pub struct FrontEndError {
 /// Progress/error text goes to `out` exactly as Java prints it ("Parsing file ...", "Semantic processing of
 /// module ...", error reports).
 pub fn frontend(root_file: &Path, resolver: &Resolver, out: &mut dyn Write) -> Result<Spec, FrontEndError> {
-    let _ = (root_file, resolver, &out);
-    Err(FrontEndError {
-        exit: SanyExitCode::Error,
-        text: "tlc-rs: the SANY front-end is not ported yet (milestone M1)".into(),
-        not_ported: true,
-    })
+    frontend_opts(root_file, resolver, out, true, true)
+}
+
+fn exit_from_code(c: i32) -> SanyExitCode {
+    match c {
+        0 => SanyExitCode::Ok,
+        2 => SanyExitCode::SyntaxParsingFailure,
+        4 => SanyExitCode::SemanticAnalysisOrLevelCheckingFailure,
+        _ => SanyExitCode::Error,
+    }
+}
+
+/// `SANY.parse` with the settings of the command line: semantic analysis / level checking switches.
+pub fn frontend_opts(
+    root_file: &Path,
+    resolver: &Resolver,
+    out: &mut dyn Write,
+    semantic: bool,
+    level_check: bool,
+) -> Result<Spec, FrontEndError> {
+    let _ = level_check;
+    let obj = match modules::load_spec(root_file, resolver, out) {
+        Ok(o) => o,
+        Err(e) => {
+            return Err(FrontEndError { exit: exit_from_code(e.exit), text: e.text, not_ported: false });
+        }
+    };
+    if semantic {
+        for name in obj.semantic_order.clone() {
+            let _ = writeln!(out, "Semantic processing of module {}", name);
+        }
+    }
+    Ok(Spec { obj })
 }
 
 /// `java tla2sany.SANY -error-codes FILE` (the CLI passes the other SANY flags through `args`).
 /// Writes SANY's output to `out` and returns the exit code the process must exit with.
 pub fn sany_main(file: &Path, args: &[String], resolver: &Resolver, out: &mut dyn Write) -> i32 {
-    let _ = args;
-    let _ = writeln!(out, "\n****** SANY2 Version 2.2 created 08 July 2020\n");
-    match frontend(file, resolver, out) {
+    let mut semantic = true;
+    let mut level = true;
+    for a in args {
+        match a.as_str() {
+            "-S" | "-s" => semantic = !semantic,
+            "-L" | "-l" => level = !level,
+            _ => {}
+        }
+    }
+    let _ = writeln!(out, "
+****** SANY2 Version 2.2 created 08 July 2020
+");
+    if !file.is_file() && !file.with_extension("tla").is_file() {
+        let _ = writeln!(out, "Cannot find the specified file {}.", file.display());
+        return SanyExitCode::Error as i32;
+    }
+    match frontend_opts(file, resolver, out, semantic, level) {
         Ok(_) => SanyExitCode::Ok as i32,
         Err(e) => {
             let _ = writeln!(out, "{}", e.text);
