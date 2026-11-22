@@ -123,6 +123,11 @@ impl Ev {
 
     /// evaluate `code` inside a copy of a captured frame, after assigning `assigns`
     pub fn run_captured(&self, cap: &Captured, assigns: &[(u32, Slot)], code: &Ex) -> R<Value> {
+        let (s0, s1) = (cap.s0.clone(), cap.s1.clone());
+        self.run_captured_in(cap, assigns, code, &s0, &s1)
+    }
+
+    pub fn run_captured_in(&self, cap: &Captured, assigns: &[(u32, Slot)], code: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
         let old_base = self.base.get();
         let nb = {
             let mut st = self.stack.borrow_mut();
@@ -132,19 +137,19 @@ impl Ev {
         };
         self.base.set(nb);
         let saved_substs = std::mem::replace(&mut *self.substs.borrow_mut(), (*cap.substs).clone());
-        for (i, s) in assigns {
+        for (i, sl) in assigns {
             let mut st = self.stack.borrow_mut();
             let idx = nb + *i as usize;
             if idx >= st.len() {
                 st.resize(idx + 1, Slot::Unset);
             }
-            st[idx] = s.clone();
+            st[idx] = sl.clone();
         }
         self.depth.set(self.depth.get() + 1);
         let r = if self.depth.get() > MAX_DEPTH {
             fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
         } else {
-            self.eval(code, &cap.s0, &cap.s1)
+            self.eval(code, s0, s1)
         };
         self.depth.set(self.depth.get() - 1);
         *self.substs.borrow_mut() = saved_substs;
@@ -164,7 +169,7 @@ impl Ev {
             Arg::Val(e, by_name) => {
                 if *by_name {
                     let cap = self.capture(s0, s1);
-                    return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: cap.frame, substs: cap.substs, s0: cap.s0, s1: cap.s1 })));
+                    return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: cap.frame, substs: cap.substs })));
                 }
                 match self.eval(e, s0, s1) {
                     Ok(v) => Ok(Slot::V(v)),
@@ -199,13 +204,14 @@ impl Ev {
         })
     }
 
-    pub fn force_slot(&self, s: Slot) -> R<Value> {
+    pub fn force_slot(&self, s: Slot, s0: &[Value], s1: &[Value]) -> R<Value> {
         match s {
             Slot::V(v) => Ok(v),
             Slot::Poison(e) => Err(e),
             Slot::Lazy(l) => {
-                let cap = Captured { frame: l.frame.clone(), substs: l.substs.clone(), s0: l.s0.clone(), s1: l.s1.clone() };
-                self.run_captured(&cap, &[], &l.code)
+                // call-by-name: evaluated in the *current* state context
+                let cap = Captured { frame: l.frame.clone(), substs: l.substs.clone(), s0: Rc::new(vec![]), s1: Rc::new(vec![]) };
+                self.run_captured_in(&cap, &[], &l.code, s0, s1)
             }
             Slot::Op(_) => fail("An operator was used where a value was expected."),
             Slot::Unset => fail("Internal error: use of an unassigned local variable."),
@@ -266,7 +272,7 @@ impl Ev {
             OpClosure::Builtin(b) => {
                 let mut vals = vec![];
                 for s in slots {
-                    vals.push(self.force_slot(s)?);
+                    vals.push(self.force_slot(s, s0, s1)?);
                 }
                 self.apply_builtin(*b, vals)
             }
@@ -361,7 +367,7 @@ impl Ev {
                 let s = self.get_slot(*i);
                 match s {
                     Slot::V(v) => Ok(v),
-                    other => self.force_slot(other),
+                    other => self.force_slot(other, s0, s1),
                 }
             }
             Node::Var(i) => match &s0[*i as usize] {
@@ -382,7 +388,7 @@ impl Ev {
                         if ent.decl == dr.id {
                             let slot = ent.slot.clone();
                             drop(ss);
-                            return self.force_slot(slot);
+                            return self.force_slot(slot, s0, s1);
                         }
                     }
                 }
@@ -579,7 +585,7 @@ impl Ev {
                 })?;
                 Value::set_from(out)
             }
-            Node::FcnCons(bounds, body) => {
+            Node::FcnCons(bounds, body, self_slot) => {
                 if bounds.len() == 1 {
                     let b = &bounds[0];
                     let dom = self.eval(&b.set, s0, s1)?;
@@ -590,14 +596,26 @@ impl Ev {
                     let ev = self.rc();
                     let (slot, nvars, tuple) = (b.slot, b.nvars, b.tuple);
                     let body = body.clone();
-                    Ok(Value::FcnLam(Rc::new(FcnLam {
+                    let me: Rc<RefCell<Option<Value>>> = Rc::new(RefCell::new(None));
+                    let me2 = me.clone();
+                    let self_slot = *self_slot;
+                    let v = Value::FcnLam(Rc::new(FcnLam {
                         dom,
                         apply: Box::new(move |v: &Value| {
-                            let assigns = bind_assigns(slot, nvars, tuple, v)?;
+                            let mut assigns = bind_assigns(slot, nvars, tuple, v)?;
+                            if let Some(ss) = self_slot {
+                                if let Some(sv) = &*me2.borrow() {
+                                    assigns.push((ss, Slot::V(sv.clone())));
+                                }
+                            }
                             ev.run_captured(&cap, &assigns, &body)
                         }),
                         cache: RefCell::new(None),
-                    })))
+                    }));
+                    if self_slot.is_some() {
+                        *me.borrow_mut() = Some(v.clone());
+                    }
+                    Ok(v)
                 } else {
                     // [x \in S, y \in T |-> e]: a function on tuples
                     let mut doms = vec![];
@@ -613,7 +631,10 @@ impl Ev {
                     let ev = self.rc();
                     let slots: Vec<(u32, u32, bool)> = bounds.iter().map(|b| (b.slot, b.nvars, b.tuple)).collect();
                     let body = body.clone();
-                    Ok(Value::FcnLam(Rc::new(FcnLam {
+                    let me: Rc<RefCell<Option<Value>>> = Rc::new(RefCell::new(None));
+                    let me2 = me.clone();
+                    let self_slot = *self_slot;
+                    let v = Value::FcnLam(Rc::new(FcnLam {
                         dom,
                         apply: Box::new(move |v: &Value| {
                             let t = match v {
@@ -624,10 +645,19 @@ impl Ev {
                             for (i, (slot, nvars, tuple)) in slots.iter().enumerate() {
                                 assigns.extend(bind_assigns(*slot, *nvars, *tuple, &t[i])?);
                             }
+                            if let Some(ss) = self_slot {
+                                if let Some(sv) = &*me2.borrow() {
+                                    assigns.push((ss, Slot::V(sv.clone())));
+                                }
+                            }
                             ev.run_captured(&cap, &assigns, &body)
                         }),
                         cache: RefCell::new(None),
-                    })))
+                    }));
+                    if self_slot.is_some() {
+                        *me.borrow_mut() = Some(v.clone());
+                    }
+                    Ok(v)
                 }
             }
             Node::SetOfFcns(a, b) => {
@@ -754,6 +784,7 @@ impl Ev {
             }
             Node::Temporal(_) => fail("Attempted to evaluate a temporal formula in a context where only state predicates are allowed."),
             Node::Unsupported(what) => not_ported(format!("tlc-rs: unsupported construct: {}", what)),
+            Node::Fail(msg) => fail(msg.clone()),
         }
     }
 
@@ -762,12 +793,15 @@ impl Ev {
     }
 
     fn eval_bi(&self, b: B, es: &[Ex], s0: &[Value], s1: &[Value]) -> R<Value> {
+        if b == B::Enabled {
+            return Ok(Value::Bool(self.enabled(&es[0], s0)?));
+        }
         let mut vals = Vec::with_capacity(es.len());
         for x in es {
             vals.push(self.eval(x, s0, s1)?);
         }
         match b {
-            B::Enabled => not_ported("ENABLED outside of action context"),
+            B::Enabled => unreachable!(),
             B::Cdot => not_ported("\\cdot"),
             _ => self.apply_builtin(b, vals),
         }

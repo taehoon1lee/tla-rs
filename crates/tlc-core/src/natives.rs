@@ -8,13 +8,13 @@ use crate::value::*;
 use std::rc::Rc;
 use tla_sany::intern;
 
-fn arg(ev: &Ev, a: &mut Vec<Slot>, i: usize) -> R<Value> {
+fn arg(ev: &Ev, a: &mut Vec<Slot>, i: usize, s0: &[Value], s1: &[Value]) -> R<Value> {
     let s = std::mem::replace(&mut a[i], Slot::Unset);
-    ev.force_slot(s)
+    ev.force_slot(s, s0, s1)
 }
 
-fn int_arg(ev: &Ev, a: &mut Vec<Slot>, i: usize, which: &str, op: &str) -> R<i32> {
-    match arg(ev, a, i)? {
+fn int_arg(ev: &Ev, a: &mut Vec<Slot>, i: usize, which: &str, op: &str, s0: &[Value], s1: &[Value]) -> R<i32> {
+    match arg(ev, a, i, s0, s1)? {
         Value::Int(n) => Ok(n),
         v => fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR_AN,
@@ -29,71 +29,71 @@ fn overflow<T>(expr: String) -> R<T> {
 
 type N = fn(&Ev, &mut Vec<Slot>, &[Value], &[Value]) -> R<Value>;
 
-fn plus(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "+")?;
-    let y = int_arg(ev, a, 1, "second", "+")?;
+fn plus(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "+", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", "+", s0, s1)?;
     match x.checked_add(y) {
         Some(r) => Ok(Value::Int(r)),
         None => overflow(format!("{}+{}", x, y)),
     }
 }
 
-fn minus(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "-")?;
-    let y = int_arg(ev, a, 1, "second", "-")?;
+fn minus(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "-", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", "-", s0, s1)?;
     match x.checked_sub(y) {
         Some(r) => Ok(Value::Int(r)),
         None => overflow(format!("{}-{}", x, y)),
     }
 }
 
-fn times(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "*")?;
-    let y = int_arg(ev, a, 1, "second", "*")?;
+fn times(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "*", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", "*", s0, s1)?;
     match x.checked_mul(y) {
         Some(r) => Ok(Value::Int(r)),
         None => overflow(format!("{}*{}", x, y)),
     }
 }
 
-fn uminus(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "-")?;
+fn uminus(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "-", s0, s1)?;
     match x.checked_neg() {
         Some(r) => Ok(Value::Int(r)),
         None => overflow(format!("-{}", x)),
     }
 }
 
-fn lt(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "<")?;
-    let y = int_arg(ev, a, 1, "second", "<")?;
+fn lt(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "<", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", "<", s0, s1)?;
     Ok(Value::Bool(x < y))
 }
-fn le(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "<=")?;
-    let y = int_arg(ev, a, 1, "second", "<=")?;
+fn le(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "<=", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", "<=", s0, s1)?;
     Ok(Value::Bool(x <= y))
 }
-fn gt(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", ">")?;
-    let y = int_arg(ev, a, 1, "second", ">")?;
+fn gt(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", ">", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", ">", s0, s1)?;
     Ok(Value::Bool(x > y))
 }
-fn ge(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", ">=")?;
-    let y = int_arg(ev, a, 1, "second", ">=")?;
+fn ge(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", ">=", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", ">=", s0, s1)?;
     Ok(Value::Bool(x >= y))
 }
 
-fn dotdot(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", "..")?;
-    let y = int_arg(ev, a, 1, "second", "..")?;
+fn dotdot(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = int_arg(ev, a, 0, "first", "..", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", "..", s0, s1)?;
     Ok(Value::Interval(x, y))
 }
 
-fn intdiv(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let n1 = int_arg(ev, a, 0, "first", "\\div")?;
-    let n2 = int_arg(ev, a, 1, "second", "\\div")?;
+fn intdiv(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let n1 = int_arg(ev, a, 0, "first", "\\div", s0, s1)?;
+    let n2 = int_arg(ev, a, 1, "second", "\\div", s0, s1)?;
     if n2 == 0 {
         return fail_code(ec::TLC_MODULE_DIVISION_BY_ZERO, "The second argument of \\div is 0.");
     }
@@ -104,9 +104,9 @@ fn intdiv(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     Ok(Value::Int(q))
 }
 
-fn modulo(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let n1 = int_arg(ev, a, 0, "first", "%")?;
-    let n2 = int_arg(ev, a, 1, "second", "%")?;
+fn modulo(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let n1 = int_arg(ev, a, 0, "first", "%", s0, s1)?;
+    let n2 = int_arg(ev, a, 1, "second", "%", s0, s1)?;
     if n2 <= 0 {
         return fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR,
@@ -120,9 +120,9 @@ fn modulo(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     Ok(Value::Int(r))
 }
 
-fn expt(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let m = int_arg(ev, a, 0, "first", "^")?;
-    let n = int_arg(ev, a, 1, "second", "^")?;
+fn expt(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let m = int_arg(ev, a, 0, "first", "^", s0, s1)?;
+    let n = int_arg(ev, a, 1, "second", "^", s0, s1)?;
     if n < 0 {
         return fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR,
@@ -164,13 +164,13 @@ fn expt(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     Ok(Value::Int(r as i32))
 }
 
-fn nat(_: &Ev, _: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
+fn nat(_: &Ev, _: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     Ok(Value::NatSet)
 }
-fn int(_: &Ev, _: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
+fn int(_: &Ev, _: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     Ok(Value::IntSet)
 }
-fn real(_: &Ev, _: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
+fn real(_: &Ev, _: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     Ok(Value::RealSet)
 }
 
@@ -193,34 +193,34 @@ fn as_seq(v: &Value, who: &str) -> R<Vec<Value>> {
     }
 }
 
-fn seq_set(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let s = arg(ev, a, 0)?;
+fn seq_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
     Ok(Value::SeqOf(Rc::new(s)))
 }
 
-fn len(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let v = arg(ev, a, 0)?;
+fn len(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v = arg(ev, a, 0, s0, s1)?;
     Ok(Value::Int(as_seq(&v, "Len")?.len() as i32))
 }
 
-fn concat(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
-    let y = arg(ev, a, 1)?;
+fn concat(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = arg(ev, a, 0, s0, s1)?;
+    let y = arg(ev, a, 1, s0, s1)?;
     let mut s = as_seq(&x, "\\o")?;
     s.extend(as_seq(&y, "\\o")?);
     Ok(Value::tuple(s))
 }
 
-fn append(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
-    let e = arg(ev, a, 1)?;
+fn append(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = arg(ev, a, 0, s0, s1)?;
+    let e = arg(ev, a, 1, s0, s1)?;
     let mut s = as_seq(&x, "Append")?;
     s.push(e);
     Ok(Value::tuple(s))
 }
 
-fn head(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
+fn head(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = arg(ev, a, 0, s0, s1)?;
     let s = as_seq(&x, "Head")?;
     match s.first() {
         Some(v) => Ok(v.clone()),
@@ -228,8 +228,8 @@ fn head(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     }
 }
 
-fn tail(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
+fn tail(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = arg(ev, a, 0, s0, s1)?;
     let s = as_seq(&x, "Tail")?;
     if s.is_empty() {
         return fail_code(ec::TLC_MODULE_APPLY_EMPTY_SEQ, "Attempted to apply Tail to the empty sequence.");
@@ -237,10 +237,10 @@ fn tail(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     Ok(Value::tuple(s[1..].to_vec()))
 }
 
-fn subseq(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
-    let m = int_arg(ev, a, 1, "second", "SubSeq")?;
-    let n = int_arg(ev, a, 2, "third", "SubSeq")?;
+fn subseq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let x = arg(ev, a, 0, s0, s1)?;
+    let m = int_arg(ev, a, 1, "second", "SubSeq", s0, s1)?;
+    let n = int_arg(ev, a, 2, "third", "SubSeq", s0, s1)?;
     let s = as_seq(&x, "SubSeq")?;
     if n < m {
         return Ok(Value::tuple(vec![]));
@@ -269,7 +269,7 @@ fn subseq(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
 }
 
 fn select_seq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
+    let x = arg(ev, a, 0, s0, s1)?;
     let test = match std::mem::replace(&mut a[1], Slot::Unset) {
         Slot::Op(c) => c,
         _ => return fail("The second argument of SelectSeq must be an operator."),
@@ -287,8 +287,8 @@ fn select_seq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value
 
 // ---------------------------------------------------------------------------------------------- FiniteSets
 
-fn is_finite_set(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let s = arg(ev, a, 0)?;
+fn is_finite_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
     if !s.is_set_like() {
         return fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR_AN,
@@ -298,8 +298,8 @@ fn is_finite_set(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Valu
     Ok(Value::Bool(s.is_finite()))
 }
 
-fn cardinality(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let s = arg(ev, a, 0)?;
+fn cardinality(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
     if !s.is_set_like() {
         return fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR_AN,
@@ -318,27 +318,27 @@ fn cardinality(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value>
 
 // ---------------------------------------------------------------------------------------------- TLC
 
-fn print(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let v1 = arg(ev, a, 0)?.normalize()?;
-    let v2 = arg(ev, a, 1)?;
+fn print(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v1 = arg(ev, a, 0, s0, s1)?.normalize()?;
+    let v2 = arg(ev, a, 1, s0, s1)?;
     let n2 = v2.normalize()?;
     ev.out.borrow_mut().push(format!("{}  {}", v1.to_tla(), n2.to_tla()));
     Ok(v2)
 }
 
-fn print_t(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let v = arg(ev, a, 0)?.normalize()?;
+fn print_t(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v = arg(ev, a, 0, s0, s1)?.normalize()?;
     ev.out.borrow_mut().push(v.to_tla());
     Ok(Value::Bool(true))
 }
 
-fn assert_(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let v1 = arg(ev, a, 0)?;
+fn assert_(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v1 = arg(ev, a, 0, s0, s1)?;
     if let Value::Bool(true) = v1 {
         return Ok(v1);
     }
     let v2 = std::mem::replace(&mut a[1], Slot::Unset);
-    let msg = match ev.force_slot(v2) {
+    let msg = match ev.force_slot(v2, s0, s1) {
         Ok(v) => match &v {
             Value::Str(id) => intern::name_of(*id).to_string(),
             other => other.to_tla(),
@@ -348,25 +348,25 @@ fn assert_(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     fail_code(ec::TLC_VALUE_ASSERT_FAILED, format!("The first argument of Assert evaluated to FALSE; the second argument was:\n{}", msg))
 }
 
-fn to_string(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let v = arg(ev, a, 0)?.normalize()?;
+fn to_string(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v = arg(ev, a, 0, s0, s1)?.normalize()?;
     Ok(Value::str(&v.to_tla()))
 }
 
-fn java_time(_: &Ev, _: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
+fn java_time(_: &Ev, _: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let t = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
     Ok(Value::Int((t as i32) & 0x7FFF_FFFF))
 }
 
-fn make_fcn(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let d = arg(ev, a, 0)?;
-    let e = arg(ev, a, 1)?;
+fn make_fcn(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let d = arg(ev, a, 0, s0, s1)?;
+    let e = arg(ev, a, 1, s0, s1)?;
     Value::fcn_from(vec![(d, e)])
 }
 
-fn combine_fcn(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let f = arg(ev, a, 0)?.force_fcn()?;
-    let g = arg(ev, a, 1)?.force_fcn()?;
+fn combine_fcn(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let f = arg(ev, a, 0, s0, s1)?.force_fcn()?;
+    let g = arg(ev, a, 1, s0, s1)?.force_fcn()?;
     let (df, vf) = match f.fcn_parts() {
         Some(p) => p,
         None => return fail(format!("The first argument of @@ must be a function, but instead it is:\n{}", f.to_tla())),
@@ -391,8 +391,8 @@ fn combine_fcn(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value>
     Value::fcn_from(pairs)
 }
 
-fn permutations(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let s = arg(ev, a, 0)?;
+fn permutations(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
     let elems = s.enumerate()?;
     let n = elems.len();
     let mut idx: Vec<usize> = (0..n).collect();
@@ -416,7 +416,7 @@ fn permutations(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value
 }
 
 fn sort_seq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
-    let x = arg(ev, a, 0)?;
+    let x = arg(ev, a, 0, s0, s1)?;
     let cmp = match std::mem::replace(&mut a[1], Slot::Unset) {
         Slot::Op(c) => c,
         _ => return fail("The second argument of SortSeq must be an operator."),
@@ -452,8 +452,8 @@ fn sort_seq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> 
     Ok(Value::tuple(v))
 }
 
-fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let k = arg(ev, a, 0)?;
+fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let k = arg(ev, a, 0, s0, s1)?;
     match &k {
         Value::Int(i) => Ok(ev.tlc_registers.borrow().get(i).cloned().unwrap_or(Value::Int(0))),
         Value::Str(id) => {
@@ -467,9 +467,9 @@ fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
     }
 }
 
-fn tlc_set(ev: &Ev, a: &mut Vec<Slot>, _: &[Value], _: &[Value]) -> R<Value> {
-    let k = arg(ev, a, 0)?;
-    let v = arg(ev, a, 1)?;
+fn tlc_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let k = arg(ev, a, 0, s0, s1)?;
+    let v = arg(ev, a, 1, s0, s1)?;
     if let Value::Int(i) = k {
         ev.tlc_registers.borrow_mut().insert(i, v);
         Ok(Value::Bool(true))

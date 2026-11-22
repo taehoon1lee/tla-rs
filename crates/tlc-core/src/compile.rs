@@ -30,6 +30,8 @@ pub struct Compiler {
     pub natives: fn(&str, &str) -> Option<NativeFn>,
     ctx: Vec<FrameCtx>,
     let_depth: u32,
+    /// slot of the function being defined (recursive function definitions)
+    pending_self_slot: Option<u32>,
 }
 
 struct FrameCtx {
@@ -72,6 +74,7 @@ impl Compiler {
             natives,
             ctx: vec![],
             let_depth: 0,
+            pending_self_slot: None,
         }
     }
 
@@ -121,6 +124,14 @@ impl Compiler {
             self.ctx.push(fc);
             let saved = self.let_depth;
             self.let_depth = 0;
+            self.pending_self_slot = None;
+            if d.is_recursive_fcn.get() {
+                if let Some(fp) = d.fcn_param.borrow().clone() {
+                    let s = self.fc().alloc();
+                    self.fc().locals.insert(fp.id, s);
+                    self.pending_self_slot = Some(s);
+                }
+            }
             let ex = self.expr(&body);
             self.let_depth = saved;
             let fc = self.ctx.pop().unwrap();
@@ -159,17 +170,28 @@ impl Compiler {
         Rc::new(DeclRef { id: d.id, name: d.name.clone(), is_var: d.kind == sem::DeclKind::Variable, var_index: vi, arity: d.arity })
     }
 
-    fn bound(&mut self, g: &sem::BoundGroup) -> BoundIr {
-        // the set is compiled before the variables are bound
-        let set = self.expr(&g.set);
-        let first = self.fc().next_slot;
-        let mut slots = vec![];
-        for p in &g.params {
-            let s = self.fc().alloc();
-            self.fc().locals.insert(p.id, s);
-            slots.push(s);
+    /// `\E x, y \in S` is `\E x \in S, y \in S`; `<<x, y>> \in S` stays one bound with a tuple pattern
+    fn bounds_flat(&mut self, groups: &[sem::BoundGroup]) -> Vec<BoundIr> {
+        let mut out = vec![];
+        for g in groups {
+            // the set is compiled before the variables are bound
+            let set = self.expr(&g.set);
+            if g.tuple {
+                let first = self.fc().next_slot;
+                for p in &g.params {
+                    let s = self.fc().alloc();
+                    self.fc().locals.insert(p.id, s);
+                }
+                out.push(BoundIr { slot: first, nvars: g.params.len() as u32, tuple: true, set });
+            } else {
+                for p in &g.params {
+                    let s = self.fc().alloc();
+                    self.fc().locals.insert(p.id, s);
+                    out.push(BoundIr { slot: s, nvars: 1, tuple: false, set: set.clone() });
+                }
+            }
         }
-        BoundIr { slot: first, nvars: g.params.len() as u32, tuple: g.tuple, set }
+        out
     }
 
     fn bound_vars(&mut self, bv: &sem::BoundVars, set: Ex) -> BoundIr {
@@ -296,14 +318,15 @@ impl Compiler {
                 Rc::new(Node::SubsetOf { bound: b, pred: p, filter_slots: Rc::new(vec![]) })
             }
             EKind::SetOfAll(ex, groups) => {
-                let bs: Vec<BoundIr> = groups.iter().map(|g| self.bound(g)).collect();
+                let bs: Vec<BoundIr> = self.bounds_flat(groups);
                 let b = self.expr(ex);
                 Rc::new(Node::SetOfAll(b, bs))
             }
             EKind::FcnCons(groups, body) => {
-                let bs: Vec<BoundIr> = groups.iter().map(|g| self.bound(g)).collect();
+                let self_slot = self.pending_self_slot.take();
+                let bs: Vec<BoundIr> = self.bounds_flat(groups);
                 let b = self.expr(body);
-                Rc::new(Node::FcnCons(bs, b))
+                Rc::new(Node::FcnCons(bs, b, self_slot))
             }
             EKind::SetOfFcns(a, b) => {
                 let ae = self.expr(a);
@@ -370,7 +393,7 @@ impl Compiler {
                 b
             }
             EKind::BQuant { forall, bounds, body } => {
-                let bs: Vec<BoundIr> = bounds.iter().map(|g| self.bound(g)).collect();
+                let bs: Vec<BoundIr> = self.bounds_flat(bounds);
                 let b = self.expr(body);
                 if *forall {
                     Rc::new(Node::Forall(bs, b))
@@ -378,7 +401,7 @@ impl Compiler {
                     Rc::new(Node::Exists(bs, b))
                 }
             }
-            EKind::UQuant { .. } => self.unsupported("unbounded quantifier"),
+            EKind::UQuant { .. } => Rc::new(Node::Fail("TLC attempted to evaluate an unbounded quantified expression.".into())),
             EKind::TQuant { .. } => Rc::new(Node::Temporal(sem::Level::Temporal)),
             EKind::Choose(bv, set, body) => match set {
                 Some(s) => {
@@ -387,7 +410,7 @@ impl Compiler {
                     let be = self.expr(body);
                     Rc::new(Node::Choose(b, be))
                 }
-                None => self.unsupported("unbounded CHOOSE"),
+                None => Rc::new(Node::Fail("TLC attempted to evaluate an unbounded CHOOSE.\nMake sure that the expression is of form CHOOSE x \\in S: P(x).".into())),
             },
             EKind::Conj(es) => {
                 let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
@@ -400,7 +423,11 @@ impl Compiler {
             EKind::SubstIn(subs, body) => {
                 let mut v = vec![];
                 for s in subs.iter() {
-                    v.push((s.target.id, self.arg(&s.value)));
+                    let a = match &s.value {
+                        SArg::Expr(e) => Arg::Val(self.expr(e), e.level >= sem::Level::State),
+                        other => self.arg(other),
+                    };
+                    v.push((s.target.id, a));
                 }
                 let b = self.expr(body);
                 Rc::new(Node::SubstIn(v, b))
@@ -564,7 +591,27 @@ impl Compiler {
         let params = d.params.borrow().clone();
         if params.is_empty() {
             self.let_depth += 1;
+            let saved_pending = self.pending_self_slot.take();
+            let mut fp_saved: Option<(usize, Option<u32>)> = None;
+            if d.is_recursive_fcn.get() {
+                if let Some(fp) = d.fcn_param.borrow().clone() {
+                    let s = self.fc().alloc();
+                    fp_saved = Some((fp.id, self.fc().locals.insert(fp.id, s)));
+                    self.pending_self_slot = Some(s);
+                }
+            }
             let b = self.expr(&body);
+            if let Some((id, old)) = fp_saved {
+                match old {
+                    Some(o) => {
+                        self.fc().locals.insert(id, o);
+                    }
+                    None => {
+                        self.fc().locals.remove(&id);
+                    }
+                }
+            }
+            self.pending_self_slot = saved_pending;
             self.let_depth -= 1;
             return b;
         }

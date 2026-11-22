@@ -47,6 +47,36 @@ impl Ev {
         match (&**ex, mode) {
             (Node::PrimedVar(i), Mode::Next) => Some(*i),
             (Node::Var(i), Mode::Init) => Some(*i),
+            (Node::Decl(dr), Mode::Init) if dr.is_var => self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()),
+            (Node::Prime(inner), Mode::Next) => match &**inner {
+                Node::Decl(dr) if dr.is_var => self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// the state variable a (possibly substituted) variable declaration stands for
+    fn decl_target(&self, id: usize, is_var: bool, var_index: u32, substs: &[SubstEntry]) -> Option<u32> {
+        for ent in substs.iter().rev() {
+            if ent.decl == id {
+                return match &ent.slot {
+                    Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
+                    _ => None,
+                };
+            }
+        }
+        if is_var && var_index != u32::MAX {
+            Some(var_index)
+        } else {
+            None
+        }
+    }
+
+    fn code_target(&self, code: &Ex, substs: &[SubstEntry]) -> Option<u32> {
+        match &**code {
+            Node::Var(i) => Some(*i),
+            Node::Decl(dr) => self.decl_target(dr.id, dr.is_var, dr.var_index, substs),
             _ => None,
         }
     }
@@ -349,10 +379,13 @@ impl Ev {
                 out.push(*i);
                 true
             }
-            Node::Decl(dr) if dr.is_var && self.substs.borrow().iter().all(|e| e.decl != dr.id) => {
-                out.push(dr.var_index);
-                true
-            }
+            Node::Decl(dr) if dr.is_var => match self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()) {
+                Some(i) => {
+                    out.push(i);
+                    true
+                }
+                None => false,
+            },
             Node::Tuple(es) => es.iter().all(|e| self.unchanged_vars(e, out)),
             Node::Call(d, args, _) if args.is_empty() && d.native.get().is_none() => {
                 let body = d.body.borrow().clone();
@@ -382,5 +415,24 @@ impl Ev {
         let n = Rc::new(vec![Value::Undef; self.nvars.get()]);
         *self.empty_cache.borrow_mut() = n.clone();
         n
+    }
+}
+
+impl Ev {
+    /// `ENABLED A` in the state `s0`: does the action have a successor?
+    pub fn enabled(&self, ex: &Ex, s0: &[Value]) -> R<bool> {
+        let buf: Buf = RefCell::new(vec![Value::Undef; self.nvars.get()]);
+        let was = self.splitting.replace(false);
+        let saved_label = self.cur_label.borrow().clone();
+        let r = self.enum_action(ex, Mode::Next, s0, &buf, &mut || {
+            Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![] }))
+        });
+        *self.cur_label.borrow_mut() = saved_label;
+        self.splitting.set(was);
+        match r {
+            Ok(()) => Ok(false),
+            Err(e) if e.code == -777 => Ok(true),
+            Err(e) => Err(e),
+        }
     }
 }

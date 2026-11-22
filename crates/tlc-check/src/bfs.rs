@@ -232,6 +232,21 @@ impl<'a> Checker<'a> {
     fn run(&mut self) -> SR<()> {
         let setup = self.setup;
         let ev = setup.ev.clone();
+        {
+            let mut st = ev.stats.borrow_mut();
+            let seed = self.opts.seed.to_string();
+            st.insert(
+                "config".to_string(),
+                Value::record(vec![
+                    (tla_sany::intern::intern("mode"), Value::str("bfs")),
+                    (tla_sany::intern::intern("deadlock"), Value::Bool(self.opts.check_deadlock && setup.check_deadlock)),
+                    (tla_sany::intern::intern("worker"), Value::Int(self.opts.workers as i32)),
+                    (tla_sany::intern::intern("seed"), Value::str(&seed)),
+                    (tla_sany::intern::intern("fingerprint"), Value::str(&self.opts.fp_index.to_string())),
+                    (tla_sany::intern::intern("install"), Value::str("tlc-rs")),
+                ]),
+            );
+        }
         // ---- assumptions
         for (top, desc) in &setup.assumes {
             match setup.run_top(top, &ev.empty(), &ev.empty()) {
@@ -262,8 +277,8 @@ impl<'a> Checker<'a> {
             }
         }
         // ---- initial states
-        self.rep.info(ec::TLC_COMPUTING_INIT, "Computing initial states...");
         self.flush_output();
+        self.rep.info(ec::TLC_COMPUTING_INIT, "Computing initial states...");
         let nvars = setup.vars.len();
         let mut init_generated = 0u64;
         let mut inits: Vec<Vec<Value>> = vec![];

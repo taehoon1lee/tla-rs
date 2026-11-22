@@ -28,8 +28,6 @@ pub struct LazyArg {
     pub code: Ex,
     pub frame: Rc<Vec<Slot>>,
     pub substs: Rc<Vec<SubstEntry>>,
-    pub s0: Rc<Vec<Value>>,
-    pub s1: Rc<Vec<Value>>,
 }
 
 #[derive(Clone)]
@@ -147,7 +145,8 @@ pub enum Node {
     Record(Ex, u32),
     SubsetOf { bound: BoundIr, pred: Ex, filter_slots: Rc<Vec<u32>> },
     SetOfAll(Ex, Vec<BoundIr>),
-    FcnCons(Vec<BoundIr>, Ex),
+    /// `[x \in S |-> e]`; `self_slot`: slot holding the function itself (recursive definitions)
+    FcnCons(Vec<BoundIr>, Ex, Option<u32>),
     SetOfFcns(Ex, Ex),
     RcdCons(Vec<(u32, Ex)>),
     SetOfRcds(Vec<(u32, Ex)>),
@@ -163,6 +162,8 @@ pub enum Node {
     /// `[]`, `<>`, `WF`, `SF`, `~>`, `\EE` ... temporal operators (not evaluated by `eval`)
     Temporal(sem::Level),
     Unsupported(String),
+    /// an evaluation error TLC raises at run time (e.g. unbounded CHOOSE)
+    Fail(String),
     /// the argument of an inlined call: assign then evaluate (LET operator with parameters)
     InlineCall { assigns: Vec<(u32, Arg)>, body: Ex },
 }

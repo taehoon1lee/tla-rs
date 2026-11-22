@@ -53,6 +53,13 @@ pub struct Setup {
     pub root: Rc<sem::ModuleNode>,
 }
 
+fn sem_body_loc(d: &Rc<sem::OpDef>) -> tla_sany::ast::Loc {
+    match d.body() {
+        Some(b) => b.loc,
+        None => d.loc,
+    }
+}
+
 fn lookup_def(root: &Rc<sem::ModuleNode>, name: &str) -> Option<Rc<sem::OpDef>> {
     match root.lookup(name) {
         Some(sem::Sym::Def(d)) => Some(d),
@@ -129,12 +136,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
                 comp.def_values.insert(def.id, c.value.clone());
                 used_cfg.insert(c.name.clone());
             }
-            None => {
-                return serr(
-                    ec::TLC_CONFIG_ID_DOES_NOT_APPEAR_IN_SPEC,
-                    format!("In the configuration file, the identifier {} does not appear in the specification.", c.name),
-                )
-            }
+            None => {}
         }
     }
     for (l, r) in &cfg.overrides {
@@ -250,7 +252,14 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         if let Some(b) = body {
             analyze_spec_formula(&b, &mut inits, &mut nexts, &mut temporals, 0);
         }
-        for e in inits {
+        if !inits.is_empty() {
+            let e = if inits.len() == 1 {
+                inits.pop().unwrap()
+            } else {
+                let loc = inits[0].loc;
+                let lvl = inits.iter().fold(sem::Level::Const, |a, x| sem::Level::max(a, x.level));
+                sem::Expr::new(EKind::Conj(inits), loc, lvl)
+            };
             let (ex, n) = setup.comp.compile_top(&e);
             setup.init.push(Top { name: "Init".into(), ex, nslots: n, loc: e.loc, module: def.module.to_string() });
         }
@@ -263,13 +272,21 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         }
         setup.spec_temporal = temporals;
     } else {
+        let has_vars = !setup.vars.is_empty();
         if cfg.init.is_empty() {
-            return serr(ec::TLC_CONFIG_MISSING_INIT, "The configuration file did not specify the initial state predicate.");
+            if has_vars || !cfg.invariants.is_empty() || !cfg.properties.is_empty() {
+                return serr(ec::TLC_CONFIG_MISSING_INIT, "The configuration file did not specify the initial state predicate.");
+            }
         }
         if cfg.next.is_empty() {
-            return serr(ec::TLC_CONFIG_MISSING_NEXT, "The configuration file did not specify the next state predicate.");
+            if (!cfg.init.is_empty() || has_vars) && (!cfg.invariants.is_empty() || !cfg.properties.is_empty()) {
+                return serr(ec::TLC_CONFIG_MISSING_NEXT, "The configuration file did not specify the next state predicate.");
+            }
         }
         for (what, name, is_init) in [("initial predicate", &cfg.init, true), ("next state action", &cfg.next, false)] {
+            if name.is_empty() {
+                continue;
+            }
             let def = match lookup_def(&root, name) {
                 Some(d) => d,
                 None => match root.lookup(name) {
@@ -289,7 +306,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
             }
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
-            let top = Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() };
+            let top = Top { name: name.clone(), ex, nslots: n, loc: sem_body_loc(&def), module: def.module.to_string() };
             if is_init {
                 setup.init.push(top);
             } else {
@@ -402,43 +419,64 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
 }
 
 /// Port of `SpecProcessor.processConfigSpec`: split the temporal formula `Spec` into the initial predicate(s), the
-/// next-state relation and the remaining (fairness) conjuncts.
+/// next-state relation and the remaining (fairness) conjuncts. INSTANCE substitutions met on the way wrap the parts.
 fn analyze_spec_formula(e: &sem::Expr, inits: &mut Vec<sem::Expr>, nexts: &mut Vec<(sem::Expr, String)>, temporals: &mut Vec<sem::Expr>, depth: usize) {
+    let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
+    analyze_rec(e, inits, nexts, temporals, depth, &mut wraps);
+}
+
+fn wrap_all(e: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>]) -> sem::Expr {
+    let mut cur = e.clone();
+    for w in wraps.iter().rev() {
+        let (loc, level) = (cur.loc, cur.level);
+        cur = sem::Expr::new(EKind::SubstIn(w.clone(), cur), loc, level);
+    }
+    cur
+}
+
+fn analyze_rec(
+    e: &sem::Expr,
+    inits: &mut Vec<sem::Expr>,
+    nexts: &mut Vec<(sem::Expr, String)>,
+    temporals: &mut Vec<sem::Expr>,
+    depth: usize,
+    wraps: &mut Vec<Rc<Vec<sem::Subst>>>,
+) {
     if depth > 50 {
         return;
     }
     match &e.kind {
-        EKind::Conj(items) => {
+        EKind::Conj(items) | EKind::Bi(B::And, items) => {
             for x in items {
-                analyze_spec_formula(x, inits, nexts, temporals, depth + 1);
-            }
-        }
-        EKind::Bi(B::And, items) => {
-            for x in items {
-                analyze_spec_formula(x, inits, nexts, temporals, depth + 1);
+                analyze_rec(x, inits, nexts, temporals, depth + 1, wraps);
             }
         }
         EKind::Apply(Callee::Def(d), args) if args.is_empty() && e.level >= sem::Level::Temporal => {
             if let Some(b) = d.body() {
-                analyze_spec_formula(&b, inits, nexts, temporals, depth + 1);
+                analyze_rec(&b, inits, nexts, temporals, depth + 1, wraps);
             }
         }
-        EKind::SubstIn(_, b) | EKind::Label(_, _, b) => analyze_spec_formula(b, inits, nexts, temporals, depth + 1),
+        EKind::SubstIn(subs, b) => {
+            wraps.push(subs.clone());
+            analyze_rec(b, inits, nexts, temporals, depth + 1, wraps);
+            wraps.pop();
+        }
+        EKind::Label(_, _, b) => analyze_rec(b, inits, nexts, temporals, depth + 1, wraps),
         EKind::Bi(B::Always, args) => match &args[0].kind {
             EKind::ActionSub { boxed: true, act, .. } => {
                 let name = match &act.kind {
                     EKind::Apply(Callee::Def(d), a) if a.is_empty() => d.name.to_string(),
                     _ => "Next".to_string(),
                 };
-                nexts.push((act.clone(), name));
+                nexts.push((wrap_all(act, wraps), name));
             }
-            _ => temporals.push(e.clone()),
+            _ => temporals.push(wrap_all(e, wraps)),
         },
         _ => {
             if e.level <= sem::Level::State {
-                inits.push(e.clone());
+                inits.push(wrap_all(e, wraps));
             } else {
-                temporals.push(e.clone());
+                temporals.push(wrap_all(e, wraps));
             }
         }
     }
