@@ -130,6 +130,48 @@ impl Ev {
 
     /// enumerate the ways of satisfying `ex`; for each, call `k` with the assignments in `buf`
     pub fn enum_action(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        if self.splitting.get() && !self.eval_only.get() {
+            // Java: Tool.getActions: the next-state relation is split at disjunctions, `\E` over constant sets and
+            // applications of operators to constant arguments; the first other expression is the action's `pred`
+            let splittable = match &**ex {
+                Node::Or(_) => true,
+                Node::Exists(..) => self.info_const_sub(ex),
+                Node::Call(d, ..) => d.native.get().is_none() && d.body.borrow().is_some() && !d.src.in_let.get() && self.info_const_sub(ex),
+                _ => false,
+            };
+            if !splittable {
+                let name = match &**ex {
+                    Node::Call(d, ..) => Some(d.name.clone()),
+                    _ => None,
+                };
+                self.set_stop(ex, name);
+                self.splitting.set(false);
+                let r = self.enum_action_inner(ex, mode, s0, buf, k);
+                self.splitting.set(true);
+                return r;
+            }
+        }
+        self.enum_action_inner(ex, mode, s0, buf, k)
+    }
+
+    fn info_const_sub(&self, ex: &Ex) -> bool {
+        self.node_info.borrow().get(&(Rc::as_ptr(ex) as usize)).map_or(false, |i| i.const_sub)
+    }
+
+    fn set_stop(&self, ex: &Ex, name: Option<tla_sany::sem::Name>) {
+        let mut cl = self.cur_label.borrow_mut();
+        let (n, p) = match &*cl {
+            Some(l) => (l.name.clone(), l.params.clone()),
+            None => return,
+        };
+        let (n, p) = match name {
+            Some(nm) => (nm, vec![]),
+            None => (n, p),
+        };
+        *cl = Some(Rc::new(LabelSpec { name: n, params: p, stop: Rc::as_ptr(ex) as usize }));
+    }
+
+    fn enum_action_inner(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
         if self.eval_only.get() {
             // Java: getNextStatesAllAssigned: all variables are assigned; the remaining conjuncts are plain predicates
             return match self.guard(ex, mode, s0, buf)? {
@@ -150,8 +192,17 @@ impl Ev {
                 r
             }
             Node::Or(items) => {
-                for it in items {
-                    self.enum_action(it, mode, s0, buf, k)?;
+                if self.splitting.get() {
+                    let saved = self.cur_label.borrow().clone();
+                    for it in items {
+                        *self.cur_label.borrow_mut() = saved.clone();
+                        self.enum_action(it, mode, s0, buf, k)?;
+                    }
+                    *self.cur_label.borrow_mut() = saved;
+                } else {
+                    for it in items {
+                        self.enum_action(it, mode, s0, buf, k)?;
+                    }
                 }
                 Ok(())
             }
@@ -268,10 +319,18 @@ impl Ev {
             }
             Node::Exists(bounds, body) => {
                 let evals = |e: &Ex| self.eval_expr(e, mode, s0, buf);
+                let saved = if self.splitting.get() { self.cur_label.borrow().clone() } else { None };
+                let split = self.splitting.get();
                 self.for_each_binding_cb(bounds, 0, &evals, &mut |_ev| {
+                    if split {
+                        *self.cur_label.borrow_mut() = saved.clone();
+                    }
                     self.enum_action(body, mode, s0, buf, k)?;
                     Ok(true)
                 })?;
+                if split {
+                    *self.cur_label.borrow_mut() = saved;
+                }
                 Ok(())
             }
             Node::InlineCall { assigns, body } => {
@@ -673,16 +732,10 @@ to argument {}, which is not in the domain of the function.",
             slots.push(s);
         }
         let body = d.body.borrow().as_ref().unwrap().clone();
-        let saved_label = if self.splitting.get() {
-            let lab = d.label_cache.get_or_init(|| {
-                if !d.src.in_let.get() && &*d.module != "TLC" {
-                    let bl = body_loc(&d.src);
-                    Some(Rc::from(format!("<{} line {}, col {} to line {}, col {} of module {}>", d.name, bl.bl, bl.bc, bl.el, bl.ec, d.module)))
-                } else {
-                    None
-                }
-            });
-            lab.as_ref().map(|l| self.cur_label.replace(Some(l.clone())))
+        let saved_label = if self.splitting.get() && mode == Mode::Next {
+            let params: Vec<Value> = slots.iter().filter_map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
+            let stop = Rc::as_ptr(&body) as usize;
+            Some(self.cur_label.replace(Some(Rc::new(LabelSpec { name: d.name.clone(), params, stop }))))
         } else {
             None
         };

@@ -65,6 +65,14 @@ pub struct Captured {
     pub s1: Rc<Vec<Value>>,
 }
 
+/// Java: `Action.getLocation`: the name, parameter values and source position of the action a state came from
+pub struct LabelSpec {
+    pub name: sem::Name,
+    pub params: Vec<Value>,
+    /// address of the `Node` the action was split down to (its location is printed)
+    pub stop: usize,
+}
+
 /// Java: FcnLambdaValue.body / params / context, kept so `getNextStates` can expand a function application
 pub struct LamIr {
     pub cap: Captured,
@@ -93,7 +101,9 @@ pub struct Ev {
     pub stats: RefCell<HashMap<String, Value>>,
     pub empty_cache: RefCell<Rc<Vec<Value>>>,
     /// label of the action being enumerated (`<Name line .. of module M>`)
-    pub cur_label: RefCell<Option<Rc<str>>>,
+    pub cur_label: RefCell<Option<Rc<LabelSpec>>>,
+    /// source info for action labels (filled when the specification is compiled)
+    pub node_info: RefCell<HashMap<usize, NodeInfo>>,
     /// true while the enumerator may still split disjunctions into named actions
     pub splitting: Cell<bool>,
     /// memo for `Ev::action_simple`: (node address, mode) -> may the action enumerator produce at most one continuation
@@ -130,6 +140,7 @@ impl Ev {
             stats: RefCell::new(HashMap::new()),
             empty_cache: RefCell::new(Rc::new(vec![Value::Undef; nvars])),
             cur_label: RefCell::new(None),
+            node_info: RefCell::new(HashMap::new()),
             splitting: Cell::new(false),
             simple_memo: RefCell::new(HashMap::new()),
             eval_only: Cell::new(false),
@@ -311,6 +322,19 @@ impl Ev {
             }
             Slot::Op(_) => fail("An operator was used where a value was expected."),
             Slot::Unset => fail("Internal error: use of an unassigned local variable."),
+        }
+    }
+
+    /// `<Name(p1,p2) line L, col C to line L2, col C2 of module M>`
+    pub fn format_label(&self, l: &LabelSpec) -> String {
+        let params = if l.params.is_empty() {
+            String::new()
+        } else {
+            format!("({})", l.params.iter().map(|v| v.to_tla()).collect::<Vec<_>>().join(","))
+        };
+        match self.node_info.borrow().get(&l.stop) {
+            Some(i) => format!("<{}{} line {}, col {} to line {}, col {} of module {}>", l.name, params, i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module),
+            None => format!("<{}{}>", l.name, params),
         }
     }
 

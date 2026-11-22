@@ -426,6 +426,8 @@ is not defined in the specification.", name),
         let cd = setup.comp.compile_def(&def);
         ev.const_ops.borrow_mut().insert(id, cd);
     }
+    // source info for action labels
+    *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info);
     Ok(setup)
 }
 

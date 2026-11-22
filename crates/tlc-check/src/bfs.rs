@@ -6,6 +6,7 @@ use std::rc::Rc;
 use tlc_core::actions::Mode;
 use tlc_core::ec;
 use tlc_core::mp::{self, Reporter};
+use tlc_core::eval::LabelSpec;
 use tlc_core::spec::{Setup, Top};
 use tlc_core::symmetry::{self, MvPerm};
 use tlc_core::value::*;
@@ -58,7 +59,7 @@ impl FpSet {
 struct Rec {
     vals: Vec<Value>,
     parent: u32,
-    label: Option<Rc<str>>,
+    label: Option<Rc<LabelSpec>>,
     level: u32,
 }
 
@@ -209,7 +210,7 @@ impl<'a> Checker<'a> {
         self.rep.error(ec::TLC_BEHAVIOR_UP_TO_THIS_POINT, "The behavior up to this point is:");
         for (n, &si) in chain.iter().enumerate() {
             let label = match &self.states[si as usize].label {
-                Some(l) => l.to_string(),
+                Some(l) => self.setup.ev.format_label(l),
                 None => "<Initial predicate>".to_string(),
             };
             let text = format!("{}: {}\n{}", n + 1, label, self.state_text(&self.states[si as usize].vals));
@@ -265,7 +266,7 @@ impl<'a> Checker<'a> {
     }
 
     /// the behavior leading to `parent`, followed by the state `vals` reached by `label`
-    fn print_trace_ext(&mut self, parent: u32, vals: &[Value], label: &Option<Rc<str>>) {
+    fn print_trace_ext(&mut self, parent: u32, vals: &[Value], label: &Option<Rc<LabelSpec>>) {
         let mut chain = vec![];
         let mut i = parent;
         while i != NONE {
@@ -276,14 +277,14 @@ impl<'a> Checker<'a> {
         self.rep.error(ec::TLC_BEHAVIOR_UP_TO_THIS_POINT, "The behavior up to this point is:");
         for (n, &si) in chain.iter().enumerate() {
             let l = match &self.states[si as usize].label {
-                Some(l) => l.to_string(),
+                Some(l) => self.setup.ev.format_label(l),
                 None => "<Initial predicate>".to_string(),
             };
             let text = format!("{}: {}\n{}", n + 1, l, self.state_text(&self.states[si as usize].vals));
             self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
         }
         let l = match label {
-            Some(l) => l.to_string(),
+            Some(l) => self.setup.ev.format_label(l),
             None => "<Next>".to_string(),
         };
         let text = format!("{}: {}\n{}", chain.len() + 1, l, self.state_text(vals));
@@ -529,17 +530,13 @@ impl<'a> Checker<'a> {
         while head < self.states.len() {
             let cur = self.states[head].vals.clone();
             let cur_level = self.states[head].level;
-            let mut succs: Vec<(Vec<Value>, Option<Rc<str>>)> = vec![];
+            let mut succs: Vec<(Vec<Value>, Option<Rc<LabelSpec>>)> = vec![];
             let mut incomplete: Option<Vec<Value>> = None;
             prof_phase_on("enum");
             let t_enum = prof_now();
             if let Some(nx) = next {
                 let buf = RefCell::new(vec![Value::Undef; nvars]);
-                let default_label: Rc<str> = Rc::from(format!(
-                    "<{} line {}, col {} to line {}, col {} of module {}>",
-                    nx.name, nx.loc.bl, nx.loc.bc, nx.loc.el, nx.loc.ec, nx.module
-                ));
-                *ev.cur_label.borrow_mut() = Some(default_label);
+                *ev.cur_label.borrow_mut() = Some(Rc::new(LabelSpec { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], stop: Rc::as_ptr(&nx.ex) as usize }));
                 ev.splitting.set(true);
                 let r = ev.with_frame(nx.nslots.get(), |ev| {
                     ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
@@ -603,6 +600,7 @@ impl<'a> Checker<'a> {
                 };
                 prof_phase_off();
                 prof_add(1, t_c);
+                let mut just_pushed = false;
                 let implied_vals = if self.setup.implied_actions.is_empty() { None } else { Some((st.clone(), label.clone())) };
                 if ok {
                     any_in_model = true;
@@ -622,6 +620,7 @@ impl<'a> Checker<'a> {
                         unseen_count += 1;
                         let level = cur_level + 1;
                         self.states.push(Rec { vals: st, parent: head as u32, label, level });
+                        just_pushed = true;
                         if level > self.max_level {
                             self.max_level = level;
                         }
@@ -638,7 +637,8 @@ impl<'a> Checker<'a> {
                                 self.flush_output();
                                 self.rep.error(ec::TLC_INVARIANT_VIOLATED_BEHAVIOR, &format!("Invariant {} is violated.", name));
                                 self.print_trace(idx as u32);
-                                let left = self.states.len() - head - 1;
+                                // Java enqueues a successor only after its invariants hold: the violating state is not queued
+                                let left = self.states.len() - head - 2;
                                 self.stats(left);
                                 if self.opts.continue_after_error {
                                     continue;
@@ -663,7 +663,7 @@ impl<'a> Checker<'a> {
                             self.flush_output();
                             self.rep.error(ec::TLC_ACTION_PROPERTY_VIOLATED_BEHAVIOR, &format!("Action property {} is violated.", name));
                             self.print_trace_ext(head as u32, &sv, &lb);
-                            let left = self.states.len() - head - 1;
+                            let left = self.states.len() - head - 1 - usize::from(just_pushed);
                             self.stats(left);
                             return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_ACTION_PROPERTY_VIOLATED_BEHAVIOR)));
                         }

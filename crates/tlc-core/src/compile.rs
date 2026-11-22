@@ -33,6 +33,10 @@ pub struct Compiler {
     /// slot of the function being defined (recursive function definitions)
     pending_self_slot: Option<u32>,
     primed_memo: HashMap<(usize, usize), bool>,
+    /// node address -> source info (action labels)
+    pub node_info: HashMap<usize, NodeInfo>,
+    /// module of the definition / top expression being compiled
+    pub cur_module: sem::Name,
 }
 
 struct FrameCtx {
@@ -77,6 +81,8 @@ impl Compiler {
             let_depth: 0,
             pending_self_slot: None,
             primed_memo: HashMap::new(),
+            node_info: HashMap::new(),
+            cur_module: std::sync::Arc::from(""),
         }
     }
 
@@ -126,6 +132,7 @@ impl Compiler {
             }
             self.ctx.push(fc);
             let saved = self.let_depth;
+            let saved_module = std::mem::replace(&mut self.cur_module, d.original().module.clone());
             self.let_depth = 0;
             self.pending_self_slot = None;
             if d.is_recursive_fcn.get() {
@@ -136,6 +143,7 @@ impl Compiler {
                 }
             }
             let ex = self.expr(&body);
+            self.cur_module = saved_module;
             self.let_depth = saved;
             let fc = self.ctx.pop().unwrap();
             cd.nslots.set(fc.max_slot.get().max(params.len()));
@@ -397,6 +405,17 @@ impl Compiler {
 
     pub fn expr(&mut self, e: &sem::Expr) -> Ex {
         let n = self.expr_raw(e);
+        if !matches!(&*n, Node::Const(_) | Node::Local(_) | Node::Var(_) | Node::PrimedVar(_) | Node::Unsupported(_)) {
+            let const_sub = match &e.kind {
+                EKind::BQuant { forall: false, bounds, .. } => bounds.iter().all(|b| b.set.level == sem::Level::Const),
+                EKind::Apply(Callee::Def(_), args) => args.iter().all(|a| match a {
+                    SArg::Expr(x) => x.level == sem::Level::Const,
+                    SArg::Op(_) => true,
+                }),
+                _ => false,
+            };
+            self.node_info.entry(Rc::as_ptr(&n) as usize).or_insert(NodeInfo { loc: e.loc, module: self.cur_module.clone(), const_sub });
+        }
         if Self::foldable(e) && !matches!(&*n, Node::Const(_) | Node::Fold(..) | Node::Unsupported(_) | Node::Fail(_)) {
             // only worth it for operations (a bare definition call is cached by the definition itself)
             if matches!(&e.kind, EKind::Bi(..) | EKind::SetEnum(_) | EKind::Tuple(_) | EKind::Apply(..)) {

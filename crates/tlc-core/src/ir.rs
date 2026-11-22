@@ -115,6 +115,15 @@ pub struct DeclRef {
     pub arity: usize,
 }
 
+/// source information about a compiled node, used to name actions (`<Name(args) line .. of module M>`)
+#[derive(Clone)]
+pub struct NodeInfo {
+    pub loc: Loc,
+    pub module: sem::Name,
+    /// `\E` with constant domains / operator application with constant arguments: Java splits actions there
+    pub const_sub: bool,
+}
+
 /// binary operators of Naturals/Integers with an inlined fast path for `Int` operands
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ArithOp {
