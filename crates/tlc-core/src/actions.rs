@@ -431,8 +431,26 @@ impl Ev {
                     }
                 }
             }
-            Node::SubstIn(subs, body) => {
+            Node::SubstIn(subs, body, cacheable, cache) => {
                 let outer = self.substs.borrow().clone();
+                if *cacheable {
+                    let hit = match &*cache.borrow() {
+                        Some((o, res)) if o.same(&outer) => Some(res.clone()),
+                        _ => None,
+                    };
+                    if let Some(res) = hit {
+                        *self.substs.borrow_mut() = res;
+                        let r = self.enum_action(body, mode, s0, buf, &mut || {
+                            // continuation: without the substitutions of this scope
+                            let held = std::mem::replace(&mut *self.substs.borrow_mut(), outer.clone());
+                            let r = k();
+                            *self.substs.borrow_mut() = held;
+                            r
+                        });
+                        *self.substs.borrow_mut() = outer;
+                        return r;
+                    }
+                }
                 for (decl, a) in subs {
                     let s = {
                         let b = buf.borrow();
@@ -451,6 +469,9 @@ impl Ev {
                     };
                     let next = self.substs.borrow().push(SubstEntry { decl: *decl, slot: s });
                     *self.substs.borrow_mut() = next;
+                }
+                if *cacheable {
+                    *cache.borrow_mut() = Some((outer.clone(), self.substs.borrow().clone()));
                 }
                 let r = self.enum_action(body, mode, s0, buf, &mut || {
                     // continuation: without the substitutions of this scope
@@ -1079,7 +1100,7 @@ impl Ev {
             // Java binds an INSTANCE-substituted variable `v <- expr` by name when it meets `v' = e`; a successor that does
             // not (yet) determine the variables of `expr` therefore does not fail: the step is possible
             Err(e) if e.msg.contains("is not assigned a value") || e.msg.contains("which is not yet assigned a value") => {
-                if std::env::var("TLCRS_LIVE_DEBUG").is_ok() {
+                if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
                     eprintln!("ENABLED: treating as enabled after: {}", e.msg);
                 }
                 Ok(true)

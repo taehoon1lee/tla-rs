@@ -675,7 +675,8 @@ impl Compiler {
                     v.push((s.target.id, a));
                 }
                 let b = self.expr(body);
-                Rc::new(Node::SubstIn(v, b))
+                let cacheable = v.iter().all(|(_, a)| matches!(a, Arg::State(_, true) | Arg::ValClosed(_)));
+                Rc::new(Node::SubstIn(v, b, cacheable, RefCell::new(None)))
             }
             EKind::Label(_, _, inner) => self.expr(inner),
         }

@@ -270,7 +270,9 @@ pub enum Node {
     Forall(Vec<BoundIr>, Ex),
     Choose(BoundIr, Ex),
     /// INSTANCE substitution: (declaration id, argument)
-    SubstIn(Vec<(usize, Arg)>, Ex),
+    /// the cache: (substitutions in scope on entry, substitutions after this node's) -- valid when every argument is a
+    /// call-by-name expression that reads no frame slot, so that the same lazy arguments can serve every evaluation
+    SubstIn(Vec<(usize, Arg)>, Ex, bool, RefCell<Option<(Substs, Substs)>>),
     /// `[]`, `<>`, `WF`, `SF`, `~>`, `\EE` ... temporal operators (not evaluated by `eval`)
     Temporal(sem::Level),
     Unsupported(String),

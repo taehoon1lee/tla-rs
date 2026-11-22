@@ -1207,8 +1207,20 @@ impl Ev {
                     "Attempted to compute the value of an expression of form\nCHOOSE x \\in S: P, but no element of S satisfied P."
                 ))
             }
-            Node::SubstIn(subs, body) => {
+            Node::SubstIn(subs, body, cacheable, cache) => {
                 let saved = self.substs.borrow().clone();
+                if *cacheable {
+                    let hit = match &*cache.borrow() {
+                        Some((outer, res)) if outer.same(&saved) => Some(res.clone()),
+                        _ => None,
+                    };
+                    if let Some(res) = hit {
+                        *self.substs.borrow_mut() = res;
+                        let r = self.eval(body, s0, s1);
+                        *self.substs.borrow_mut() = saved;
+                        return r;
+                    }
+                }
                 for (decl, a) in subs {
                     let slot = match self.eval_arg(a, s0, s1) {
                         Ok(sl) => sl,
@@ -1219,6 +1231,9 @@ impl Ev {
                     };
                     let next = self.substs.borrow().push(SubstEntry { decl: *decl, slot });
                     *self.substs.borrow_mut() = next;
+                }
+                if *cacheable {
+                    *cache.borrow_mut() = Some((saved.clone(), self.substs.borrow().clone()));
                 }
                 let r = self.eval(body, s0, s1);
                 *self.substs.borrow_mut() = saved;
@@ -1256,11 +1271,23 @@ impl Ev {
             self.set_slot(b.slot, Slot::V(el.clone()));
             return Ok(());
         }
-        let assigns = bind_assigns(b.slot, b.nvars, b.tuple, el)?;
-        for (i, s) in assigns {
-            self.set_slot(i, s);
+        // `x, y \in S` binds every variable to the element; `<<x, y>> \in S` destructures a tuple (no temporary vector)
+        if !b.tuple {
+            for i in 0..b.nvars {
+                self.set_slot(b.slot + i, Slot::V(el.clone()));
+            }
+            return Ok(());
         }
-        Ok(())
+        match el {
+            Value::Tuple(t) if t.len() == b.nvars as usize => {
+                for (i, x) in t.iter().enumerate() {
+                    self.set_slot(b.slot + i as u32, Slot::V(x.clone()));
+                }
+                Ok(())
+            }
+            _ => fail(format!("Attempted to bind the tuple of {} variables to the value
+{}", b.nvars, el.to_tla())),
+        }
     }
 
     /// iterate over all combinations of the bounds; `f` returns `false` to stop

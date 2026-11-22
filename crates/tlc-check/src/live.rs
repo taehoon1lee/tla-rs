@@ -61,14 +61,21 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32]
         }
         Ok(())
     };
-    // per (state, successor position): results of the action predicates
+    // per (state, successor position): results of the action predicates.  A state-level subformula (e.g.
+    // `ENABLED <<A>>_v` of a fairness condition) depends on the source state only: it is evaluated once per state.
     let mut edge_checks: HashMap<(u32, u32), Vec<bool>> = HashMap::new();
+    let mut leaf_memo: HashMap<(u32, u32), bool> = HashMap::new();
     let mut action_bits = |s: u32, i: usize, edge_checks: &mut HashMap<(u32, u32), Vec<bool>>| -> R<Vec<bool>> {
         if let Some(v) = edge_checks.get(&(s, i as u32)) {
             return Ok(v.clone());
         }
         let t = succ[s as usize][i];
-        let v = oos.check_action_res(ev, store.vals(s), store.edge_vals(s, i).unwrap_or_else(|| store.vals(t)))?;
+        let s0 = store.vals(s);
+        let s1 = store.edge_vals(s, i).unwrap_or_else(|| store.vals(t));
+        let mut v = Vec::with_capacity(oos.check_action.len());
+        for c in oos.check_action.iter() {
+            v.push(eval_memo(c, ev, s, s0, s1, &mut leaf_memo)?);
+        }
         edge_checks.insert((s, i as u32), v.clone());
         Ok(v)
     };
@@ -146,6 +153,40 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32]
         }
     }
     Ok(g)
+}
+
+/// `Ln::eval` on the step `s0 -> s1` of the state `s`, remembering the value of every state predicate per state
+fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1: &[Value], memo: &mut HashMap<(u32, u32), bool>) -> R<bool> {
+    use tlc_core::liveness::ln::LnNode;
+    match &*ln.0 {
+        LnNode::State(l) => {
+            let key = (s, l.tag.get());
+            if let Some(b) = memo.get(&key) {
+                return Ok(*b);
+            }
+            let b = ln.eval(ev, s0, s1)?;
+            memo.insert(key, b);
+            Ok(b)
+        }
+        LnNode::Neg(b) => Ok(!eval_memo(b, ev, s, s0, s1, memo)?),
+        LnNode::Conj(v) => {
+            for x in v {
+                if !eval_memo(x, ev, s, s0, s1, memo)? {
+                    return Ok(false);
+                }
+            }
+            Ok(true)
+        }
+        LnNode::Disj(v) => {
+            for x in v {
+                if eval_memo(x, ev, s, s0, s1, memo)? {
+                    return Ok(true);
+                }
+            }
+            Ok(false)
+        }
+        _ => ln.eval(ev, s0, s1),
+    }
 }
 
 const MAX_PTR: u64 = 1 << 62;

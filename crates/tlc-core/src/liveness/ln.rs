@@ -14,6 +14,12 @@ pub const LEVEL_VAR: u8 = 1;
 pub const LEVEL_ACTION: u8 = 2;
 pub const LEVEL_TEMPORAL: u8 = 3;
 
+/// `TLCRS_LIVE_DEBUG` (read once: the environment lookup is a system call)
+fn debug_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("TLCRS_LIVE_DEBUG").is_ok())
+}
+
 /// a compiled expression (or action) together with the values of the enclosing bound variables (Java: `Context`)
 pub struct Leaf {
     pub ex: Ex,
@@ -35,7 +41,7 @@ impl Leaf {
             f(ev)
         });
         if let Err(e) = &r {
-            if std::env::var("TLCRS_LIVE_DEBUG").is_ok() {
+            if debug_on() {
                 eprintln!("liveness leaf failed: {} ({})", self.text, e.msg);
             }
         }
@@ -53,7 +59,7 @@ impl Leaf {
             Value::Bool(b) => Ok(b),
             _ => fail_code(non_bool, "A temporal formula contains a non-boolean state or action predicate."),
         });
-        if r.is_err() && std::env::var("TLCRS_LIVE_DEBUG").is_ok() {
+        if r.is_err() && debug_on() {
             eprintln!("liveness leaf failed: {} s0={:?} s1={:?}", self.text, s0, s1);
         }
         r
@@ -62,11 +68,8 @@ impl Leaf {
     /// `ENABLED A` (or `ENABLED <<A>>_v` when there is a subscript) in `s0`
     pub fn eval_enabled(&self, ev: &Ev, s0: &[Value]) -> R<bool> {
         let r = self.enter(ev, |ev| ev.enabled_changed(&self.ex, self.sub.as_ref(), s0));
-        if std::env::var("TLCRS_LIVE_DEBUG").is_ok() {
-            match &r {
-                Err(_) => eprintln!("ENABLED failed at s0={:?}", s0),
-                Ok(b) => eprintln!("ENABLED {} = {} at s0={:?}", self.text, b, s0),
-            }
+        if r.is_err() && debug_on() {
+            eprintln!("ENABLED failed at s0={:?}", s0);
         }
         r
     }

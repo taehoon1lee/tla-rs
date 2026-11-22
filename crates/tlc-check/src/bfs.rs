@@ -871,6 +871,9 @@ impl<'a> Checker<'a> {
             }
         };
         let total: usize = graphs.iter().map(|g| g.size()).sum();
+        if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
+            eprintln!("live: graphs built in {:?} ({} nodes, {} states)", t0.elapsed(), total, self.states.len());
+        }
         self.rep.info(
             ec::TLC_CHECKING_TEMPORAL_PROPS,
             &format!(
@@ -889,6 +892,9 @@ impl<'a> Checker<'a> {
             }
         };
         self.flush_output();
+        if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
+            eprintln!("live: checked in {:?}", t0.elapsed());
+        }
         let dur = t0.elapsed();
         let human = format!("{:02}s", dur.as_secs());
         match found {
