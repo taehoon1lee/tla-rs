@@ -55,6 +55,8 @@ pub struct Setup {
     /// state-level properties `P` (checked in the initial states) / action properties `[][A]_v` (checked on every step)
     pub implied_inits: Vec<Top>,
     pub implied_actions: Vec<Top>,
+    /// POSTCONDITION definitions (constant level), checked after the state space has been explored
+    pub postconditions: Vec<(Top, String)>,
     pub spec_temporal: Vec<sem::Expr>,
     /// names and locations of the "actions" (top-level disjuncts of Next) for trace labels
     pub root: Rc<sem::ModuleNode>,
@@ -236,6 +238,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         properties: vec![],
         implied_inits: vec![],
         implied_actions: vec![],
+        postconditions: vec![],
         spec_temporal: vec![],
         root: root.clone(),
     };
@@ -420,6 +423,24 @@ is not defined in the specification.", name),
             let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
             classify_property(&mut setup, name, &b, &def, &mut wraps, 0)?;
         }
+    }
+    // ---- postconditions
+    for name in &cfg.postconditions {
+        let def = match lookup_def(&root, name) {
+            Some(d) => d,
+            None => {
+                return serr(
+                    ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
+                    format!("The postcondition {} specified in the configuration file
+is not defined in the specification.", name),
+                )
+            }
+        };
+        let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
+        let (ex, n) = setup.comp.compile_top(&e);
+        let loc = sem_body_loc(&def);
+        let text = format!("line {}, col {} to line {}, col {} of module {}", loc.bl, loc.bc, loc.el, loc.ec, def.original().module);
+        setup.postconditions.push((Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() }, text));
     }
     // ---- assumptions
     let assumes: Vec<Rc<sem::AssumeNode>> = root.assumes.borrow().clone();

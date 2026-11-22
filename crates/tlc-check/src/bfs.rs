@@ -43,6 +43,9 @@ impl FpSet {
             i = (i + 1) & self.mask;
         }
     }
+    fn len(&self) -> usize {
+        self.len
+    }
     fn grow(&mut self) {
         let old = std::mem::take(&mut self.tab);
         self.tab = vec![0; old.len() * 2];
@@ -125,6 +128,13 @@ enum Stop {
 type SR<T> = Result<T, Stop>;
 
 impl<'a> Checker<'a> {
+    /// publish the counters TLCGet reads
+    fn set_counters(&self, level: i64, queue: i64) {
+        let ev = &self.setup.ev;
+        let secs = self.start.elapsed().as_secs() as i64;
+        ev.counters.set([level, self.generated as i64, self.fps.len() as i64, queue, self.max_level as i64, secs]);
+    }
+
     fn flush_output(&mut self) {
         let lines: Vec<String> = self.setup.ev.out.borrow_mut().drain(..).collect();
         for l in lines {
@@ -539,6 +549,7 @@ impl<'a> Checker<'a> {
             let cur = self.states[head].vals.clone();
             ev.epoch.set(ev.epoch.get() + 1);
             let cur_level = self.states[head].level;
+            self.set_counters(cur_level as i64, (self.states.len() - head - 1) as i64);
             let mut succs: Vec<(Vec<Value>, Option<LabelSpec>)> = vec![];
             let mut incomplete: Option<Vec<Value>> = None;
             prof_phase_on("enum");
@@ -597,6 +608,7 @@ impl<'a> Checker<'a> {
             }
             for (st, label) in succs {
                 self.generated += 1;
+                self.set_counters(cur_level as i64 + 1, (self.states.len() - head - 1) as i64);
                 prof_phase_on("constraint");
                 let t_c = prof_now();
                 let ok = match self.in_model(&st).and_then(|m| if m { self.action_ok(&cur, &st) } else { Ok(false) }) {
@@ -611,6 +623,30 @@ impl<'a> Checker<'a> {
                 prof_add(1, t_c);
                 let mut just_pushed = false;
                 let implied_vals = if self.setup.implied_actions.is_empty() { None } else { Some((st.clone(), label.clone())) };
+                if !ok && !self.setup.invariants.is_empty() {
+                    // Java: a successor outside the model is not stored but is `unseen`: its invariants are still checked
+                    let inv_r = self.check_invariants(&st);
+                    match inv_r {
+                        Ok(None) => {}
+                        Ok(Some(name)) => {
+                            self.flush_output();
+                            self.rep.error(ec::TLC_INVARIANT_VIOLATED_BEHAVIOR, &format!("Invariant {} is violated.", name));
+                            self.print_trace_ext(head as u32, &st, &label);
+                            let left = self.states.len() - head - 1;
+                            self.stats(left);
+                            if !self.opts.continue_after_error {
+                                return Err(Stop::Exit(ec::exit_status::VIOLATION_SAFETY));
+                            }
+                        }
+                        Err((e, name)) => {
+                            self.flush_output();
+                            self.rep.error(ec::TLC_INVARIANT_EVALUATION_FAILED, &format!("Evaluating invariant {} failed.", name));
+                            let code = self.report_err(&e, ec::exit_status::FAILURE_SAFETY_EVAL);
+                            self.print_trace(head as u32);
+                            return Err(Stop::Exit(if e.code == ec::TLC_VALUE_ASSERT_FAILED { code } else { ec::exit_status::FAILURE_SAFETY_EVAL }));
+                        }
+                    }
+                }
                 if ok {
                     any_in_model = true;
                     let t_f = prof_now();
@@ -780,6 +816,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
     }
     match r {
         Ok(()) => {
+            // POSTCONDITION is parsed but not evaluated yet (needs the `_POSSIBLE` named registers; see loop/NOTES.md)
             ck.rep.info(
                 ec::TLC_SUCCESS,
                 "Model checking completed. No error has been found.\n  Estimates of the probability that TLC did not check all reachable states\n  because two distinct states had the same fingerprint:\n  calculated (optimistic):  val = 0.0",

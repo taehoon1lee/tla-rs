@@ -67,3 +67,9 @@
 - Profiling: `cargo build --release --features tlc-check/prof` then `TLCRS_PROF=1 [TLCRS_PROF_PHASE=enum|inv|constraint] tlc-rs ...`
   prints a sampling profile of the current node kind to stderr (no external profiler on this box). Remove nothing: off by default.
 - The windows heap is slow: `crates/tlc-cli/src/alloc.rs` is a per-thread size-class allocator (measured 10-15%).
+- POSTCONDITION(S) is parsed but NOT evaluated: the corpus tests that use it also use `_POSSIBLE` / `TLCGet("all:named")`
+  (new in this TLC build; SpecProcessor.processConfigPossible synthesizes a TLA+ module). Evaluating postconditions without
+  that would regress ~6 tt/ tests that currently pass because nothing is evaluated. TODO: port `_Possible` + postconditions together.
+- Successors outside the model (CONSTRAINT false) are NOT stored, but TLC still checks their invariants (`unseen` stays true).
+- State-level nullary definitions are cached per (state pointer, `Ev::epoch`); the epoch must be bumped whenever a state buffer
+  is mutated or a new evaluation starts (`run_top`, `assign_and_continue`, BFS expansion).

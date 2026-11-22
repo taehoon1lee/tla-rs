@@ -154,6 +154,8 @@ pub struct Ev {
     pub eval_only: Cell<bool>,
     /// bumped whenever the state data a cached lazy value may depend on changes (see `LazyArg::cache`)
     pub epoch: Cell<u64>,
+    /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
+    pub counters: Cell<[i64; 6]>,
     pub no_frame: Rc<Vec<Slot>>,
     pub no_substs: Rc<Vec<SubstEntry>>,
     pub no_state: Rc<Vec<Value>>,
@@ -190,6 +192,7 @@ impl Ev {
             simple_memo: RefCell::new(HashMap::new()),
             eval_only: Cell::new(false),
             epoch: Cell::new(1),
+            counters: Cell::new([0; 6]),
             no_frame: Rc::new(Vec::new()),
             no_substs: Rc::new(Vec::new()),
             no_state: Rc::new(Vec::new()),

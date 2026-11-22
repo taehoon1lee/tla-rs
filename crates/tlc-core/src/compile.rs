@@ -754,8 +754,9 @@ impl Compiler {
                 }
                 let cd = self.compile_def(d);
                 if let Some(nf) = cd.native.get() {
-                    if args.len() == 2 && matches!(&*cd.module, "Naturals" | "Integers") {
-                        let op = match &*cd.name {
+                    let orig = d.original();
+                    if args.len() == 2 && matches!(&*orig.module, "Naturals" | "Integers") {
+                        let op = match &*orig.name {
                             "+" => Some(ArithOp::Plus),
                             "-" => Some(ArithOp::Minus),
                             "*" => Some(ArithOp::Times),

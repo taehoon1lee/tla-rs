@@ -458,6 +458,22 @@ fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
         Value::Int(i) => Ok(ev.tlc_registers.borrow().get(i).cloned().unwrap_or(Value::Int(0))),
         Value::Str(id) => {
             let name = intern::name_of(*id);
+            let idx = match &*name {
+                "level" => Some(0),
+                "generated" => Some(1),
+                "distinct" => Some(2),
+                "queue" => Some(3),
+                "diameter" => Some(4),
+                "duration" => Some(5),
+                _ => None,
+            };
+            if let Some(i) = idx {
+                let v = ev.counters.get()[i];
+                return match i32::try_from(v) {
+                    Ok(n) => Ok(Value::Int(n)),
+                    Err(_) => fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}", v)),
+                };
+            }
             match ev.stats.borrow().get(&*name) {
                 Some(v) => Ok(v.clone()),
                 None => fail_code(ec::TLC_MODULE_TLCGET_UNDEFINED, format!("TLCGet({}) is undefined.", k.to_tla())),
@@ -1039,6 +1055,44 @@ fn bags_set_to_bag(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<
 }
 
 
+/// Java: DyadicRationals.reduce
+fn dyadic_reduce(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v = arg(ev, a, 0, s0, s1)?;
+    let (mut num, mut den) = (None, None);
+    if let Value::Fcn(f) = &v {
+        for (d, x) in f.dom.iter().zip(f.vals.iter()) {
+            if let Value::Str(id) = d {
+                match &*intern::name_of(*id) {
+                    "num" => num = Some(x.clone()),
+                    "den" => den = Some(x.clone()),
+                    _ => {}
+                }
+            }
+        }
+    }
+    let (n, d) = match (num, den) {
+        (Some(Value::Int(n)), Some(Value::Int(d))) => (n, d),
+        _ => {
+            return fail_code(
+                ec::TLC_MODULE_ONE_ARGUMENT_ERROR,
+                format!("The argument of Half should be a record, but instead it is:
+{}", crate::pprint::ppr(&v.to_tla())),
+            )
+        }
+    };
+    let (mut x, mut y) = (n.unsigned_abs() as u64, d.unsigned_abs() as u64);
+    while y != 0 {
+        let t = x % y;
+        x = y;
+        y = t;
+    }
+    let g = x as i32;
+    if g == 1 {
+        return Ok(v);
+    }
+    Ok(Value::record(vec![(intern::intern("den"), Value::Int(d / g)), (intern::intern("num"), Value::Int(n / g))]))
+}
+
 // ---------------------------------------------------------------------------------------------- lookup
 
 pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
@@ -1086,6 +1140,7 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("FiniteSetsExt", "FoldSet") => fold_set,
         ("FiniteSetsExt", "Quantify") => quantify,
         ("IOUtils", "IOEnv") => io_env,
+        ("DyadicRationals", "Reduce") => dyadic_reduce,
         ("Bags", "EmptyBag") => bags_empty,
         ("Bags", "IsABag") => bags_is_a_bag,
         ("Bags", "BagCardinality") => bags_cardinality,
