@@ -45,3 +45,11 @@
 - Output protocol = TLC's own `-tool` text (so tlc-rs is usable as a drop-in TLC). See harness/SCHEMA.md.
 
 ## HARNESS ISSUES (write evidence here instead of editing harness/)
+
+## SANY port notes (2026-11-22)
+- Parser = hand-written recursive descent mirroring tla+.jj; DEFBREAK tokens are inserted by `belch_def` exactly like Java (definition boundaries).
+- Module discovery order = `SpecObj.loadSpec` (all unresolved EXTENDS first, then INSTANCE; monolith modules are read from the root file).
+- Instance copies (`I!Op`) are new OpDefs (params = instance params ++ original params, body wrapped in `SubstIn`), like Generator.processModuleDefinition.
+- Selectors `Def!label`, `Def!2`, `Thm!:` handled via synthetic defs (`gen_selector`); exotic ones become `EKind::Unsupported` (TLC must report 9999 if evaluated).
+- Levels are computed on the fly (`Expr.level`, `OpDef.level/weights`), simplified w.r.t. SANY's level-parameter machinery.
+- Tooling gotcha: the Bash tool mangles backslashes inside `python - <<EOF` heredocs. Write patch scripts with the Write tool (scratchpad) and run them.
