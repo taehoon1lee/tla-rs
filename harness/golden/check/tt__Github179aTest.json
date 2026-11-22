@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github179aTest",
+ "wall_ms": 553.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 10,
+  "exit_name": "violation_assumption",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2105,
+  "violation": null,
+  "error_codes": [
+   2105
+  ],
+  "errors": [
+   {
+    "code": 2105,
+    "text": "Evaluating assumption line 16, col 8 to line 16, col 46 of module Github179a failed. @!@!@STARTMSG 2154:0 @!@!@ Attempted to apply the operator overridden by the Java method public static tlc2.value.impl.Value tlc2.module.TLC.PrintT(tlc2.value.impl.Value), but it produced the following error: Attempted to check equality of integer 1 with non-integer: {1} @!@!@ENDMSG 2154 @!@!@"
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 583.6
+}

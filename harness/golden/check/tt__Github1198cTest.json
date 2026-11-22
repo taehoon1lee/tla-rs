@@ -1,0 +1,39 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1198cTest",
+ "wall_ms": 527.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 18,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": true,
+  "first_error": null,
+  "violation": null,
+  "error_codes": [],
+  "errors": [],
+  "warnings": [
+   {
+    "code": 2258,
+    "text": "Implied-temporal checking is a tautology. The temporal formula LiveC at line 39, col 1 to line 40, col 34 of module Github1198 equals the fairness constraints of the behavior specification SpecC at line 42, col 1 to line 43, col 35 of module Github1198. Therefore, checking whether SpecC => LiveC using TLC will never result in a violation of LiveC."
+   }
+  ],
+  "generated": 3,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": "The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 1 and the 95th percentile is 1).",
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 538.2
+}

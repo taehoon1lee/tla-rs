@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/QuorumTheorems_proofs",
+ "wall_ms": 586.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Quorum",
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "FiniteSetsExt",
+   "FiniteSetsExtTheorems",
+   "QuorumTheorems_proofs"
+  ],
+  "files": [
+   "QuorumTheorems_proofs",
+   "Quorum",
+   "Integers",
+   "FiniteSetTheorems",
+   "FiniteSetsExtTheorems",
+   "Naturals",
+   "FiniteSets",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "FiniteSetsExt",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "QuorumTheorems_proofs",
+   "Quorum",
+   "Integers",
+   "FiniteSetTheorems",
+   "FiniteSetsExtTheorems",
+   "Naturals",
+   "FiniteSets",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "FiniteSetsExt",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

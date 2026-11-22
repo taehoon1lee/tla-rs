@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github687specDTest",
+ "wall_ms": 448.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 151,
+  "exit_name": "error_config_parse",
+  "messages": 8,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2237,
+  "violation": null,
+  "error_codes": [
+   2237
+  ],
+  "errors": [
+   {
+    "code": 2237,
+    "text": "The spec is trivially false because ModInsanityCheck is false."
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2139,
+    "text": "TLC could not determine if the subscript of the next-state relation contains all state variables. Proceed with fingers crossed."
+   }
+  ],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 430.1
+}

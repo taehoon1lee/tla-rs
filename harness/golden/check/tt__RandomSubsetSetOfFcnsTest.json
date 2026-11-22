@@ -1,0 +1,39 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/RandomSubsetSetOfFcnsTest",
+ "wall_ms": 580.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 23,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1000,
+  "init_generated": 1000,
+  "success": true,
+  "first_error": null,
+  "violation": null,
+  "error_codes": [],
+  "errors": [],
+  "warnings": [
+   {
+    "code": 2149,
+    "text": "The invariant Inv is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to TRUE. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details."
+   }
+  ],
+  "generated": 2000,
+  "distinct": 1000,
+  "left": 0,
+  "depth": 1,
+  "outdegree": "The average outdegree of the complete state graph is 0 (minimum is 0, the maximum 0 and the 95th percentile is 0).",
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 584.9
+}

@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/ValueSemanticsAssume",
+ "wall_ms": 978.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "TLCExt",
+   "ValueSemanticsCases",
+   "ValueSemanticsAssume"
+  ],
+  "files": [
+   "ValueSemanticsAssume",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "TLC",
+   "TLCExt",
+   "Naturals",
+   "ValueSemanticsCases"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ValueSemanticsAssume",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "TLC",
+   "TLCExt",
+   "Naturals",
+   "ValueSemanticsCases"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FlashProtocol/MCFlashWithMutex",
+ "wall_ms": 588.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "FlashWithMutex",
+   "TLC",
+   "MCFlashWithMutex"
+  ],
+  "files": [
+   "MCFlashWithMutex",
+   "FlashWithMutex",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCFlashWithMutex",
+   "FlashWithMutex",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/RandomElementXandY",
+ "wall_ms": 337.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "RandomElementXandY"
+  ],
+  "files": [
+   "RandomElementXandY",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "RandomElementXandY",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

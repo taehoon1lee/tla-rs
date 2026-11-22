@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/dijkstra-mutex/DijkstraMutex",
+ "wall_ms": 512.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "DijkstraMutex"
+  ],
+  "files": [
+   "DijkstraMutex",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DijkstraMutex",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,7 @@
+[package]
+name = "tlc-core"
+version.workspace = true
+edition.workspace = true
+description = "TLC core: values, evaluation (Tool), .cfg parsing, built-in modules, TLC messages (EC/MP)"
+
+[dependencies]

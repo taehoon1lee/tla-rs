@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/TableauSymmetry",
+ "wall_ms": 288.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "TableauSymmetry"
+  ],
+  "files": [
+   "TableauSymmetry"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TableauSymmetry"
+  ],
+  "msg": ""
+ }
+}

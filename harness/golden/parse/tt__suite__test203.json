@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test203",
+ "wall_ms": 419.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "test203a",
+   "test203"
+  ],
+  "files": [
+   "test203",
+   "Naturals",
+   "TLC",
+   "test203a",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "test203",
+   "Naturals",
+   "TLC",
+   "test203a",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

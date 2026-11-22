@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/MisraReachability/Reachability",
+ "wall_ms": 367.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Reachability"
+  ],
+  "files": [
+   "Reachability",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Reachability",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

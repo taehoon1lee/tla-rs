@@ -1,0 +1,64 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/APDistributedReplicatedLog",
+ "wall_ms": 552.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [
+   "warnings"
+  ],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "DistributedReplicatedLog",
+   "APDistributedReplicatedLog"
+  ],
+  "files": [
+   "APDistributedReplicatedLog",
+   "Sequences",
+   "SequencesExt",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Naturals",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "DistributedReplicatedLog"
+  ],
+  "msg": "*** Warnings: 1 line 23, col 1 to line 23, col 33 of module APDistributedReplicatedLog Multiple declarations or definitions for symbol vars. This duplicates the one at line 21, col 1 to line 21, col 17 of module APDistributedReplicatedLog. Linting of module Folds Linting of module Functions Linting of module FiniteSetsExt Linting of module SequencesExt Linting of module DistributedReplicatedLog Linting of module APDistributedReplicatedLog"
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APDistributedReplicatedLog",
+   "Sequences",
+   "SequencesExt",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Naturals",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "DistributedReplicatedLog"
+  ],
+  "msg": ""
+ }
+}

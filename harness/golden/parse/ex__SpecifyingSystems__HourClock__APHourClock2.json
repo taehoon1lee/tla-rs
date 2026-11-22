@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/HourClock/APHourClock2",
+ "wall_ms": 348.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "HourClock",
+   "HourClock2",
+   "APHourClock2"
+  ],
+  "files": [
+   "APHourClock2",
+   "Naturals",
+   "HourClock2",
+   "HourClock"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APHourClock2",
+   "Naturals",
+   "HourClock2",
+   "HourClock"
+  ],
+  "msg": ""
+ }
+}

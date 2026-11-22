@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/simulation/Example2",
+ "wall_ms": 390.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "Example2"
+  ],
+  "files": [
+   "Example2",
+   "Integers",
+   "TLC",
+   "TLCExt",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Example2",
+   "Integers",
+   "TLC",
+   "TLCExt",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

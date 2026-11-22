@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/TLCGetNamedUndefinedTest",
+ "wall_ms": 538.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 151,
+  "exit_name": "error_config_parse",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2281,
+  "violation": null,
+  "error_codes": [
+   2281
+  ],
+  "errors": [
+   {
+    "code": 2281,
+    "text": "The configuration file substitutes constant A with non-constant diameter - specifically: @!@!@STARTMSG 2154:0 @!@!@ Attempted to apply the operator overridden by the Java method public static tlc2.value.impl.Value tlc2.module.TLCGetSet.TLCGetEval(tlc2.tool.impl.Tool,tla2sany.semantic.ExprOrOpArgNode[],tlc2.util.Context,tlc2.tool.TLCState,tlc2.tool.TLCState,int,tlc2.tool.coverage.CostModel), but it produced the following error: @!@!@STARTMSG 2145:0 @!@!@ TLCGet(diameter) was undefined. @!@!@ENDMSG 2145 @!@!@ @!@!@ENDMSG 2154 @!@!@"
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 539.8
+}

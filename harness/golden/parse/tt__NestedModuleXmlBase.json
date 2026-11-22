@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/NestedModuleXmlBase",
+ "wall_ms": 264.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "NestedModuleXmlBase"
+  ],
+  "files": [
+   "NestedModuleXmlBase"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "NestedModuleXmlBase"
+  ],
+  "msg": ""
+ }
+}

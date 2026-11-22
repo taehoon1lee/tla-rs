@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/gh1134/MultiUser",
+ "wall_ms": 410.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "UserStateMachine",
+   "Base",
+   "SingleUser",
+   "MultiUser"
+  ],
+  "files": [
+   "MultiUser",
+   "Base",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "SingleUser",
+   "UserStateMachine",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MultiUser",
+   "Base",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "SingleUser",
+   "UserStateMachine",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

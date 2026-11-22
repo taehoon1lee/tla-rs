@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test214",
+ "wall_ms": 271.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "test214"
+  ],
+  "files": [
+   "test214"
+  ],
+  "msg": "Semantic errors: *** Errors: 1 line 10, col 11 to line 10, col 14 of module test214 The only expression allowed as a fact in a HIDE is the name of a theorem, assumption, or step."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "test214"
+  ],
+  "msg": ""
+ }
+}

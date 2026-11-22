@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/IllegalOperatorTest",
+ "wall_ms": 286.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "IllegalOperatorTest"
+  ],
+  "files": [
+   "IllegalOperatorTest"
+  ],
+  "msg": "Semantic errors: *** Errors: 1 line 3, col 8 to line 3, col 11 of module IllegalOperatorTest Argument number 1 to operator 'D' should be a 1-parameter operator."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "IllegalOperatorTest"
+  ],
+  "msg": ""
+ }
+}

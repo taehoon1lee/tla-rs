@@ -1,0 +1,61 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CyclicRedefineInstanceTest",
+ "wall_ms": 484.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 3,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<ReDefNext line 7, col 15 to line 7, col 23 of module CyclicRedefineInstance>",
+    "vars": {
+     "x": "TRUE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 472.5
+}

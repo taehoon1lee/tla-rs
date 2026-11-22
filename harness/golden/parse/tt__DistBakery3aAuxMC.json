@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/DistBakery3aAuxMC",
+ "wall_ms": 1227.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "ProtoBakeryTest",
+   "DistBakery3aAux",
+   "DistBakery3aAuxMC"
+  ],
+  "files": [
+   "DistBakery3aAuxMC",
+   "DistBakery3aAux",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals",
+   "ProtoBakeryTest"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DistBakery3aAuxMC",
+   "DistBakery3aAux",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals",
+   "ProtoBakeryTest"
+  ],
+  "msg": ""
+ }
+}

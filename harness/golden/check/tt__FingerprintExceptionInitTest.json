@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/FingerprintExceptionInitTest",
+ "wall_ms": 606.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2102,
+  "violation": null,
+  "error_codes": [
+   2102,
+   2147
+  ],
+  "errors": [
+   {
+    "code": 2102,
+    "text": "@!@!@STARTMSG 2178:0 @!@!@ Overflow when computing the number of elements in: SUBSET (1..36) @!@!@ENDMSG 2178 @!@!@ While working on the initial state: x = SUBSET SUBSET (1..36)"
+   },
+   {
+    "code": 2147,
+    "text": "TLC was unable to fingerprint. Fingerprint Stack Trace: 1) line 7, col 20 to line 7, col 32 of module FingerprintExceptionInit 0) line 7, col 13 to line 7, col 33 of module FingerprintExceptionInit Reason: @!@!@STARTMSG 2178:0 @!@!@ Overflow when computing the number of elements in: SUBSET (1..36) @!@!@ENDMSG 2178 @!@!@"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 0,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 606.8
+}

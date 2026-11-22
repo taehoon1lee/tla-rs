@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EWD998/EWD998_TTrace",
+ "wall_ms": 549.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Toolbox",
+   "Integers",
+   "Utils",
+   "TLCExt",
+   "EWD998",
+   "EWD998_TE",
+   "TTraceTraceDef",
+   "EWD998_TTrace"
+  ],
+  "files": [
+   "EWD998_TTrace",
+   "Toolbox",
+   "TLC",
+   "EWD998",
+   "Integers",
+   "FiniteSets",
+   "Utils",
+   "TLCExt",
+   "Naturals",
+   "Sequences",
+   "EWD998_TE",
+   "TTraceTraceDef"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EWD998_TTrace",
+   "Toolbox",
+   "TLC",
+   "EWD998",
+   "Integers",
+   "FiniteSets",
+   "Utils",
+   "TLCExt",
+   "Naturals",
+   "Sequences",
+   "EWD998_TE",
+   "TTraceTraceDef"
+  ],
+  "msg": ""
+ }
+}

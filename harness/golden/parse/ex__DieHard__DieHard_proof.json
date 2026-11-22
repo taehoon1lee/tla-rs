@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/DieHard/DieHard_proof",
+ "wall_ms": 389.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "DieHard",
+   "TLAPS",
+   "DieHard_proof"
+  ],
+  "files": [
+   "DieHard_proof",
+   "DieHard",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DieHard_proof",
+   "DieHard",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

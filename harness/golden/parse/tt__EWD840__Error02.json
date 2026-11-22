@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EWD840/Error02",
+ "wall_ms": 443.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "EWD840",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Error02"
+  ],
+  "files": [
+   "Error02",
+   "EWD840",
+   "TLC",
+   "Sequences",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Error02",
+   "EWD840",
+   "TLC",
+   "Sequences",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

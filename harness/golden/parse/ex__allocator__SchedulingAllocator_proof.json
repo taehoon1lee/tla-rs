@@ -1,0 +1,70 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/allocator/SchedulingAllocator_proof",
+ "wall_ms": 734.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [
+   "warnings"
+  ],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SchedulingAllocator",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "TLAPS",
+   "SequenceTheorems",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "SchedulingAllocator_proof"
+  ],
+  "files": [
+   "SchedulingAllocator_proof",
+   "SchedulingAllocator",
+   "Integers",
+   "SequenceTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLAPS",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "Functions",
+   "Folds",
+   "NaturalsInduction"
+  ],
+  "msg": "*** Warnings: 1 line 70, col 1 to line 70, col 37 of module Functions Warning: the definition of 'Range' conflicts with its definition at line 54, col 1 to line 54, col 37 of module SchedulingAllocator. Linting of module SchedulingAllocator Linting of module Folds Linting of module Functions Linting of module NaturalsInduction Linting of module TLAPS Linting of module SequenceTheorems Linting of module WellFoundedInduction Linting of module FiniteSetTheorems Linting of module SchedulingAllocator_proof"
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SchedulingAllocator_proof",
+   "SchedulingAllocator",
+   "Integers",
+   "SequenceTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLAPS",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "Functions",
+   "Folds",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ }
+}

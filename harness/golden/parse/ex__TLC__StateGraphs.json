@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TLC/StateGraphs",
+ "wall_ms": 669.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "StateGraphs"
+  ],
+  "files": [
+   "StateGraphs",
+   "Sequences",
+   "Integers",
+   "IOUtils",
+   "Naturals",
+   "TLC",
+   "SequencesExt",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "StateGraphs",
+   "Sequences",
+   "Integers",
+   "IOUtils",
+   "Naturals",
+   "TLC",
+   "SequencesExt",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

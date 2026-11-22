@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/locks_auxiliary_vars/Lock",
+ "wall_ms": 429.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "Lock"
+  ],
+  "files": [
+   "Lock",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Lock",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

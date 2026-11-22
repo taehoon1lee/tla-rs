@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/RealTime/RTMemory",
+ "wall_ms": 398.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "MemoryInterface",
+   "Naturals",
+   "Integers",
+   "Reals",
+   "RealTime_SS",
+   "InternalMemory",
+   "RTMemory"
+  ],
+  "files": [
+   "RTMemory",
+   "MemoryInterface",
+   "RealTime_SS",
+   "Reals",
+   "Integers",
+   "Naturals",
+   "InternalMemory"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "RTMemory",
+   "MemoryInterface",
+   "RealTime_SS",
+   "Reals",
+   "Integers",
+   "Naturals",
+   "InternalMemory"
+  ],
+  "msg": ""
+ }
+}

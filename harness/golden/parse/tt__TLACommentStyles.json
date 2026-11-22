@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TLACommentStyles",
+ "wall_ms": 276.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "TLACommentStyles"
+  ],
+  "files": [
+   "TLACommentStyles"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TLACommentStyles"
+  ],
+  "msg": ""
+ }
+}

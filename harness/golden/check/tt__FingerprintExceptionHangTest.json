@@ -1,0 +1,66 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/FingerprintExceptionHangTest",
+ "wall_ms": 497.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 16,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2111,
+  "violation": null,
+  "error_codes": [
+   2111,
+   2121,
+   2147
+  ],
+  "errors": [
+   {
+    "code": 2111,
+    "text": "Evaluating invariant TypeOK failed. Attempted to compare integer 1 with non-integer: {}"
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 2147,
+    "text": "TLC was unable to fingerprint. Fingerprint Stack Trace: 0. Line 16, column 5 to line 16, column 46 in FingerprintExceptionHang 1. Line 16, column 20 to line 16, column 46 in FingerprintExceptionHang 2. Line 16, column 30 to line 16, column 45 in FingerprintExceptionHang Reason: Attempted to compare integer 1 with non-integer: {}"
+   }
+  ],
+  "warnings": [],
+  "generated": 2,
+  "distinct": 3,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "node_state": "(A :> [set |-> {}] @@ B :> [set |-> {}])"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 24, col 9 to line 24, col 64 of module FingerprintExceptionHang>",
+    "vars": {
+     "node_state": "(A :> [set |-> 1] @@ B :> [set |-> {}])"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 513.3
+}

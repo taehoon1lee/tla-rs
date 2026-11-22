@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/IncompleteNextMultipleActions",
+ "wall_ms": 346.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "IncompleteNextMultipleActions"
+  ],
+  "files": [
+   "IncompleteNextMultipleActions",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "IncompleteNextMultipleActions",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

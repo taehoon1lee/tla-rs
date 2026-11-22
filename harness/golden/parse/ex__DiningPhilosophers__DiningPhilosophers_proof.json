@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/DiningPhilosophers/DiningPhilosophers_proof",
+ "wall_ms": 1089.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "DiningPhilosophers",
+   "TLAPS",
+   "Integers",
+   "NaturalsInduction",
+   "Folds",
+   "Functions",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "DiningPhilosophers_proof"
+  ],
+  "files": [
+   "DiningPhilosophers_proof",
+   "DiningPhilosophers",
+   "TLAPS",
+   "NaturalsInduction",
+   "FiniteSetTheorems",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DiningPhilosophers_proof",
+   "DiningPhilosophers",
+   "TLAPS",
+   "NaturalsInduction",
+   "FiniteSetTheorems",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

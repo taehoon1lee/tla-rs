@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/MonolithSpec",
+ "wall_ms": 593.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Mod4711",
+   "Mod4712",
+   "EWD840",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "MonolithSpec"
+  ],
+  "files": [
+   "MonolithSpec",
+   "EWD840",
+   "TLC",
+   "Naturals",
+   "Mod4711",
+   "Mod4712",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MonolithSpec",
+   "EWD840",
+   "TLC",
+   "Naturals",
+   "Mod4711",
+   "Mod4712",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

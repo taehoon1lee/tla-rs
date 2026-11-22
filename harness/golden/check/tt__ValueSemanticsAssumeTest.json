@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ValueSemanticsAssumeTest",
+ "wall_ms": 834.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 10,
+  "exit_name": "violation_assumption",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2104,
+  "violation": null,
+  "error_codes": [
+   2104
+  ],
+  "errors": [
+   {
+    "code": 2104,
+    "text": "Assumption line 512, col 8 to line 513, col 46 of module ValueSemanticsAssume is false."
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2144,
+    "text": "The EXCEPT was applied to non-existing fields of the value at line 167, col 25 to line 167, col 25 of module ValueSemanticsCases"
+   },
+   {
+    "code": 2144,
+    "text": "The EXCEPT was applied to non-existing fields of the value at line 169, col 25 to line 169, col 25 of module ValueSemanticsCases"
+   },
+   {
+    "code": 2144,
+    "text": "The EXCEPT was applied to non-existing fields of the value at line 168, col 25 to line 168, col 25 of module ValueSemanticsCases"
+   },
+   {
+    "code": 2144,
+    "text": "The EXCEPT was applied to non-existing fields of the value at line 177, col 25 to line 177, col 33 of module ValueSemanticsCases"
+   },
+   {
+    "code": 2144,
+    "text": "The EXCEPT was applied to non-existing fields of the value at line 230, col 35 to line 230, col 52 of module ValueSemanticsCases"
+   }
+  ],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 940.2
+}

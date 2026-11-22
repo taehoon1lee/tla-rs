@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/SubSub",
+ "wall_ms": 425.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SubSub"
+  ],
+  "files": [
+   "SubSub",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SubSub",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

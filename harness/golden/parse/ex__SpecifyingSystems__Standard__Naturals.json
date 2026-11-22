@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Standard/Naturals",
+ "wall_ms": 328.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Peano",
+   "ProtoReals",
+   "Naturals"
+  ],
+  "files": [
+   "Naturals",
+   "ProtoReals",
+   "Peano"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Naturals",
+   "ProtoReals",
+   "Peano"
+  ],
+  "msg": ""
+ }
+}

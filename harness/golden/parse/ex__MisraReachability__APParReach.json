@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/MisraReachability/APParReach",
+ "wall_ms": 476.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Reachability",
+   "Reachable",
+   "ParReach",
+   "APParReach"
+  ],
+  "files": [
+   "APParReach",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "ParReach",
+   "Reachability",
+   "Sequences",
+   "Reachable"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APParReach",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "ParReach",
+   "Reachability",
+   "Sequences",
+   "Reachable"
+  ],
+  "msg": ""
+ }
+}

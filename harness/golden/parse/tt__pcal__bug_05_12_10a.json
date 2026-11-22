@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/bug_05_12_10a",
+ "wall_ms": 621.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "bug_05_12_10a"
+  ],
+  "files": [
+   "bug_05_12_10a",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "bug_05_12_10a",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

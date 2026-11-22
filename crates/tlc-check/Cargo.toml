@@ -1,0 +1,9 @@
+[package]
+name = "tlc-check"
+version.workspace = true
+edition.workspace = true
+description = "TLC model checker: BFS, fingerprint set, traces, liveness"
+
+[dependencies]
+tla-sany = { workspace = true }
+tlc-core = { workspace = true }

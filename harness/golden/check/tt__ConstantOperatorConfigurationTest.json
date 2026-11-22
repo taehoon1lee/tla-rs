@@ -1,0 +1,68 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ConstantOperatorConfigurationTest",
+ "wall_ms": 563.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 16,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 3,
+  "distinct": 3,
+  "left": 0,
+  "depth": 3,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 7, col 9 to line 7, col 17 of module ConstantOperatorConfiguration>",
+    "vars": {
+     "x": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 7, col 9 to line 7, col 17 of module ConstantOperatorConfiguration>",
+    "vars": {
+     "x": "2"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 597.5
+}

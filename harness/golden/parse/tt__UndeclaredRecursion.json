@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/UndeclaredRecursion",
+ "wall_ms": 340.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Base",
+   "Integers",
+   "UndeclaredRecursion"
+  ],
+  "files": [
+   "UndeclaredRecursion",
+   "Base",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "UndeclaredRecursion",
+   "Base",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

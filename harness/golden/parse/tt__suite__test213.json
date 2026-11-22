@@ -1,0 +1,34 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test213",
+ "wall_ms": 354.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "test213b",
+   "test213"
+  ],
+  "files": [
+   "test213",
+   "test213b"
+  ],
+  "msg": "Semantic errors: *** Errors: 5 line 13, col 1 to line 13, col 52 of module test213 Level error in instantiating module 'test213b': The level of the expression or operator substituted for 'C' must be at most 2. line 14, col 1 to line 14, col 52 of module test213 Level error in instantiating module 'test213b': The level of the expression or operator substituted for 'D' must be at most 2. line 29, col 8 to line 29, col 15 of module test213 Non-constant CASE for temporal goal. line 31, col 8 to line 31, col 15 of module test213 Non-constant TAKE, WITNESS, or HAVE for temporal goal. line 33, col 8 to line 33, col 22 of module test213 Non-constant TAKE, WITNESS, or HAVE for temporal goal."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "test213",
+   "test213b"
+  ],
+  "msg": ""
+ }
+}

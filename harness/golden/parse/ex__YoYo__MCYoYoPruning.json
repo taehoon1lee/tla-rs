@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/YoYo/MCYoYoPruning",
+ "wall_ms": 637.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "UndirectedGraphs",
+   "YoYoPruning",
+   "MCYoYoPruning"
+  ],
+  "files": [
+   "MCYoYoPruning",
+   "Integers",
+   "Naturals",
+   "YoYoPruning",
+   "TLC",
+   "FiniteSets",
+   "UndirectedGraphs",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCYoYoPruning",
+   "Integers",
+   "Naturals",
+   "YoYoPruning",
+   "TLC",
+   "FiniteSets",
+   "UndirectedGraphs",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

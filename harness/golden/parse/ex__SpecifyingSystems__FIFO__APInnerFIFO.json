@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/FIFO/APInnerFIFO",
+ "wall_ms": 371.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Channel",
+   "InnerFIFO",
+   "APInnerFIFO"
+  ],
+  "files": [
+   "APInnerFIFO",
+   "Naturals",
+   "Sequences",
+   "InnerFIFO",
+   "Channel"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APInnerFIFO",
+   "Naturals",
+   "Sequences",
+   "InnerFIFO",
+   "Channel"
+  ],
+  "msg": ""
+ }
+}

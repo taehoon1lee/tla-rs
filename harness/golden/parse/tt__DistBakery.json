@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/DistBakery",
+ "wall_ms": 574.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "DistBakery"
+  ],
+  "files": [
+   "DistBakery",
+   "Integers",
+   "Sequences",
+   "TLC",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DistBakery",
+   "Integers",
+   "Sequences",
+   "TLC",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

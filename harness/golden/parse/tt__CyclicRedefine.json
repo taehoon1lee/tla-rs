@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/CyclicRedefine",
+ "wall_ms": 383.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Base",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "CyclicRedefine"
+  ],
+  "files": [
+   "CyclicRedefine",
+   "Base",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CyclicRedefine",
+   "Base",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

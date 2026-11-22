@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1161",
+ "wall_ms": 364.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Github1161Abstract",
+   "Github1161"
+  ],
+  "files": [
+   "Github1161",
+   "Naturals",
+   "Github1161Abstract"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1161",
+   "Naturals",
+   "Github1161Abstract"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Majority/APMajority",
+ "wall_ms": 381.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Majority",
+   "APMajority"
+  ],
+  "files": [
+   "APMajority",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals",
+   "Majority"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APMajority",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals",
+   "Majority"
+  ],
+  "msg": ""
+ }
+}

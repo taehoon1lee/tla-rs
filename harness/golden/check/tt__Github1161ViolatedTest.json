@@ -1,0 +1,89 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1161ViolatedTest",
+ "wall_ms": 588.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property PropertyViolated was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 7,
+  "distinct": 7,
+  "left": 1,
+  "depth": 7,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "s": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 12, col 9 to line 12, col 44 of module Github1161>",
+    "vars": {
+     "s": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 12, col 9 to line 12, col 44 of module Github1161>",
+    "vars": {
+     "s": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 12, col 9 to line 12, col 44 of module Github1161>",
+    "vars": {
+     "s": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 12, col 9 to line 12, col 44 of module Github1161>",
+    "vars": {
+     "s": "4"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 12, col 9 to line 12, col 44 of module Github1161>",
+    "vars": {
+     "s": "5"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 598.2
+}

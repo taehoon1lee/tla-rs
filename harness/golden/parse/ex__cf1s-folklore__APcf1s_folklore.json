@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/cf1s-folklore/APcf1s_folklore",
+ "wall_ms": 402.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "cf1s_folklore",
+   "APcf1s_folklore"
+  ],
+  "files": [
+   "APcf1s_folklore",
+   "Naturals",
+   "FiniteSets",
+   "cf1s_folklore",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APcf1s_folklore",
+   "Naturals",
+   "FiniteSets",
+   "cf1s_folklore",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

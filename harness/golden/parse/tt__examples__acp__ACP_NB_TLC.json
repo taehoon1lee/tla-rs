@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/acp/ACP_NB_TLC",
+ "wall_ms": 886.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "ACP_SB",
+   "ACP_NB",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "ACP_NB_TLC"
+  ],
+  "files": [
+   "ACP_NB_TLC",
+   "ACP_NB",
+   "TLC",
+   "TLCExt",
+   "ACP_SB",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ACP_NB_TLC",
+   "ACP_NB",
+   "TLC",
+   "TLCExt",
+   "ACP_SB",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

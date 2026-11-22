@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/MultiAssignment",
+ "wall_ms": 382.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "MultiAssignment"
+  ],
+  "files": [
+   "MultiAssignment",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MultiAssignment",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

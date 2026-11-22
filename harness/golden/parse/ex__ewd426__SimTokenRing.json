@@ -1,0 +1,68 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd426/SimTokenRing",
+ "wall_ms": 547.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TokenRing",
+   "TLC",
+   "Integers",
+   "CSV",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "SimTokenRing"
+  ],
+  "files": [
+   "SimTokenRing",
+   "TokenRing",
+   "TLC",
+   "CSV",
+   "IOUtils",
+   "Naturals",
+   "FiniteSets",
+   "Sequences",
+   "Integers",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SimTokenRing",
+   "TokenRing",
+   "TLC",
+   "CSV",
+   "IOUtils",
+   "Naturals",
+   "FiniteSets",
+   "Sequences",
+   "Integers",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1476",
+ "wall_ms": 345.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Github1476"
+  ],
+  "files": [
+   "Github1476",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1476",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

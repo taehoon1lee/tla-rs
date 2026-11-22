@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/TLC/AlternatingBit_proof",
+ "wall_ms": 359.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "AlternatingBit",
+   "TLAPS",
+   "AlternatingBit_proof"
+  ],
+  "files": [
+   "AlternatingBit_proof",
+   "AlternatingBit",
+   "TLAPS",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "AlternatingBit_proof",
+   "AlternatingBit",
+   "TLAPS",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

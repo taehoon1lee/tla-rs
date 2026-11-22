@@ -1,0 +1,79 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github743Test",
+ "wall_ms": 534.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 17,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 11,
+  "distinct": 9,
+  "left": 3,
+  "depth": 4,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "\"foo\"",
+     "y": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 11, col 8 to line 12, col 20 of module Github743>",
+    "vars": {
+     "x": "\"foo\"",
+     "y": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 13, col 8 to line 14, col 20 of module Github743>",
+    "vars": {
+     "x": "TRUE",
+     "y": "3"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 13, col 8 to line 14, col 20 of module Github743>",
+    "vars": {
+     "x": "TRUE",
+     "y": "5"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 534.2
+}

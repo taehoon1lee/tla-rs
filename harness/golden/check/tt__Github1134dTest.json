@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1134dTest",
+ "wall_ms": 622.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2102,
+  "violation": null,
+  "error_codes": [
+   2102,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 2102,
+    "text": "Attempted to apply function: <<\"INIT\", \"INIT\">> to argument 3, which is not in the domain of the function. While working on the initial state: State = <<\"INIT\", \"INIT\">>"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 18, column 5 to line 18, column 30 in MultiUser 1. Line 8, column 1 to line 8, column 41 in Base 2. Line 8, column 5 to line 8, column 38 in UserStateMachine 3. Line 13, column 1 to line 15, column 38 in MultiUser 4. Line 13, column 9 to line 13, column 34 in SingleUser 5. Line 8, column 1 to line 8, column 41 in Base 6. Line 8, column 5 to line 8, column 38 in UserStateMachine 7. Line 8, column 5 to line 8, column 9 in UserStateMachine 8. Line 8, column 1 to line 8, column 41 in Base 9. Line 15, column 26 to line 15, column 38 in MultiUser 10. Line 15, column 31 to line 15, column 38 in MultiUser"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 1,
+  "left": 1,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 637.7
+}

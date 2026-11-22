@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/CRDT",
+ "wall_ms": 345.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "CRDT"
+  ],
+  "files": [
+   "CRDT",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CRDT",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/ReplicatedLog",
+ "wall_ms": 351.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "ReplicatedLog"
+  ],
+  "files": [
+   "ReplicatedLog",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ReplicatedLog",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

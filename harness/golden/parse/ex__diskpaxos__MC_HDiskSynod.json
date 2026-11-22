@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/diskpaxos/MC_HDiskSynod",
+ "wall_ms": 555.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Synod",
+   "Sequences",
+   "FiniteSets",
+   "DiskSynod",
+   "HDiskSynod",
+   "TLC",
+   "MC_HDiskSynod"
+  ],
+  "files": [
+   "MC_HDiskSynod",
+   "HDiskSynod",
+   "TLC",
+   "DiskSynod",
+   "Synod",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC_HDiskSynod",
+   "HDiskSynod",
+   "TLC",
+   "DiskSynod",
+   "Synod",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

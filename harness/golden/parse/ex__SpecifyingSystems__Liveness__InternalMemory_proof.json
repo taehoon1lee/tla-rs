@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Liveness/InternalMemory_proof",
+ "wall_ms": 384.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "MemoryInterface",
+   "InternalMemory",
+   "TLAPS",
+   "InternalMemory_proof"
+  ],
+  "files": [
+   "InternalMemory_proof",
+   "InternalMemory",
+   "TLAPS",
+   "MemoryInterface"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "InternalMemory_proof",
+   "InternalMemory",
+   "TLAPS",
+   "MemoryInterface"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Disruptor/Disruptor_MPMC",
+ "wall_ms": 439.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "RingBuffer",
+   "Disruptor_MPMC"
+  ],
+  "files": [
+   "Disruptor_MPMC",
+   "Integers",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "RingBuffer"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Disruptor_MPMC",
+   "Integers",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "RingBuffer"
+  ],
+  "msg": ""
+ }
+}

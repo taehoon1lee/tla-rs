@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/allocator/AllocatorRefinement",
+ "wall_ms": 389.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SchedulingAllocator",
+   "SimpleAllocator",
+   "AllocatorRefinement"
+  ],
+  "files": [
+   "AllocatorRefinement",
+   "SchedulingAllocator",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "SimpleAllocator"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "AllocatorRefinement",
+   "SchedulingAllocator",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "SimpleAllocator"
+  ],
+  "msg": ""
+ }
+}

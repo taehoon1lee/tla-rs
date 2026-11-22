@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/DieHardTLA",
+ "wall_ms": 479.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "_Possible",
+   "DieHardTLA"
+  ],
+  "files": [
+   "DieHardTLA",
+   "Integers",
+   "TLC",
+   "_Possible",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLCExt"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DieHardTLA",
+   "Integers",
+   "TLC",
+   "_Possible",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLCExt"
+  ],
+  "msg": ""
+ }
+}

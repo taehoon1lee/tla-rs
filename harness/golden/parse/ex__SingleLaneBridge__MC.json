@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SingleLaneBridge/MC",
+ "wall_ms": 403.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "SingleLaneBridge",
+   "TLC",
+   "MC"
+  ],
+  "files": [
+   "MC",
+   "SingleLaneBridge",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC",
+   "SingleLaneBridge",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

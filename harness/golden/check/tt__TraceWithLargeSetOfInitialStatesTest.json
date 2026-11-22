@@ -1,0 +1,63 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/TraceWithLargeSetOfInitialStatesTest",
+ "wall_ms": 719.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 18,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 11,
+  "init_generated": 11,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 12,
+  "distinct": 12,
+  "left": 10,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "1",
+     "y": "FALSE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Action line 6, col 42 to line 6, col 60 of module TraceWithLargeSetOfInitialStatesTest>",
+    "vars": {
+     "x": "1",
+     "y": "TRUE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 680.4
+}

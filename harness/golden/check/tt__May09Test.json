@@ -1,0 +1,103 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/May09Test",
+ "wall_ms": 625.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 25,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 2,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property prop_146183936178122000 was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2279,
+    "text": "Declaring symmetry during liveness checking is dangerous. It might cause TLC to miss violations of the stated liveness properties. Please check liveness without symmetry defined."
+   }
+  ],
+  "generated": 8,
+  "distinct": 6,
+  "left": 0,
+  "depth": 6,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "a",
+     "y": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<NextA line 10, col 10 to line 12, col 18 of module May09>",
+    "vars": {
+     "x": "a",
+     "y": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<NextB line 14, col 10 to line 17, col 18 of module May09>",
+    "vars": {
+     "x": "a",
+     "y": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<NextB line 14, col 10 to line 17, col 18 of module May09>",
+    "vars": {
+     "x": "a",
+     "y": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<NextB line 14, col 10 to line 17, col 18 of module May09>",
+    "vars": {
+     "x": "a",
+     "y": "4"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<NextB line 14, col 10 to line 17, col 18 of module May09>",
+    "vars": {
+     "x": "a",
+     "y": "5"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "2: Back to state: <NextC line 19, col 10 to line 21, col 18 of module May09>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 663.1
+}

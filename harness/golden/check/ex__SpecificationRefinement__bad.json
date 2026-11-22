@@ -1,0 +1,92 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/SpecificationRefinement/bad",
+ "wall_ms": 544.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 18,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2112,
+  "violation": "line 28, col 17 to line 28, col 29 of module abstract",
+  "error_codes": [
+   2112,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2112,
+    "text": "Action property line 28, col 17 to line 28, col 29 of module abstract is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 13,
+  "distinct": 12,
+  "left": 3,
+  "depth": 5,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "counter": "0",
+     "pc": "<<\"start\", \"start\">>",
+     "tmp": "<<0, 0>>"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 31, col 8 to line 32, col 23 of module bad>",
+    "vars": {
+     "counter": "0",
+     "pc": "<<\"inc\", \"start\">>",
+     "tmp": "<<0, 0>>"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 31, col 8 to line 32, col 23 of module bad>",
+    "vars": {
+     "counter": "0",
+     "pc": "<<\"inc\", \"inc\">>",
+     "tmp": "<<0, 0>>"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 34, col 8 to line 35, col 23 of module bad>",
+    "vars": {
+     "counter": "1",
+     "pc": "<<\"done\", \"inc\">>",
+     "tmp": "<<0, 0>>"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 34, col 8 to line 35, col 23 of module bad>",
+    "vars": {
+     "counter": "1",
+     "pc": "<<\"done\", \"done\">>",
+     "tmp": "<<0, 0>>"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 534.5
+}

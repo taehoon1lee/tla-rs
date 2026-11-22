@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/SVG",
+ "wall_ms": 566.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "SVG"
+  ],
+  "files": [
+   "SVG",
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "TLC",
+   "FiniteSets",
+   "IOUtils",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SVG",
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "TLC",
+   "FiniteSets",
+   "IOUtils",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

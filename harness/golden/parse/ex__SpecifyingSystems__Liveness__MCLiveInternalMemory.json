@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Liveness/MCLiveInternalMemory",
+ "wall_ms": 333.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "MemoryInterface",
+   "InternalMemory",
+   "LiveInternalMemory",
+   "MCLiveInternalMemory"
+  ],
+  "files": [
+   "MCLiveInternalMemory",
+   "LiveInternalMemory",
+   "InternalMemory",
+   "MemoryInterface"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCLiveInternalMemory",
+   "LiveInternalMemory",
+   "InternalMemory",
+   "MemoryInterface"
+  ],
+  "msg": ""
+ }
+}

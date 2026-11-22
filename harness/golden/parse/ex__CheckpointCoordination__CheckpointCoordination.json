@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/CheckpointCoordination/CheckpointCoordination",
+ "wall_ms": 630.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "CheckpointCoordination"
+  ],
+  "files": [
+   "CheckpointCoordination",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CheckpointCoordination",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

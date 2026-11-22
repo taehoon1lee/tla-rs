@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/cbc_max/cbc_max",
+ "wall_ms": 435.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "cbc_max"
+  ],
+  "files": [
+   "cbc_max",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "cbc_max",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

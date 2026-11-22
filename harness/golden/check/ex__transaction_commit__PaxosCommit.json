@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/transaction_commit/PaxosCommit",
+ "wall_ms": 147880.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 16,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": true,
+  "first_error": null,
+  "violation": null,
+  "error_codes": [],
+  "errors": [],
+  "warnings": [],
+  "generated": 16959159,
+  "distinct": 1321761,
+  "left": 0,
+  "depth": 28,
+  "outdegree": "The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 12 and the 95th percentile is 3).",
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ }
+}

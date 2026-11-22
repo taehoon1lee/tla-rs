@@ -1,0 +1,14 @@
+[package]
+name = "tlc-cli"
+version.workspace = true
+edition.workspace = true
+description = "tlc-rs command line: `tlc-rs sany ...` (= java tla2sany.SANY) and `tlc-rs tlc ...` (= java tlc2.TLC)"
+
+[[bin]]
+name = "tlc-rs"
+path = "src/main.rs"
+
+[dependencies]
+tla-sany = { workspace = true }
+tlc-core = { workspace = true }
+tlc-check = { workspace = true }

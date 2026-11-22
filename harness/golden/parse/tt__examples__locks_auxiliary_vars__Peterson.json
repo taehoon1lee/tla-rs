@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/locks_auxiliary_vars/Peterson",
+ "wall_ms": 433.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Lock",
+   "Peterson"
+  ],
+  "files": [
+   "Peterson",
+   "Integers",
+   "Naturals",
+   "Lock"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Peterson",
+   "Integers",
+   "Naturals",
+   "Lock"
+  ],
+  "msg": ""
+ }
+}

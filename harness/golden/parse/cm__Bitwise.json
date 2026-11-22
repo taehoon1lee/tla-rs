@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/Bitwise",
+ "wall_ms": 390.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Bitwise"
+  ],
+  "files": [
+   "Bitwise",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Bitwise",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

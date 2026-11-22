@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/EvenOdd",
+ "wall_ms": 372.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "EvenOdd"
+  ],
+  "files": [
+   "EvenOdd",
+   "Naturals",
+   "Sequences",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EvenOdd",
+   "Naturals",
+   "Sequences",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

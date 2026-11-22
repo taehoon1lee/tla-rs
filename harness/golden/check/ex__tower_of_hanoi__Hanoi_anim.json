@@ -1,0 +1,111 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/tower_of_hanoi/Hanoi_anim",
+ "wall_ms": 841.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 21,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NotSolved",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NotSolved is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 80,
+  "distinct": 25,
+  "left": 6,
+  "depth": 8,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "towers": "<<7, 0, 0>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<6, 0, 1>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<4, 2, 1>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<4, 3, 0>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<0, 3, 4>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<1, 2, 4>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<1, 0, 6>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<0, 0, 7>>",
+     "_anim": "[ exitValue |-> 0, stdout |-> \"Finish writing to the file with success!\", stderr |-> \"\" ]"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 892.5
+}

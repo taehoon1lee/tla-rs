@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/chang_roberts/APChangRoberts",
+ "wall_ms": 352.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "ChangRoberts",
+   "APChangRoberts"
+  ],
+  "files": [
+   "APChangRoberts",
+   "Naturals",
+   "Sequences",
+   "ChangRoberts"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APChangRoberts",
+   "Naturals",
+   "Sequences",
+   "ChangRoberts"
+  ],
+  "msg": ""
+ }
+}

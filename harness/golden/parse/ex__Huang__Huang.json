@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Huang/Huang",
+ "wall_ms": 540.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "DyadicRationals",
+   "Bags",
+   "SequencesExt",
+   "Huang"
+  ],
+  "files": [
+   "Huang",
+   "Naturals",
+   "DyadicRationals",
+   "Sequences",
+   "SequencesExt",
+   "Functions",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Huang",
+   "Naturals",
+   "DyadicRationals",
+   "Sequences",
+   "SequencesExt",
+   "Functions",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

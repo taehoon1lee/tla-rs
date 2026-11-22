@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/sany/StringFormFeedEscape",
+ "wall_ms": 255.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "StringFormFeedEscape"
+  ],
+  "files": [
+   "StringFormFeedEscape"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "StringFormFeedEscape"
+  ],
+  "msg": ""
+ }
+}

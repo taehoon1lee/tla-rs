@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Bug279/InitStateBug",
+ "wall_ms": 374.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "InitStateBug"
+  ],
+  "files": [
+   "InitStateBug",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "InitStateBug",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

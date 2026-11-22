@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd998/EWD998PCal",
+ "wall_ms": 604.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Bags",
+   "Folds",
+   "BagsExt",
+   "Sequences",
+   "FiniteSets",
+   "Functions",
+   "TLAPS",
+   "AsyncTerminationDetection",
+   "EWD998",
+   "EWD998PCal"
+  ],
+  "files": [
+   "EWD998PCal",
+   "Integers",
+   "Bags",
+   "BagsExt",
+   "Naturals",
+   "EWD998",
+   "FiniteSets",
+   "Functions",
+   "TLAPS",
+   "Folds",
+   "AsyncTerminationDetection",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EWD998PCal",
+   "Integers",
+   "Bags",
+   "BagsExt",
+   "Naturals",
+   "EWD998",
+   "FiniteSets",
+   "Functions",
+   "TLAPS",
+   "Folds",
+   "AsyncTerminationDetection",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecificationRefinement/good",
+ "wall_ms": 347.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "abstract",
+   "bad",
+   "good"
+  ],
+  "files": [
+   "good",
+   "Integers",
+   "Sequences",
+   "Naturals",
+   "abstract",
+   "bad"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "good",
+   "Integers",
+   "Sequences",
+   "Naturals",
+   "abstract",
+   "bad"
+  ],
+  "msg": ""
+ }
+}

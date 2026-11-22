@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tower_of_hanoi/Hanoi",
+ "wall_ms": 430.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Bits",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Hanoi"
+  ],
+  "files": [
+   "Hanoi",
+   "Naturals",
+   "Bits",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Hanoi",
+   "Naturals",
+   "Bits",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

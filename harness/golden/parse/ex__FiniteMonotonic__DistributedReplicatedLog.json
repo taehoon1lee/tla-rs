@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/DistributedReplicatedLog",
+ "wall_ms": 685.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "DistributedReplicatedLog"
+  ],
+  "files": [
+   "DistributedReplicatedLog",
+   "Sequences",
+   "SequencesExt",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Naturals",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DistributedReplicatedLog",
+   "Sequences",
+   "SequencesExt",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Naturals",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

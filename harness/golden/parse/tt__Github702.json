@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github702",
+ "wall_ms": 333.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "x_unchanged",
+   "Github702"
+  ],
+  "files": [
+   "Github702",
+   "Naturals",
+   "x_unchanged"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github702",
+   "Naturals",
+   "x_unchanged"
+  ],
+  "msg": ""
+ }
+}

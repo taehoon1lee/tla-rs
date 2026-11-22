@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/ewd998/Utils",
+ "wall_ms": 554.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "Utils"
+  ],
+  "files": [
+   "Utils",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Functions",
+   "SequencesExt",
+   "Naturals",
+   "Folds",
+   "FiniteSetsExt",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Utils",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Functions",
+   "SequencesExt",
+   "Naturals",
+   "Folds",
+   "FiniteSetsExt",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/FiniteSetsExtTheorems_proofs",
+ "wall_ms": 973.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "FoldsTheorems",
+   "TLAPS",
+   "FiniteSetsExtTheorems_proofs"
+  ],
+  "files": [
+   "FiniteSetsExtTheorems_proofs",
+   "FiniteSetsExt",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "FoldsTheorems",
+   "TLAPS",
+   "Folds",
+   "Functions",
+   "Naturals",
+   "WellFoundedInduction",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "FiniteSetsExtTheorems_proofs",
+   "FiniteSetsExt",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "FoldsTheorems",
+   "TLAPS",
+   "Folds",
+   "Functions",
+   "Naturals",
+   "WellFoundedInduction",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

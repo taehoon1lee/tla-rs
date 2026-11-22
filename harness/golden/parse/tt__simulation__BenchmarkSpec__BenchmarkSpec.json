@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/simulation/BenchmarkSpec/BenchmarkSpec",
+ "wall_ms": 331.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "BenchmarkSpec"
+  ],
+  "files": [
+   "BenchmarkSpec",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "BenchmarkSpec",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

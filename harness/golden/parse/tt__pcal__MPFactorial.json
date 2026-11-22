@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/MPFactorial",
+ "wall_ms": 490.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "MPFactorial"
+  ],
+  "files": [
+   "MPFactorial",
+   "Naturals",
+   "Sequences",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MPFactorial",
+   "Naturals",
+   "Sequences",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

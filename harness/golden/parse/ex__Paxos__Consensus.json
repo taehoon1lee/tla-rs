@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Paxos/Consensus",
+ "wall_ms": 553.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLAPS",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "Consensus"
+  ],
+  "files": [
+   "Consensus",
+   "Naturals",
+   "FiniteSets",
+   "TLAPS",
+   "FiniteSetTheorems",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Consensus",
+   "Naturals",
+   "FiniteSets",
+   "TLAPS",
+   "FiniteSetTheorems",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

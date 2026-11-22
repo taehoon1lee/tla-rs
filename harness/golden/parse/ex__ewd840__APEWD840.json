@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd840/APEWD840",
+ "wall_ms": 389.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "TLAPS",
+   "SyncTerminationDetection",
+   "EWD840",
+   "APEWD840"
+  ],
+  "files": [
+   "APEWD840",
+   "Naturals",
+   "EWD840",
+   "TLAPS",
+   "SyncTerminationDetection"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APEWD840",
+   "Naturals",
+   "EWD840",
+   "TLAPS",
+   "SyncTerminationDetection"
+  ],
+  "msg": ""
+ }
+}

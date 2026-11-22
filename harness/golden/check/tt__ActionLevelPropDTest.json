@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ActionLevelPropDTest",
+ "wall_ms": 447.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 151,
+  "exit_name": "error_config_parse",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2273,
+  "violation": null,
+  "error_codes": [
+   2273
+  ],
+  "errors": [
+   {
+    "code": 2273,
+    "text": "The formula ActionLivePropD at line 29, col 5 to line 29, col 15 of module ActionLevelProp is an action-level formula (i.e., it contains no temporal operators). Only temporal-level (or state-level) formulas are allowed under PROPERTY or PROPERTIES. To check that action ActionLivePropD holds in *every* step of the behavior, define a temporal property by applying the \"always\" temporal operator ([]) to the formula at line 29, col 5 to line 29, col 15 of module ActionLevelProp (compare page 90 of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html)."
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 411.7
+}

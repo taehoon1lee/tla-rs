@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/GraphTheorems",
+ "wall_ms": 742.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "Relation",
+   "Graphs",
+   "GraphTheorems"
+  ],
+  "files": [
+   "GraphTheorems",
+   "Graphs",
+   "Sequences",
+   "Naturals",
+   "FiniteSets",
+   "SequencesExt",
+   "Relation",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "GraphTheorems",
+   "Graphs",
+   "Sequences",
+   "Naturals",
+   "FiniteSets",
+   "SequencesExt",
+   "Relation",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1476CBOR",
+ "wall_ms": 384.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "CBOR",
+   "Github1476CBOR"
+  ],
+  "files": [
+   "Github1476CBOR",
+   "TLC",
+   "TLCExt",
+   "CBOR",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1476CBOR",
+   "TLC",
+   "TLCExt",
+   "CBOR",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

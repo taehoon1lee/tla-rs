@@ -1,0 +1,68 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/ModuleSemanticsTheorems",
+ "wall_ms": 616.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Bags",
+   "Randomization",
+   "ModuleSemanticsCases",
+   "ModuleSemanticsTheorems"
+  ],
+  "files": [
+   "ModuleSemanticsTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "TLAPS",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "ModuleSemanticsCases",
+   "Bags",
+   "Randomization",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ModuleSemanticsTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "TLAPS",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "ModuleSemanticsCases",
+   "Bags",
+   "Randomization",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

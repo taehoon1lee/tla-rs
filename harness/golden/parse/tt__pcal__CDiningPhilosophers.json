@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/CDiningPhilosophers",
+ "wall_ms": 448.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "CDiningPhilosophers"
+  ],
+  "files": [
+   "CDiningPhilosophers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CDiningPhilosophers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

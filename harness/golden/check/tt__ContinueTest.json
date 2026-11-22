@@ -1,0 +1,313 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ContinueTest",
+ "wall_ms": 667.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 49,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": true,
+  "first_error": 2110,
+  "violation": "Inv1",
+  "error_codes": [
+   2110,
+   2121,
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv1 is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 2110,
+    "text": "Invariant Inv2 is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 32,
+  "distinct": 29,
+  "left": 0,
+  "depth": 29,
+  "outdegree": "The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 1 and the 95th percentile is 1).",
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "1",
+     "y": "1"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "2",
+     "y": "2"
+    }
+   },
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "1",
+     "y": "1"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "2",
+     "y": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "3",
+     "y": "1"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "4",
+     "y": "1"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "5",
+     "y": "1"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "6",
+     "y": "1"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "7",
+     "y": "1"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "8",
+     "y": "1"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "9",
+     "y": "1"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "10",
+     "y": "1"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "11",
+     "y": "1"
+    }
+   },
+   {
+    "n": 12,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "12",
+     "y": "1"
+    }
+   },
+   {
+    "n": 13,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "13",
+     "y": "1"
+    }
+   },
+   {
+    "n": 14,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "14",
+     "y": "1"
+    }
+   },
+   {
+    "n": 15,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "15",
+     "y": "1"
+    }
+   },
+   {
+    "n": 16,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "16",
+     "y": "1"
+    }
+   },
+   {
+    "n": 17,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "17",
+     "y": "1"
+    }
+   },
+   {
+    "n": 18,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "18",
+     "y": "1"
+    }
+   },
+   {
+    "n": 19,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "19",
+     "y": "1"
+    }
+   },
+   {
+    "n": 20,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "20",
+     "y": "1"
+    }
+   },
+   {
+    "n": 21,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "21",
+     "y": "1"
+    }
+   },
+   {
+    "n": 22,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "22",
+     "y": "1"
+    }
+   },
+   {
+    "n": 23,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "23",
+     "y": "1"
+    }
+   },
+   {
+    "n": 24,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "24",
+     "y": "1"
+    }
+   },
+   {
+    "n": 25,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "25",
+     "y": "1"
+    }
+   },
+   {
+    "n": 26,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "26",
+     "y": "1"
+    }
+   },
+   {
+    "n": 27,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "27",
+     "y": "1"
+    }
+   },
+   {
+    "n": 28,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "28",
+     "y": "1"
+    }
+   },
+   {
+    "n": 29,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "29",
+     "y": "1"
+    }
+   },
+   {
+    "n": 30,
+    "label": "<Next line 8, col 9 to line 11, col 28 of module Continue>",
+    "vars": {
+     "x": "30",
+     "y": "1"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 664.8
+}

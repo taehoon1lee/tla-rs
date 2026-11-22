@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/BidirectionalTransitions",
+ "wall_ms": 306.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "BidirectionalTransitions"
+  ],
+  "files": [
+   "BidirectionalTransitions",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "BidirectionalTransitions",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

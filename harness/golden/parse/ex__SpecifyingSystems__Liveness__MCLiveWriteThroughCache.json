@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Liveness/MCLiveWriteThroughCache",
+ "wall_ms": 518.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "WriteThroughCacheInstanced",
+   "LiveWriteThroughCache",
+   "MCLiveWriteThroughCache"
+  ],
+  "files": [
+   "MCLiveWriteThroughCache",
+   "LiveWriteThroughCache",
+   "WriteThroughCacheInstanced",
+   "Naturals",
+   "Sequences",
+   "MemoryInterface"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCLiveWriteThroughCache",
+   "LiveWriteThroughCache",
+   "WriteThroughCacheInstanced",
+   "Naturals",
+   "Sequences",
+   "MemoryInterface"
+  ],
+  "msg": ""
+ }
+}

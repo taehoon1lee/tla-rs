@@ -1,0 +1,97 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/TableauSymmetryTest",
+ "wall_ms": 653.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 25,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": "prop_144481269489929000 and AllReady",
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal properties prop_144481269489929000 and AllReady were violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2279,
+    "text": "Declaring symmetry during liveness checking is dangerous. It might cause TLC to miss violations of the stated liveness properties. Please check liveness without symmetry defined."
+   }
+  ],
+  "generated": 13,
+  "distinct": 6,
+  "left": 0,
+  "depth": 5,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "arr": "(a :> \"ready\" @@ b :> \"ready\")"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Ready(a) line 7, col 13 to line 8, col 47 of module TableauSymmetry>",
+    "vars": {
+     "arr": "(a :> \"busy\" @@ b :> \"ready\")"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Busy(a) line 10, col 12 to line 11, col 46 of module TableauSymmetry>",
+    "vars": {
+     "arr": "(a :> \"done\" @@ b :> \"ready\")"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Ready(b) line 7, col 13 to line 8, col 47 of module TableauSymmetry>",
+    "vars": {
+     "arr": "(a :> \"done\" @@ b :> \"busy\")"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Busy(b) line 10, col 12 to line 11, col 46 of module TableauSymmetry>",
+    "vars": {
+     "arr": "(a :> \"done\" @@ b :> \"done\")"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Done(a) line 13, col 12 to line 14, col 47 of module TableauSymmetry>",
+    "vars": {
+     "arr": "(a :> \"ready\" @@ b :> \"done\")"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "4: Back to state: <Ready(a) line 7, col 13 to line 8, col 47 of module TableauSymmetry>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 660.6
+}

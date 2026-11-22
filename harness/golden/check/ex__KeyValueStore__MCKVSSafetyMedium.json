@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/KeyValueStore/MCKVSSafetyMedium",
+ "wall_ms": 600378.1,
+ "status": "timeout",
+ "timeout_s": 600
+}

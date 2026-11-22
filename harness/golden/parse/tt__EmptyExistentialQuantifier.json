@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EmptyExistentialQuantifier",
+ "wall_ms": 275.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "EmptyExistentialQuantifier"
+  ],
+  "files": [
+   "EmptyExistentialQuantifier"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EmptyExistentialQuantifier"
+  ],
+  "msg": ""
+ }
+}

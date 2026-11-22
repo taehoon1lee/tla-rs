@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github696Test",
+ "wall_ms": 589.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2102,
+  "violation": null,
+  "error_codes": [
+   2102,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 2102,
+    "text": "Attempted to compare the differently-typed model values A_31 and B_a While working on the initial state: v = (A_0 :> \"A_0\" @@ A_1 :> \"A_1\" @@ A_2 :> \"A_2\" @@ A_3 :> \"A_3\" @@ A_4 :> \"A_4\" @@ A_5 :> \"A_5\" @@ A_6 :> \"A_6\" @@ A_7 :> \"A_7\" @@ A_8 :> \"A_8\" @@ A_9 :> \"A_9\" @@ A_10 :> \"A_10\" @@ A_11 :> \"A_11\" @@ A_12 :> \"A_12\" @@ A_13 :> \"A_13\" @@ A_14 :> \"A_14\" @@ A_15 :> \"A_15\" @@ A_16 :> \"A_16\" @@ A_17 :> \"A_17\" @@ A_18 :> \"A_18\" @@ A_19 :> \"A_19\" @@ A_20 :> \"A_20\" @@ A_21 :> \"A_21\" @@ A_22 :> \"A_22\" @@ A_23 :> \"A_23\" @@ A_24 :> \"A_24\" @@ A_25 :> \"A_25\" @@ A_26 :> \"A_26\" @@ A_27 :> \"A_27\" @@ A_28 :> \"A_28\" @@ A_29 :> \"A_29\" @@ A_30 :> \"A_30\" @@ A_31 :> \"A_31\" @@ A_32 :> \"A_32\" @@ A_33 :> \"A_33\" @@ A_34 :> \"A_34\" @@ A_35 :> \"A_35\" @@ A_36 :> \"A_36\" @@ A_37 :> \"A_37\" @@ A_38 :> \"A_38\" @@ A_39 :> \"A_39\" @@ A_40 :> \"A_40\" @@ A_41 :> \"A_41\" @@ A_42 :> \"A_42\" @@ A_43 :> \"A_43\" @@ A_44 :> \"A_44\" @@ A_45 :> \"A_45\" @@ A_46 :> \"A_46\" @@ A_47 :> \"A_47\" @@ A_48 :> \"A_48\" @@ A_49 :> \"A_49\" @@ A_50 :> \"A_50\" @@ A_51 :> \"A_51\" @@ A_52 :> \"A_52\" @@ A_53 :> \"A_53\" @@ A_54 :> \"A_54\" @@ A_55 :> \"A_55\" @@ A_56 :> \"A_56\" @@ A_57 :> \"A_57\" @@ A_58 :> \"A_58\" @@ A_59 :> \"A_59\" @@ A_60 :> \"A_60\" @@ A_61 :> \"A_61\" @@ A_62 :> \"A_62\" @@ A_63 :> \"A_63\")"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 23, column 9 to line 23, column 43 in Github696 1. Line 27, column 8 to line 27, column 33 in Github696 2. Line 27, column 12 to line 27, column 33 in Github696"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 1,
+  "left": 1,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 585.0
+}

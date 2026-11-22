@@ -1,0 +1,114 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CodePlexBug08aTest",
+ "wall_ms": 697.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 28,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 8,
+  "init_generated": 8,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property prop_14273156623745000 was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 18,
+  "distinct": 11,
+  "left": 0,
+  "depth": 4,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "b": "FALSE",
+     "x": "1"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<B line 11, col 6 to line 13, col 18 of module CodeplexBug8>",
+    "vars": {
+     "b": "TRUE",
+     "x": "2"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<A line 6, col 6 to line 9, col 19 of module CodeplexBug8>",
+    "vars": {
+     "b": "FALSE",
+     "x": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<B line 11, col 6 to line 13, col 18 of module CodeplexBug8>",
+    "vars": {
+     "b": "TRUE",
+     "x": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<A line 6, col 6 to line 9, col 19 of module CodeplexBug8>",
+    "vars": {
+     "b": "FALSE",
+     "x": "3"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<B line 11, col 6 to line 13, col 18 of module CodeplexBug8>",
+    "vars": {
+     "b": "TRUE",
+     "x": "4"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<A line 6, col 6 to line 9, col 19 of module CodeplexBug8>",
+    "vars": {
+     "b": "FALSE",
+     "x": "4"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<B line 11, col 6 to line 13, col 18 of module CodeplexBug8>",
+    "vars": {
+     "b": "TRUE",
+     "x": "5"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "9: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 698.3
+}

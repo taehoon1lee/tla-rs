@@ -1,0 +1,40 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/barriers/APBarrier",
+ "wall_ms": 349.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [
+   "warnings"
+  ],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Barrier",
+   "APBarrier"
+  ],
+  "files": [
+   "APBarrier",
+   "Integers",
+   "Naturals",
+   "Barrier"
+  ],
+  "msg": "*** Warnings: 1 line 20, col 1 to line 20, col 16 of module APBarrier Multiple declarations or definitions for symbol vars. This duplicates the one at line 18, col 1 to line 18, col 16 of module APBarrier. Linting of module Barrier Linting of module APBarrier"
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APBarrier",
+   "Integers",
+   "Naturals",
+   "Barrier"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,117 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1389CountingTest",
+ "wall_ms": 616.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 24,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property CountAtMostFour was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 5,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<Next line 24, col 9 to line 24, col 22 of module Github1389Counting>",
+    "vars": {
+     "x": "TRUE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 614.4
+}

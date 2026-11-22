@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/transaction_commit/2PCwithBTM",
+ "wall_ms": 548.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "2PCwithBTM"
+  ],
+  "files": [
+   "2PCwithBTM",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "2PCwithBTM",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

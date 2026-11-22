@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/c1cs/c1cs",
+ "wall_ms": 471.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "c1cs"
+  ],
+  "files": [
+   "c1cs",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "c1cs",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

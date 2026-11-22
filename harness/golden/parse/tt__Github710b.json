@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github710b",
+ "wall_ms": 378.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "Github710b"
+  ],
+  "files": [
+   "Github710b",
+   "Naturals",
+   "TLC",
+   "TLCExt",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github710b",
+   "Naturals",
+   "TLC",
+   "TLCExt",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

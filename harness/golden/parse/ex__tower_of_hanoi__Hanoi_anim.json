@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tower_of_hanoi/Hanoi_anim",
+ "wall_ms": 659.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "SVG",
+   "Bits",
+   "Hanoi",
+   "Hanoi_anim"
+  ],
+  "files": [
+   "Hanoi_anim",
+   "TLC",
+   "SVG",
+   "Sequences",
+   "Hanoi",
+   "Naturals",
+   "Bits",
+   "FiniteSets",
+   "Integers",
+   "IOUtils",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Hanoi_anim",
+   "TLC",
+   "SVG",
+   "Sequences",
+   "Hanoi",
+   "Naturals",
+   "Bits",
+   "FiniteSets",
+   "Integers",
+   "IOUtils",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

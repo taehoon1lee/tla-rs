@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EmptySetEqCases_proofs",
+ "wall_ms": 1027.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "EmptySetEqCases",
+   "EmptySetEqTheorems",
+   "EmptySetEqCases_proofs"
+  ],
+  "files": [
+   "EmptySetEqCases_proofs",
+   "EmptySetEqCases",
+   "EmptySetEqTheorems",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EmptySetEqCases_proofs",
+   "EmptySetEqCases",
+   "EmptySetEqTheorems",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

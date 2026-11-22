@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EmptySetEqStates",
+ "wall_ms": 532.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "EmptySetEqStates"
+  ],
+  "files": [
+   "EmptySetEqStates",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EmptySetEqStates",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

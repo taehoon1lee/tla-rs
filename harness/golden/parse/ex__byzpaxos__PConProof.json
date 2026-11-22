@@ -1,0 +1,68 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/byzpaxos/PConProof",
+ "wall_ms": 1246.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "NaturalsInduction",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLC",
+   "Consensus",
+   "VoteProof",
+   "PConProof"
+  ],
+  "files": [
+   "PConProof",
+   "Integers",
+   "TLAPS",
+   "Naturals",
+   "VoteProof",
+   "NaturalsInduction",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLC",
+   "Functions",
+   "Folds",
+   "Consensus",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "PConProof",
+   "Integers",
+   "TLAPS",
+   "Naturals",
+   "VoteProof",
+   "NaturalsInduction",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLC",
+   "Functions",
+   "Folds",
+   "Consensus",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

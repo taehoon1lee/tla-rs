@@ -1,0 +1,111 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ViewMapTest",
+ "wall_ms": 700.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 21,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 43,
+  "distinct": 14,
+  "left": 1,
+  "depth": 8,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "buffer": "<<>>",
+     "waitset": "{}"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<lbc(c1) line 73, col 14 to line 84, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<>>",
+     "waitset": "{c1}"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<lbc(c2) line 73, col 14 to line 84, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<>>",
+     "waitset": "{c1, c2}"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<lbp(p1) line 58, col 14 to line 69, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<\"d\">>",
+     "waitset": "{c2}"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<lbp(p1) line 58, col 14 to line 69, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<\"d\">>",
+     "waitset": "{c2, p1}"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<lbc(c1) line 73, col 14 to line 84, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<>>",
+     "waitset": "{p1}"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<lbc(c1) line 73, col 14 to line 84, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<>>",
+     "waitset": "{c1, p1}"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<lbc(c2) line 73, col 14 to line 84, col 60 of module ViewMap>",
+    "vars": {
+     "buffer": "<<>>",
+     "waitset": "{c1, c2, p1}"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 702.9
+}

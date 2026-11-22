@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EmptySetEqAssume",
+ "wall_ms": 972.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "TLCExt",
+   "EmptySetEqCases",
+   "EmptySetEqAssume"
+  ],
+  "files": [
+   "EmptySetEqAssume",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "TLC",
+   "TLCExt",
+   "EmptySetEqCases",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EmptySetEqAssume",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "TLC",
+   "TLCExt",
+   "EmptySetEqCases",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

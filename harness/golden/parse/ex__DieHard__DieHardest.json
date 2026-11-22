@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/DieHard/DieHardest",
+ "wall_ms": 449.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Folds",
+   "Functions",
+   "Sequences",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "TLC",
+   "DieHarder",
+   "DieHardest"
+  ],
+  "files": [
+   "DieHardest",
+   "Naturals",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "Integers",
+   "Folds",
+   "FiniteSets",
+   "DieHarder",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DieHardest",
+   "Naturals",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "Integers",
+   "Folds",
+   "FiniteSets",
+   "DieHarder",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

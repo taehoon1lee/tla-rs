@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/Github136",
+ "wall_ms": 378.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Github136Inner",
+   "Github136"
+  ],
+  "files": [
+   "Github136",
+   "Naturals",
+   "Github136Inner"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github136",
+   "Naturals",
+   "Github136Inner"
+  ],
+  "msg": ""
+ }
+}

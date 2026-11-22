@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test216a",
+ "wall_ms": 328.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "test216b",
+   "test216a"
+  ],
+  "files": [
+   "test216a",
+   "Naturals",
+   "test216b"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "test216a",
+   "Naturals",
+   "test216b"
+  ],
+  "msg": ""
+ }
+}

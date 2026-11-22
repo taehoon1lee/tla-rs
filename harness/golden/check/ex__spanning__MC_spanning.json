@@ -1,0 +1,74 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/spanning/MC_spanning",
+ "wall_ms": 594.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 16,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "TypeOK",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant TypeOK is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 19,
+  "distinct": 5,
+  "left": 2,
+  "depth": 3,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "prnt": "<<NoPrnt, NoPrnt, NoPrnt>>",
+     "rpt": "<<FALSE, FALSE, FALSE>>",
+     "msg": "{}"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 25, col 27 to line 28, col 62 of module spanning>",
+    "vars": {
+     "prnt": "<<NoPrnt, NoPrnt, NoPrnt>>",
+     "rpt": "<<FALSE, FALSE, FALSE>>",
+     "msg": "{<<1, 2>>}"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 25, col 27 to line 28, col 62 of module spanning>",
+    "vars": {
+     "prnt": "<<NoPrnt, 1, NoPrnt>>",
+     "rpt": "<<FALSE, FALSE, FALSE>>",
+     "msg": "{<<1, 2>>}"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 659.2
+}

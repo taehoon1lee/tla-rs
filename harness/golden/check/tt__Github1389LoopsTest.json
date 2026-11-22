@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1389LoopsTest",
+ "wall_ms": 600181.4,
+ "status": "timeout",
+ "timeout_s": 600
+}

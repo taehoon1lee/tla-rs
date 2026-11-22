@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1417TopLevel",
+ "wall_ms": 270.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Github1417Empty",
+   "Github1417TopLevel"
+  ],
+  "files": [
+   "Github1417TopLevel",
+   "Github1417Empty"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1417TopLevel",
+   "Github1417Empty"
+  ],
+  "msg": ""
+ }
+}

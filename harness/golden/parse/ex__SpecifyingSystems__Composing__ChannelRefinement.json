@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Composing/ChannelRefinement",
+ "wall_ms": 344.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Channel",
+   "ChannelRefinement"
+  ],
+  "files": [
+   "ChannelRefinement",
+   "Naturals",
+   "Sequences",
+   "Channel"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ChannelRefinement",
+   "Naturals",
+   "Sequences",
+   "Channel"
+  ],
+  "msg": ""
+ }
+}

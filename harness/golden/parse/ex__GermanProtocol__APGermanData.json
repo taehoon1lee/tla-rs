@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/GermanProtocol/APGermanData",
+ "wall_ms": 527.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "GermanControl",
+   "GermanData",
+   "APGermanData"
+  ],
+  "files": [
+   "APGermanData",
+   "GermanData",
+   "Naturals",
+   "FiniteSets",
+   "GermanControl",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APGermanData",
+   "GermanData",
+   "Naturals",
+   "FiniteSets",
+   "GermanControl",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

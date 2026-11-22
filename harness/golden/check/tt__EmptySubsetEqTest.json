@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/EmptySubsetEqTest",
+ "wall_ms": 656.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 1000,
+  "violation": null,
+  "error_codes": [
+   1000,
+   2121,
+   2147
+  ],
+  "errors": [
+   {
+    "code": 1000,
+    "text": "TLC threw an unexpected exception. This was probably caused by an error in the spec or model. See the User Output or TLC Console for clues to what happened. The exception was a java.lang.RuntimeException : Attempted to check if the value: {} is in the integer interval 1..4"
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 2147,
+    "text": "TLC was unable to fingerprint. Fingerprint Stack Trace: 0. Line 8, column 9 to line 8, column 48 in EmptySubsetEq 1. Line 8, column 14 to line 8, column 48 in EmptySubsetEq 2. Line 8, column 17 to line 8, column 48 in EmptySubsetEq 3. Line 8, column 18 to line 8, column 30 in EmptySubsetEq Reason: Attempted to check if the value: {} is in the integer interval 1..4"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "b": "TRUE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 629.8
+}

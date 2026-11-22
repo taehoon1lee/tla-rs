@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_1/CarTalkPuzzle",
+ "wall_ms": 472.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "CarTalkPuzzle"
+  ],
+  "files": [
+   "CarTalkPuzzle",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CarTalkPuzzle",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github746Test",
+ "wall_ms": 563.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 8,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2107,
+  "violation": "Inv",
+  "error_codes": [
+   2107
+  ],
+  "errors": [
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: /\\ i = 1 /\\ foo = \"bar\" /\\ j = TRUE"
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 568.5
+}

@@ -1,0 +1,110 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/RandomSubsetNextTuplesTest",
+ "wall_ms": 783.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 21,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 4,
+  "init_generated": 4,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 5461,
+  "distinct": 5461,
+  "left": 4095,
+  "depth": 7,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "p": "<<138, 74, 54>>",
+     "q": "<<1969, 3974, 3805>>",
+     "y": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 19, col 9 to line 21, col 21 of module RandomSubsetNextTuples>",
+    "vars": {
+     "p": "<<47, 84, 67>>",
+     "q": "<<1689, 1520, 3594>>",
+     "y": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 19, col 9 to line 21, col 21 of module RandomSubsetNextTuples>",
+    "vars": {
+     "p": "<<10, 44, 7>>",
+     "q": "<<2776, 1400, 1342>>",
+     "y": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 19, col 9 to line 21, col 21 of module RandomSubsetNextTuples>",
+    "vars": {
+     "p": "<<8, 99, 181>>",
+     "q": "<<669, 2451, 1662>>",
+     "y": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 19, col 9 to line 21, col 21 of module RandomSubsetNextTuples>",
+    "vars": {
+     "p": "<<139, 147, 91>>",
+     "q": "<<1709, 447, 3450>>",
+     "y": "4"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 19, col 9 to line 21, col 21 of module RandomSubsetNextTuples>",
+    "vars": {
+     "p": "<<64, 19, 1>>",
+     "q": "<<1015, 3545, 3614>>",
+     "y": "5"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 19, col 9 to line 21, col 21 of module RandomSubsetNextTuples>",
+    "vars": {
+     "p": "<<109, 117, 189>>",
+     "q": "<<570, 3438, 3983>>",
+     "y": "6"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 761.8
+}

@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/testfoo",
+ "wall_ms": 253.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal"
+  ],
+  "modules": [],
+  "files": [
+   "testfoo"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/testfoo.tla Unknown location File name 'testfoo' does not match the name 'test' of the top level module it contains. *** Errors: 1 Unknown location File name 'testfoo' does not match the name 'test' of the top level module it contains."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal"
+  ],
+  "modules": [],
+  "files": [
+   "testfoo"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/testfoo.tla Unknown location File name 'testfoo' does not match the name 'test' of the top level module it contains. *** Errors: 1 Unknown location File name 'testfoo' does not match the name 'test' of the top level module it contains."
+ }
+}

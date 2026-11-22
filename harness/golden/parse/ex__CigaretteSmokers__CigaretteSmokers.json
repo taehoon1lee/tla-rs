@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/CigaretteSmokers/CigaretteSmokers",
+ "wall_ms": 356.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "CigaretteSmokers"
+  ],
+  "files": [
+   "CigaretteSmokers",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CigaretteSmokers",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

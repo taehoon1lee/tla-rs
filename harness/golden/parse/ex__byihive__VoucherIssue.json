@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/byihive/VoucherIssue",
+ "wall_ms": 447.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "VoucherLifeCycle",
+   "VoucherIssue"
+  ],
+  "files": [
+   "VoucherIssue",
+   "VoucherLifeCycle"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "VoucherIssue",
+   "VoucherLifeCycle"
+  ],
+  "msg": ""
+ }
+}

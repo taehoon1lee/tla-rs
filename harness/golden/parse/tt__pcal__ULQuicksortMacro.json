@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/ULQuicksortMacro",
+ "wall_ms": 506.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "ULQuicksortMacro"
+  ],
+  "files": [
+   "ULQuicksortMacro",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ULQuicksortMacro",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

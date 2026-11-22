@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/lamport_mutex/LamportMutex_proofs",
+ "wall_ms": 1148.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "LamportMutex",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "TLAPS",
+   "SequenceTheorems",
+   "LamportMutex_proofs"
+  ],
+  "files": [
+   "LamportMutex_proofs",
+   "LamportMutex",
+   "SequenceTheorems",
+   "TLAPS",
+   "Naturals",
+   "Sequences",
+   "Functions",
+   "Integers",
+   "Folds",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LamportMutex_proofs",
+   "LamportMutex",
+   "SequenceTheorems",
+   "TLAPS",
+   "Naturals",
+   "Sequences",
+   "Functions",
+   "Integers",
+   "Folds",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ }
+}

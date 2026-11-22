@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/Quicksort2Procs",
+ "wall_ms": 497.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Quicksort2Procs"
+  ],
+  "files": [
+   "Quicksort2Procs",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Quicksort2Procs",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

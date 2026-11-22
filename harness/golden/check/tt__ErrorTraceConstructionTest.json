@@ -1,0 +1,114 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ErrorTraceConstructionTest",
+ "wall_ms": 720.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 26,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property prop_14411937652505000 was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 9,
+  "distinct": 8,
+  "left": 0,
+  "depth": 8,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "0",
+     "y": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<N0 line 11, col 7 to line 13, col 15 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "0",
+     "y": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<N1 line 14, col 7 to line 16, col 15 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "0",
+     "y": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<N2 line 17, col 7 to line 19, col 15 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "0",
+     "y": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<N3 line 20, col 7 to line 22, col 15 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "0",
+     "y": "4"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<N4 line 23, col 7 to line 25, col 22 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "1",
+     "y": "5"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<N5 line 26, col 7 to line 28, col 22 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "0",
+     "y": "6"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<N6 line 29, col 7 to line 31, col 15 of module ErrorTraceConstruction>",
+    "vars": {
+     "x": "0",
+     "y": "7"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "4: Back to state: <N7 line 32, col 7 to line 34, col 15 of module ErrorTraceConstruction>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 755.7
+}

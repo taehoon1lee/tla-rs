@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/KeyValueStore/MCKVsnap",
+ "wall_ms": 830.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "TLC",
+   "Util",
+   "ClientCentric",
+   "KVsnap",
+   "MCKVsnap"
+  ],
+  "files": [
+   "MCKVsnap",
+   "KVsnap",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Util",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "ClientCentric"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCKVsnap",
+   "KVsnap",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Util",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "ClientCentric"
+  ],
+  "msg": ""
+ }
+}

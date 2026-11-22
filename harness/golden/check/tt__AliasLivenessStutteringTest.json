@@ -1,0 +1,69 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/AliasLivenessStutteringTest",
+ "wall_ms": 726.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264,
+   2404
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property Prop was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   },
+   {
+    "code": 2404,
+    "text": "Postcondition PostConditionStuttering at line 419, col 9 to line 431, col 65 of module Alias is false."
+   }
+  ],
+  "warnings": [],
+  "generated": 5,
+  "distinct": 4,
+  "left": 0,
+  "depth": 4,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "yy": "FALSE",
+     "x": "1",
+     "a": "0",
+     "b": "TRUE",
+     "anim": "\"e1: 1 e2: FALSE\"",
+     "te": "TRUE",
+     "lvl": "<<1, 1>>",
+     "trc": "<<[x |-> 1, y |-> FALSE]>>"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "2: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 722.5
+}

@@ -1,0 +1,43 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/etest5",
+ "wall_ms": 388.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "etest5"
+  ],
+  "files": [
+   "etest5",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": "Semantic errors: *** Errors: 1 line 13, col 15 to line 13, col 20 of module etest5 Unknown operator: `M!Init'."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "etest5",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

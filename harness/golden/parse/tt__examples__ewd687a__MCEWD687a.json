@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/ewd687a/MCEWD687a",
+ "wall_ms": 1140.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "Relation",
+   "Graphs",
+   "EWD687a",
+   "TLCExt",
+   "MCEWD687a"
+  ],
+  "files": [
+   "MCEWD687a",
+   "EWD687a",
+   "TLC",
+   "TLCExt",
+   "Integers",
+   "Naturals",
+   "Graphs",
+   "Sequences",
+   "FiniteSets",
+   "SequencesExt",
+   "Relation",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCEWD687a",
+   "EWD687a",
+   "TLC",
+   "TLCExt",
+   "Integers",
+   "Naturals",
+   "Graphs",
+   "Sequences",
+   "FiniteSets",
+   "SequencesExt",
+   "Relation",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

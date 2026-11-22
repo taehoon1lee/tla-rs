@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/DoInitFunctor/DoInitFunctorProperty",
+ "wall_ms": 341.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "DoInitFunctorProperty"
+  ],
+  "files": [
+   "DoInitFunctorProperty",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DoInitFunctorProperty",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

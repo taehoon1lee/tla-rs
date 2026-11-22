@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TESpecTest/TESpecPlusCalTest",
+ "wall_ms": 401.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TESpecPlusCalTest"
+  ],
+  "files": [
+   "TESpecPlusCalTest",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TESpecPlusCalTest",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

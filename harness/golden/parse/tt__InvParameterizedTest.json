@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/InvParameterizedTest",
+ "wall_ms": 304.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "InvParameterizedTest"
+  ],
+  "files": [
+   "InvParameterizedTest",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "InvParameterizedTest",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

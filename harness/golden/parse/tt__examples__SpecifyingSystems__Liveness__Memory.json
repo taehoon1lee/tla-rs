@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/SpecifyingSystems/Liveness/Memory",
+ "wall_ms": 300.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "MemoryInterface",
+   "InternalMemory",
+   "Memory"
+  ],
+  "files": [
+   "Memory",
+   "MemoryInterface",
+   "InternalMemory"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Memory",
+   "MemoryInterface",
+   "InternalMemory"
+  ],
+  "msg": ""
+ }
+}

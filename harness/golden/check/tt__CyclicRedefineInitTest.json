@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CyclicRedefineInitTest",
+ "wall_ms": 550.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 1000,
+  "violation": null,
+  "error_codes": [
+   1000,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 1000,
+    "text": "This was a Java StackOverflowError. It was probably the result of an incorrect recursive function definition that caused TLC to enter an infinite loop when trying to compute the function or its application to an element in its putative domain."
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: The error call stack is empty."
+   }
+  ],
+  "warnings": [],
+  "generated": 0,
+  "distinct": 0,
+  "left": 0,
+  "depth": 0,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 528.9
+}

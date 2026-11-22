@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/diskpaxos/HDiskSynod",
+ "wall_ms": 531.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Synod",
+   "Sequences",
+   "FiniteSets",
+   "DiskSynod",
+   "HDiskSynod"
+  ],
+  "files": [
+   "HDiskSynod",
+   "DiskSynod",
+   "Synod",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "HDiskSynod",
+   "DiskSynod",
+   "Synod",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

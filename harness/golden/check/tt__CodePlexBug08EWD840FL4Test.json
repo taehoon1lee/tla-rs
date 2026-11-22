@@ -1,0 +1,70 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CodePlexBug08EWD840FL4Test",
+ "wall_ms": 1530.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 29,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1024,
+  "init_generated": 1024,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property AllNodesTerminateIfNoMessages was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 15986,
+  "distinct": 1566,
+  "left": 0,
+  "depth": 12,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "tpos": "0",
+     "active": "(0 :> FALSE @@ 1 :> FALSE @@ 2 :> FALSE @@ 3 :> TRUE)",
+     "tcolor": "\"black\"",
+     "color": "(0 :> \"white\" @@ 1 :> \"white\" @@ 2 :> \"white\" @@ 3 :> \"white\")"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<InitiateProbe line 30, col 3 to line 35, col 43 of module EWD840>",
+    "vars": {
+     "tpos": "3",
+     "active": "(0 :> FALSE @@ 1 :> FALSE @@ 2 :> FALSE @@ 3 :> TRUE)",
+     "tcolor": "\"white\"",
+     "color": "(0 :> \"white\" @@ 1 :> \"white\" @@ 2 :> \"white\" @@ 3 :> \"white\")"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "3: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 1343.8
+}

@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/NormalizationLiveness",
+ "wall_ms": 299.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "NormalizationLiveness"
+  ],
+  "files": [
+   "NormalizationLiveness"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "NormalizationLiveness"
+  ],
+  "msg": ""
+ }
+}

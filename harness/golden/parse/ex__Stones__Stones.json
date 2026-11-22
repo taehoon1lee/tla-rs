@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Stones/Stones",
+ "wall_ms": 359.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Stones"
+  ],
+  "files": [
+   "Stones",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Stones",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/QuorumTheorems",
+ "wall_ms": 331.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Quorum",
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "QuorumTheorems"
+  ],
+  "files": [
+   "QuorumTheorems",
+   "Quorum",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "QuorumTheorems",
+   "Quorum",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

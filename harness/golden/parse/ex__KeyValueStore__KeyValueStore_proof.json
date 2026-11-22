@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/KeyValueStore/KeyValueStore_proof",
+ "wall_ms": 361.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "KeyValueStore",
+   "TLAPS",
+   "KeyValueStore_proof"
+  ],
+  "files": [
+   "KeyValueStore_proof",
+   "KeyValueStore",
+   "TLAPS"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "KeyValueStore_proof",
+   "KeyValueStore",
+   "TLAPS"
+  ],
+  "msg": ""
+ }
+}

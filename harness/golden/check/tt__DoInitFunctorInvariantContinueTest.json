@@ -1,0 +1,111 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/DoInitFunctorInvariantContinueTest",
+ "wall_ms": 616.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 30,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 10,
+  "init_generated": 10,
+  "success": true,
+  "first_error": 2107,
+  "violation": "Inv",
+  "error_codes": [
+   2107,
+   2107,
+   2107,
+   2107,
+   2107,
+   2107,
+   2107,
+   2107,
+   2107,
+   2107,
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 1"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 2"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 3"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 4"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 5"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 6"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 7"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 8"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 9"
+   },
+   {
+    "code": 2107,
+    "text": "Invariant Inv is violated by the initial state: x = 10"
+   },
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 21,
+  "distinct": 11,
+  "left": 0,
+  "depth": 2,
+  "outdegree": "The average outdegree of the complete state graph is 0 (minimum is 0, the maximum 1 and the 95th percentile is 1).",
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "1"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 9, col 9 to line 9, col 14 of module DoInitFunctorInvariantContinue>",
+    "vars": {
+     "x": "0"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 607.9
+}

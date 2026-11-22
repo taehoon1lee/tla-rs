@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/VoteProof/MC",
+ "wall_ms": 645.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLAPS",
+   "Consensus",
+   "VoteProof",
+   "MC"
+  ],
+  "files": [
+   "MC",
+   "VoteProof",
+   "TLC",
+   "Integers",
+   "FiniteSets",
+   "TLAPS",
+   "Naturals",
+   "Consensus",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC",
+   "VoteProof",
+   "TLC",
+   "Integers",
+   "FiniteSets",
+   "TLAPS",
+   "Naturals",
+   "Consensus",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

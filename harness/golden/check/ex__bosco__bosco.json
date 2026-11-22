@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/bosco/bosco",
+ "wall_ms": 600247.5,
+ "status": "timeout",
+ "timeout_s": 600
+}

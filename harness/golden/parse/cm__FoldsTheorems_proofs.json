@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/FoldsTheorems_proofs",
+ "wall_ms": 799.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Folds",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLAPS",
+   "Integers",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "FunctionTheorems",
+   "FoldsTheorems_proofs"
+  ],
+  "files": [
+   "FoldsTheorems_proofs",
+   "Folds",
+   "FiniteSets",
+   "TLAPS",
+   "FiniteSetTheorems",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "NaturalsInduction",
+   "FunctionTheorems",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "FoldsTheorems_proofs",
+   "Folds",
+   "FiniteSets",
+   "TLAPS",
+   "FiniteSetTheorems",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "NaturalsInduction",
+   "FunctionTheorems",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

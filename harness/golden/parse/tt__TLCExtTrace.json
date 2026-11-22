@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TLCExtTrace",
+ "wall_ms": 382.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "TLCExtTrace"
+  ],
+  "files": [
+   "TLCExtTrace",
+   "Integers",
+   "TLCExt",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TLCExtTrace",
+   "Integers",
+   "TLCExt",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

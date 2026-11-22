@@ -1,0 +1,43 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FlashProtocol/APFlashWithMutex",
+ "wall_ms": 641.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [
+   "warnings"
+  ],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "FlashWithMutex",
+   "APFlashWithMutex"
+  ],
+  "files": [
+   "APFlashWithMutex",
+   "FlashWithMutex",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": "*** Warnings: 1 line 71, col 1 to line 71, col 23 of module APFlashWithMutex Multiple declarations or definitions for symbol fwdVars. This duplicates the one at line 69, col 1 to line 69, col 29 of module APFlashWithMutex. Linting of module FlashWithMutex Linting of module APFlashWithMutex"
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APFlashWithMutex",
+   "FlashWithMutex",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

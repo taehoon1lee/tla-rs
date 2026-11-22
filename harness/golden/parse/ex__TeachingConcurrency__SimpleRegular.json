@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TeachingConcurrency/SimpleRegular",
+ "wall_ms": 603.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "SimpleRegular"
+  ],
+  "files": [
+   "SimpleRegular",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SimpleRegular",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/byzpaxos/VoteProof",
+ "wall_ms": 1375.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "NaturalsInduction",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLC",
+   "TLAPS",
+   "Consensus",
+   "VoteProof"
+  ],
+  "files": [
+   "VoteProof",
+   "Integers",
+   "NaturalsInduction",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLC",
+   "TLAPS",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "Consensus",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "VoteProof",
+   "Integers",
+   "NaturalsInduction",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLC",
+   "TLAPS",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "Consensus",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

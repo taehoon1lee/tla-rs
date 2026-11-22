@@ -1,0 +1,96 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/DieHard/MCDieHarder",
+ "wall_ms": 548.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NotSolved",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NotSolved is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 73,
+  "distinct": 14,
+  "left": 1,
+  "depth": 7,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "contents": "[j1 |-> 0, j2 |-> 0]"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<FillJug(\"j2\") line 56, col 16 to line 56, col 63 of module DieHarder>",
+    "vars": {
+     "contents": "[j1 |-> 0, j2 |-> 5]"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<JugToJug(\"j2\",\"j1\") line 62, col 7 to line 63, col 59 of module DieHarder>",
+    "vars": {
+     "contents": "[j1 |-> 3, j2 |-> 2]"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<EmptyJug(\"j1\") line 58, col 16 to line 58, col 53 of module DieHarder>",
+    "vars": {
+     "contents": "[j1 |-> 0, j2 |-> 2]"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<JugToJug(\"j2\",\"j1\") line 62, col 7 to line 63, col 59 of module DieHarder>",
+    "vars": {
+     "contents": "[j1 |-> 2, j2 |-> 0]"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<FillJug(\"j2\") line 56, col 16 to line 56, col 63 of module DieHarder>",
+    "vars": {
+     "contents": "[j1 |-> 2, j2 |-> 5]"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<JugToJug(\"j2\",\"j1\") line 62, col 7 to line 63, col 59 of module DieHarder>",
+    "vars": {
+     "contents": "[j1 |-> 3, j2 |-> 4]"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 601.6
+}

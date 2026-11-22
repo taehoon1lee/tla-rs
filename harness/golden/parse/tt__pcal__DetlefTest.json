@@ -1,0 +1,33 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/DetlefTest",
+ "wall_ms": 294.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "DetlefTest"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/DetlefTest.tla In module DetlefTest Cannot find source file for module Detlefs2 imported in module DetlefTest. *** Errors: 1 In module DetlefTest Cannot find source file for module Detlefs2 imported in module DetlefTest."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "DetlefTest"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/DetlefTest.tla In module DetlefTest Cannot find source file for module Detlefs2 imported in module DetlefTest. *** Errors: 1 In module DetlefTest Cannot find source file for module Detlefs2 imported in module DetlefTest."
+ }
+}

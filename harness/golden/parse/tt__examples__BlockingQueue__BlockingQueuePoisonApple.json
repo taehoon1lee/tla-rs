@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/BlockingQueue/BlockingQueuePoisonApple",
+ "wall_ms": 600.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "BlockingQueuePoisonApple"
+  ],
+  "files": [
+   "BlockingQueuePoisonApple",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "BlockingQueuePoisonApple",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

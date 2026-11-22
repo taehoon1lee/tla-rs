@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Syntax/TLAPlusGrammar",
+ "wall_ms": 485.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "BNFGrammars",
+   "TLAPlusGrammar"
+  ],
+  "files": [
+   "TLAPlusGrammar",
+   "Naturals",
+   "Sequences",
+   "BNFGrammars"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TLAPlusGrammar",
+   "Naturals",
+   "Sequences",
+   "BNFGrammars"
+  ],
+  "msg": ""
+ }
+}

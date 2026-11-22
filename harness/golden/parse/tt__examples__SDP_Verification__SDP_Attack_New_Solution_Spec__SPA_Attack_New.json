@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/SDP_Verification/SDP_Attack_New_Solution_Spec/SPA_Attack_New",
+ "wall_ms": 1011.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "Bitwise",
+   "Folds",
+   "Functions",
+   "SPA_Attack_New"
+  ],
+  "files": [
+   "SPA_Attack_New",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Integers",
+   "TLC",
+   "Bitwise",
+   "Functions",
+   "Folds"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SPA_Attack_New",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Integers",
+   "TLC",
+   "Bitwise",
+   "Functions",
+   "Folds"
+  ],
+  "msg": ""
+ }
+}

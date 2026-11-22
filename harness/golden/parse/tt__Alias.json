@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Alias",
+ "wall_ms": 600.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "Alias"
+  ],
+  "files": [
+   "Alias",
+   "Integers",
+   "TLC",
+   "Sequences",
+   "TLCExt",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Alias",
+   "Integers",
+   "TLC",
+   "Sequences",
+   "TLCExt",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

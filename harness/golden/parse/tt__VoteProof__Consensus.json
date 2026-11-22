@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/VoteProof/Consensus",
+ "wall_ms": 426.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLAPS",
+   "Consensus"
+  ],
+  "files": [
+   "Consensus",
+   "Naturals",
+   "FiniteSets",
+   "TLAPS",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Consensus",
+   "Naturals",
+   "FiniteSets",
+   "TLAPS",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

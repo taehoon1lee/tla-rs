@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/dag-consensus/BlockDagTest",
+ "wall_ms": 448.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "Utils",
+   "Digraph",
+   "BlockDag",
+   "BlockDagTest"
+  ],
+  "files": [
+   "BlockDagTest",
+   "FiniteSets",
+   "Sequences",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "BlockDag",
+   "Utils",
+   "Digraph"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "BlockDagTest",
+   "FiniteSets",
+   "Sequences",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "BlockDag",
+   "Utils",
+   "Digraph"
+  ],
+  "msg": ""
+ }
+}

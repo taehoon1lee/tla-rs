@@ -1,0 +1,103 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/DieHard/DieHard",
+ "wall_ms": 468.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NotSolved",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NotSolved is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 73,
+  "distinct": 14,
+  "left": 1,
+  "depth": 7,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "big": "0",
+     "small": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<FillBigJug line 68, col 18 to line 69, col 34 of module DieHard>",
+    "vars": {
+     "big": "5",
+     "small": "0"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<BigToSmall line 97, col 15 to line 98, col 48 of module DieHard>",
+    "vars": {
+     "big": "2",
+     "small": "3"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<EmptySmallJug line 71, col 18 to line 72, col 30 of module DieHard>",
+    "vars": {
+     "big": "2",
+     "small": "0"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<BigToSmall line 97, col 15 to line 98, col 48 of module DieHard>",
+    "vars": {
+     "big": "0",
+     "small": "2"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<FillBigJug line 68, col 18 to line 69, col 34 of module DieHard>",
+    "vars": {
+     "big": "5",
+     "small": "2"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<BigToSmall line 97, col 15 to line 98, col 48 of module DieHard>",
+    "vars": {
+     "big": "4",
+     "small": "3"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 467.2
+}

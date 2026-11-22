@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Standard/Integers",
+ "wall_ms": 496.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Peano",
+   "ProtoReals",
+   "Naturals",
+   "Integers"
+  ],
+  "files": [
+   "Integers",
+   "Naturals",
+   "ProtoReals",
+   "Peano"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Integers",
+   "Naturals",
+   "ProtoReals",
+   "Peano"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github725g",
+ "wall_ms": 355.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Inner725g",
+   "Github725g"
+  ],
+  "files": [
+   "Github725g",
+   "Naturals",
+   "Inner725g",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github725g",
+   "Naturals",
+   "Inner725g",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

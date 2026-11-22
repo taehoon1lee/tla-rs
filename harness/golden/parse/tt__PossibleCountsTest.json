@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/PossibleCountsTest",
+ "wall_ms": 384.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "_Possible",
+   "PossibleCountsTest"
+  ],
+  "files": [
+   "PossibleCountsTest",
+   "Naturals",
+   "_Possible",
+   "TLC",
+   "TLCExt",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "PossibleCountsTest",
+   "Naturals",
+   "_Possible",
+   "TLC",
+   "TLCExt",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

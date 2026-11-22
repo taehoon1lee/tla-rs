@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/SpecifyingSystems/Liveness/MCLiveWriteThroughCache",
+ "wall_ms": 506.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "WriteThroughCacheInstanced",
+   "LiveWriteThroughCache",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "MCLiveWriteThroughCache"
+  ],
+  "files": [
+   "MCLiveWriteThroughCache",
+   "LiveWriteThroughCache",
+   "TLC",
+   "TLCExt",
+   "WriteThroughCacheInstanced",
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCLiveWriteThroughCache",
+   "LiveWriteThroughCache",
+   "TLC",
+   "TLCExt",
+   "WriteThroughCacheInstanced",
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

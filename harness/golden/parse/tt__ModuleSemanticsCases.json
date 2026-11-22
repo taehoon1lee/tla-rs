@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/ModuleSemanticsCases",
+ "wall_ms": 412.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Bags",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Randomization",
+   "ModuleSemanticsCases"
+  ],
+  "files": [
+   "ModuleSemanticsCases",
+   "Bags",
+   "Integers",
+   "Randomization",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ModuleSemanticsCases",
+   "Bags",
+   "Integers",
+   "Randomization",
+   "Naturals",
+   "FiniteSets",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

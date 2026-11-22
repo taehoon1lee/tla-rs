@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/MisraReachability/ParReachProofs",
+ "wall_ms": 543.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Reachability",
+   "Reachable",
+   "ParReach",
+   "TLAPS",
+   "ParReachProofs"
+  ],
+  "files": [
+   "ParReachProofs",
+   "ParReach",
+   "Integers",
+   "TLAPS",
+   "Reachability",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Reachable"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ParReachProofs",
+   "ParReach",
+   "Integers",
+   "TLAPS",
+   "Reachability",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Reachable"
+  ],
+  "msg": ""
+ }
+}

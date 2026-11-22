@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd998/SmokeEWD998_SC",
+ "wall_ms": 599.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "CSV",
+   "SmokeEWD998_SC"
+  ],
+  "files": [
+   "SmokeEWD998_SC",
+   "Naturals",
+   "TLC",
+   "IOUtils",
+   "CSV",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SmokeEWD998_SC",
+   "Naturals",
+   "TLC",
+   "IOUtils",
+   "CSV",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

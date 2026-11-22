@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/SpanningTree/SpanTreeRandom",
+ "wall_ms": 390.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SpanTreeRandom"
+  ],
+  "files": [
+   "SpanTreeRandom",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SpanTreeRandom",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

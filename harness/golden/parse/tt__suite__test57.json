@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test57",
+ "wall_ms": 307.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "test57a",
+   "test57"
+  ],
+  "files": [
+   "test57",
+   "Naturals",
+   "test57a"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "test57",
+   "Naturals",
+   "test57a"
+  ],
+  "msg": ""
+ }
+}

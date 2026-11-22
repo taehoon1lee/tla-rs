@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ReadersWriters/MC",
+ "wall_ms": 355.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "ReadersWriters",
+   "TLC",
+   "MC"
+  ],
+  "files": [
+   "MC",
+   "ReadersWriters",
+   "TLC",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC",
+   "ReadersWriters",
+   "TLC",
+   "FiniteSets",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

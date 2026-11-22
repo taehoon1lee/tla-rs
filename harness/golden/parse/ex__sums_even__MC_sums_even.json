@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/sums_even/MC_sums_even",
+ "wall_ms": 426.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "TLAPS",
+   "sums_even",
+   "MC_sums_even"
+  ],
+  "files": [
+   "MC_sums_even",
+   "sums_even",
+   "Naturals",
+   "TLAPS"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC_sums_even",
+   "sums_even",
+   "Naturals",
+   "TLAPS"
+  ],
+  "msg": ""
+ }
+}

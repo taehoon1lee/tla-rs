@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TraceWithLargeSetOfInitialStatesTest",
+ "wall_ms": 317.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TraceWithLargeSetOfInitialStatesTest"
+  ],
+  "files": [
+   "TraceWithLargeSetOfInitialStatesTest",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TraceWithLargeSetOfInitialStatesTest",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

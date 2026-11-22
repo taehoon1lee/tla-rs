@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/UserModuleOverrideTest",
+ "wall_ms": 670.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": true,
+  "first_error": null,
+  "violation": null,
+  "error_codes": [],
+  "errors": [],
+  "warnings": [
+   {
+    "code": 2400,
+    "text": "Failed to match Get3 operator override from file:/<ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/UserModuleOverride.class with signature: <Java Method: public static tlc2.value.impl.Value UserModuleOverride.Get3()>."
+   },
+   {
+    "code": 2400,
+    "text": "Failed to match Get2 operator override from file:/<ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/UserModuleOverride.class with signature: <Java Method: public static tlc2.value.impl.Value UserModuleOverride.Get2(tlc2.value.impl.Value)>."
+   }
+  ],
+  "generated": 2,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": "The average outdegree of the complete state graph is 0 (minimum is 0, the maximum 0 and the 95th percentile is 0).",
+  "trace": [],
+  "trace_tail": null,
+  "output": [
+   "TRUE TRUE"
+  ],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [
+  "warnings"
+ ],
+ "wall_ms_2": 678.6
+}

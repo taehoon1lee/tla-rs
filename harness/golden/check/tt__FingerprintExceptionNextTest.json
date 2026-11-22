@@ -1,0 +1,64 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/FingerprintExceptionNextTest",
+ "wall_ms": 617.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 16,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 1000,
+  "violation": null,
+  "error_codes": [
+   1000,
+   2121,
+   1000,
+   2147
+  ],
+  "errors": [
+   {
+    "code": 1000,
+    "text": "TLC threw an unexpected exception. This was probably caused by an error in the spec or model. See the User Output or TLC Console for clues to what happened. The exception was a java.lang.RuntimeException : @!@!@STARTMSG 2178:0 @!@!@ Overflow when computing the number of elements in: SUBSET (1..32) @!@!@ENDMSG 2178 @!@!@"
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 1000,
+    "text": "TLC threw an unexpected exception. This was probably caused by an error in the spec or model. See the User Output or TLC Console for clues to what happened. The exception was a java.lang.RuntimeException : @!@!@STARTMSG 2178:0 @!@!@ Overflow when computing the number of elements in: SUBSET (1..32) @!@!@ENDMSG 2178 @!@!@"
+   },
+   {
+    "code": 2147,
+    "text": "TLC was unable to fingerprint. Fingerprint Stack Trace: 1) line 8, col 51 to line 8, col 63 of module FingerprintExceptionNext 0) line 8, col 44 to line 8, col 64 of module FingerprintExceptionNext Reason: @!@!@STARTMSG 2178:0 @!@!@ Overflow when computing the number of elements in: SUBSET (1..32) @!@!@ENDMSG 2178 @!@!@"
+   }
+  ],
+  "warnings": [],
+  "generated": 2,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "0"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 637.0
+}

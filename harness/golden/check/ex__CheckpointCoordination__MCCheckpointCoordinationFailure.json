@@ -1,0 +1,251 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/CheckpointCoordination/MCCheckpointCoordinationFailure",
+ "wall_ms": 19801.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 26,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "SafetyInvariant",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant SafetyInvariant is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 1302999,
+  "distinct": 88152,
+  "left": 39290,
+  "depth": 12,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "(n1 :> NoCheckpointLease @@ n2 :> NoCheckpointLease @@ n3 :> NoCheckpointLease)",
+     "ReplicatedLog": "( n1 :> <<NoNode, NoNode, NoNode>> @@ n2 :> <<NoNode, NoNode, NoNode>> @@ n3 :> <<NoNode, NoNode, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> TRUE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<ElectLeader(n1) line 327, col 3 to line 336, col 85 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)",
+     "Leader": "n1",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "(n1 :> NoCheckpointLease @@ n2 :> NoCheckpointLease @@ n3 :> NoCheckpointLease)",
+     "ReplicatedLog": "( n1 :> <<NoNode, NoNode, NoNode>> @@ n2 :> <<NoNode, NoNode, NoNode>> @@ n3 :> <<NoNode, NoNode, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> TRUE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<SendReplicatedRequest(n2) line 357, col 3 to line 374, col 90 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)",
+     "Leader": "n1",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> [node |-> n2, counter |-> 1] @@ n2 :> NoCheckpointLease @@ n3 :> NoCheckpointLease )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, NoNode, NoNode>> @@ n3 :> <<n2, NoNode, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> TRUE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<NodeFailure(n1) line 269, col 3 to line 278, col 51 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "(n1 :> NoCheckpointLease @@ n2 :> NoCheckpointLease @@ n3 :> NoCheckpointLease)",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, NoNode, NoNode>> @@ n3 :> <<n2, NoNode, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<ProcessReplicatedRequest(n2) line 394, col 3 to line 415, col 71 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 2 @@ n3 :> 1)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> NoCheckpointLease @@ n2 :> [node |-> n2, counter |-> 1] @@ n3 :> NoCheckpointLease )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, NoNode, NoNode>> @@ n3 :> <<n2, NoNode, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<ElectLeader(n2) line 327, col 3 to line 336, col 85 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 2 @@ n3 :> 1)",
+     "Leader": "n2",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> NoCheckpointLease @@ n2 :> [node |-> n2, counter |-> 1] @@ n3 :> NoCheckpointLease )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, NoNode, NoNode>> @@ n3 :> <<n2, NoNode, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<SendReplicatedRequest(n3) line 357, col 3 to line 374, col 90 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 2 @@ n3 :> 1)",
+     "Leader": "n2",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> NoCheckpointLease @@ n2 :> [node |-> n3, counter |-> 2] @@ n3 :> NoCheckpointLease )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, n3, NoNode>> @@ n3 :> <<n2, n3, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<NodeFailure(n2) line 269, col 3 to line 278, col 51 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "(n1 :> NoCheckpointLease @@ n2 :> NoCheckpointLease @@ n3 :> NoCheckpointLease)",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, n3, NoNode>> @@ n3 :> <<n2, n3, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<NodeRecovery(n2) line 285, col 3 to line 298, col 51 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "(n1 :> NoCheckpointLease @@ n2 :> NoCheckpointLease @@ n3 :> NoCheckpointLease)",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, n3, NoNode>> @@ n3 :> <<n2, n3, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<ProcessReplicatedRequest(n2) line 394, col 3 to line 415, col 71 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 2 @@ n3 :> 1)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> NoCheckpointLease @@ n2 :> [node |-> n2, counter |-> 1] @@ n3 :> NoCheckpointLease )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, n3, NoNode>> @@ n3 :> <<n2, n3, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<ProcessReplicatedRequest(n3) line 394, col 3 to line 415, col 71 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 2 @@ n3 :> 2)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> NoCheckpointLease @@ n2 :> [node |-> n2, counter |-> 1] @@ n3 :> [node |-> n2, counter |-> 1] )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, n3, NoNode>> @@ n3 :> <<n2, n3, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> FALSE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   },
+   {
+    "n": 12,
+    "label": "<ProcessReplicatedRequest(n3) line 394, col 3 to line 415, col 71 of module CheckpointCoordination>",
+    "vars": {
+     "ExecutionCounter": "(n1 :> 1 @@ n2 :> 2 @@ n3 :> 3)",
+     "Leader": "NoNode",
+     "NetworkPath": "( <<n1, n1>> :> TRUE @@ <<n1, n2>> :> TRUE @@ <<n1, n3>> :> TRUE @@ <<n2, n1>> :> TRUE @@ <<n2, n2>> :> TRUE @@ <<n2, n3>> :> TRUE @@ <<n3, n1>> :> TRUE @@ <<n3, n2>> :> TRUE @@ <<n3, n3>> :> TRUE )",
+     "TimeoutCounter": "1",
+     "LatestCheckpoint": "[log |-> <<NoNode, NoNode, NoNode>>, counter |-> 1]",
+     "CurrentLease": "( n1 :> NoCheckpointLease @@ n2 :> [node |-> n2, counter |-> 1] @@ n3 :> [node |-> n3, counter |-> 2] )",
+     "ReplicatedLog": "( n1 :> <<n2, NoNode, NoNode>> @@ n2 :> <<n2, n3, NoNode>> @@ n3 :> <<n2, n3, NoNode>> )",
+     "IsTakingCheckpoint": "(n1 :> FALSE @@ n2 :> FALSE @@ n3 :> FALSE)",
+     "IsNodeUp": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "CanTakeCheckpoint": "(n1 :> FALSE @@ n2 :> TRUE @@ n3 :> TRUE)",
+     "LastVotePayload": "(n1 :> 1 @@ n2 :> 1 @@ n3 :> 1)"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 18151.4
+}

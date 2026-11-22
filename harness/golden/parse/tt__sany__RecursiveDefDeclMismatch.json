@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/sany/RecursiveDefDeclMismatch",
+ "wall_ms": 307.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "RecursiveDefDeclMismatch"
+  ],
+  "files": [
+   "RecursiveDefDeclMismatch"
+  ],
+  "msg": "Semantic errors: *** Errors: 2 line 4, col 1 to line 4, col 56 of module RecursiveDefDeclMismatch Definition of CountDown has different arity than its RECURSIVE declaration. line 4, col 50 to line 4, col 56 of module RecursiveDefDeclMismatch The operator CountDown requires 2 arguments."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "RecursiveDefDeclMismatch"
+  ],
+  "msg": ""
+ }
+}

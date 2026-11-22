@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd840/EWD840_json",
+ "wall_ms": 475.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "TLAPS",
+   "SyncTerminationDetection",
+   "EWD840",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "Json",
+   "EWD840_json"
+  ],
+  "files": [
+   "EWD840_json",
+   "EWD840",
+   "TLC",
+   "TLCExt",
+   "Json",
+   "Naturals",
+   "TLAPS",
+   "SyncTerminationDetection",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EWD840_json",
+   "EWD840",
+   "TLC",
+   "TLCExt",
+   "Json",
+   "Naturals",
+   "TLAPS",
+   "SyncTerminationDetection",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

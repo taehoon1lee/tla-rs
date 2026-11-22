@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/transaction_commit/TwoPhase_proof",
+ "wall_ms": 419.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "TCommit",
+   "TwoPhase",
+   "TLAPS",
+   "TwoPhase_proof"
+  ],
+  "files": [
+   "TwoPhase_proof",
+   "TwoPhase",
+   "TLAPS",
+   "TCommit"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TwoPhase_proof",
+   "TwoPhase",
+   "TLAPS",
+   "TCommit"
+  ],
+  "msg": ""
+ }
+}

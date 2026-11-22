@@ -1,0 +1,66 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/April21Test",
+ "wall_ms": 638.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 21,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 2,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property neg_prop_146115895645522000 was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2279,
+    "text": "Declaring symmetry during liveness checking is dangerous. It might cause TLC to miss violations of the stated liveness properties. Please check liveness without symmetry defined."
+   },
+   {
+    "code": 2259,
+    "text": "The stuttering counterexample above may be caused by the absence of a fairness constraint in the behavior specification spec_146115895644521000 defined at line 20, col 1 to line 21, col 4 of module April21MC. To rule out such counterexamples, conjoin a suitable fairness constraint to spec_146115895644521000 (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html)."
+   }
+  ],
+  "generated": 4,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "m1"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "2: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 589.9
+}

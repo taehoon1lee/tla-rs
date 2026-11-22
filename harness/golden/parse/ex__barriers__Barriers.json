@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/barriers/Barriers",
+ "wall_ms": 1282.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "TLAPS",
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "Barrier",
+   "Barriers"
+  ],
+  "files": [
+   "Barriers",
+   "TLAPS",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Barrier",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Barriers",
+   "TLAPS",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Barrier",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/KSubsetAssume",
+ "wall_ms": 762.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "TLCExt",
+   "KSubsetCases",
+   "KSubsetAssume"
+  ],
+  "files": [
+   "KSubsetAssume",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Integers",
+   "TLC",
+   "TLCExt",
+   "Folds",
+   "Functions",
+   "Naturals",
+   "KSubsetCases",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "KSubsetAssume",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Integers",
+   "TLC",
+   "TLCExt",
+   "Folds",
+   "Functions",
+   "Naturals",
+   "KSubsetCases",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

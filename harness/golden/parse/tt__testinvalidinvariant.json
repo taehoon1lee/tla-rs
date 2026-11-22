@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/testinvalidinvariant",
+ "wall_ms": 329.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "testinvalidinvariant"
+  ],
+  "files": [
+   "testinvalidinvariant",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "testinvalidinvariant",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

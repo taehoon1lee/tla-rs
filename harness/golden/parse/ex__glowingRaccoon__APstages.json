@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/glowingRaccoon/APstages",
+ "wall_ms": 343.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "clean",
+   "stages",
+   "APstages"
+  ],
+  "files": [
+   "APstages",
+   "Naturals",
+   "stages",
+   "clean"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APstages",
+   "Naturals",
+   "stages",
+   "clean"
+  ],
+  "msg": ""
+ }
+}

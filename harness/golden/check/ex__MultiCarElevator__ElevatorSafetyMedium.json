@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/MultiCarElevator/ElevatorSafetyMedium",
+ "wall_ms": 600353.5,
+ "status": "timeout",
+ "timeout_s": 600
+}

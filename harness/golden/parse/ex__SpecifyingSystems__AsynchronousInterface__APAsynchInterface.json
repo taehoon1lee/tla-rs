@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/AsynchronousInterface/APAsynchInterface",
+ "wall_ms": 324.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "AsynchInterface",
+   "APAsynchInterface"
+  ],
+  "files": [
+   "APAsynchInterface",
+   "Naturals",
+   "AsynchInterface"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APAsynchInterface",
+   "Naturals",
+   "AsynchInterface"
+  ],
+  "msg": ""
+ }
+}

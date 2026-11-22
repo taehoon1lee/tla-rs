@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/bug-05-12-10",
+ "wall_ms": 245.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "could_not_parse",
+   "fatal",
+   "parse_error"
+  ],
+  "modules": [],
+  "files": [
+   "bug-05-12-10"
+  ],
+  "msg": "***Parse Error*** Was expecting \"----\" Encountered \"-\" at line 5, column 40 and token \"bug\" Residual stack trace follows: Begin module starting at line 5, column 1. Module definition starting at line 5, column 1. Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/bug-05-12-10.tla In module bug-05-12-10 Could not parse module bug-05-12-10 from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/bug-05-12-10.tla *** Errors: 1 In module bug-05-12-10 Could not parse module bug-05-12-10 from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/bug-05-12-10.tla"
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "could_not_parse",
+   "fatal",
+   "parse_error"
+  ],
+  "modules": [],
+  "files": [
+   "bug-05-12-10"
+  ],
+  "msg": "***Parse Error*** Was expecting \"----\" Encountered \"-\" at line 5, column 40 and token \"bug\" Residual stack trace follows: Begin module starting at line 5, column 1. Module definition starting at line 5, column 1. Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/bug-05-12-10.tla In module bug-05-12-10 Could not parse module bug-05-12-10 from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/bug-05-12-10.tla *** Errors: 1 In module bug-05-12-10 Could not parse module bug-05-12-10 from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/pcal/bug-05-12-10.tla"
+ }
+}

@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/bcastByz/bcastByz",
+ "wall_ms": 1176.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FunctionTheorems",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "SequenceTheorems",
+   "bcastByz"
+  ],
+  "files": [
+   "bcastByz",
+   "Naturals",
+   "FiniteSets",
+   "Functions",
+   "FunctionTheorems",
+   "FiniteSetTheorems",
+   "NaturalsInduction",
+   "SequenceTheorems",
+   "TLAPS",
+   "Integers",
+   "Folds",
+   "WellFoundedInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "bcastByz",
+   "Naturals",
+   "FiniteSets",
+   "Functions",
+   "FunctionTheorems",
+   "FiniteSetTheorems",
+   "NaturalsInduction",
+   "SequenceTheorems",
+   "TLAPS",
+   "Integers",
+   "Folds",
+   "WellFoundedInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

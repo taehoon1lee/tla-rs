@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EWD840/MC03Sim",
+ "wall_ms": 431.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "EWD840",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "MC03Sim"
+  ],
+  "files": [
+   "MC03Sim",
+   "EWD840",
+   "TLC",
+   "Sequences",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC03Sim",
+   "EWD840",
+   "TLC",
+   "Sequences",
+   "Naturals",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

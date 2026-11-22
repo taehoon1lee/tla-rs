@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/glowingRaccoon/clean_proof",
+ "wall_ms": 394.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "clean",
+   "TLAPS",
+   "clean_proof"
+  ],
+  "files": [
+   "clean_proof",
+   "clean",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "clean_proof",
+   "clean",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

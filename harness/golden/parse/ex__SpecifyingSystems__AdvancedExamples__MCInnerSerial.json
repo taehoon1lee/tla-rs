@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/AdvancedExamples/MCInnerSerial",
+ "wall_ms": 431.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "InnerSerial",
+   "MCInnerSerial"
+  ],
+  "files": [
+   "MCInnerSerial",
+   "InnerSerial",
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCInnerSerial",
+   "InnerSerial",
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

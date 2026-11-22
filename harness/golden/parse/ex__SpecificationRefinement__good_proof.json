@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecificationRefinement/good_proof",
+ "wall_ms": 432.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "abstract",
+   "bad",
+   "good",
+   "TLAPS",
+   "good_proof"
+  ],
+  "files": [
+   "good_proof",
+   "good",
+   "TLAPS",
+   "Integers",
+   "Sequences",
+   "Naturals",
+   "abstract",
+   "bad"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "good_proof",
+   "good",
+   "TLAPS",
+   "Integers",
+   "Sequences",
+   "Naturals",
+   "abstract",
+   "bad"
+  ],
+  "msg": ""
+ }
+}

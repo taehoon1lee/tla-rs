@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/UnsymmetricMCB",
+ "wall_ms": 354.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Unsymmetric",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "UnsymmetricMCB"
+  ],
+  "files": [
+   "UnsymmetricMCB",
+   "Unsymmetric",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "UnsymmetricMCB",
+   "Unsymmetric",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Composing/CompositeFIFO",
+ "wall_ms": 341.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Channel",
+   "CompositeFIFO"
+  ],
+  "files": [
+   "CompositeFIFO",
+   "Naturals",
+   "Sequences",
+   "Channel"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CompositeFIFO",
+   "Naturals",
+   "Sequences",
+   "Channel"
+  ],
+  "msg": ""
+ }
+}

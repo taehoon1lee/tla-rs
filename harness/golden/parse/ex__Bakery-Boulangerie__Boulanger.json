@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Bakery-Boulangerie/Boulanger",
+ "wall_ms": 852.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "Boulanger"
+  ],
+  "files": [
+   "Boulanger",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Boulanger",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

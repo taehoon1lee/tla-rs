@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github687fifo",
+ "wall_ms": 356.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FIFO",
+   "Github687fifo"
+  ],
+  "files": [
+   "Github687fifo",
+   "Naturals",
+   "Sequences",
+   "FIFO"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github687fifo",
+   "Naturals",
+   "Sequences",
+   "FIFO"
+  ],
+  "msg": ""
+ }
+}

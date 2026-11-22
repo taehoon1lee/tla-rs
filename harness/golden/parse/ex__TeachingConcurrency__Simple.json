@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TeachingConcurrency/Simple",
+ "wall_ms": 486.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "Simple"
+  ],
+  "files": [
+   "Simple",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Simple",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

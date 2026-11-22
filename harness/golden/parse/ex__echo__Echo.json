@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/echo/Echo",
+ "wall_ms": 565.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Relation",
+   "TLC",
+   "Echo"
+  ],
+  "files": [
+   "Echo",
+   "Naturals",
+   "FiniteSets",
+   "Relation",
+   "TLC",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Echo",
+   "Naturals",
+   "FiniteSets",
+   "Relation",
+   "TLC",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

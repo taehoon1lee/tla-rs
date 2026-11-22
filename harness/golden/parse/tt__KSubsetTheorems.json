@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/KSubsetTheorems",
+ "wall_ms": 1126.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "KSubsetCases",
+   "KSubsetTheorems"
+  ],
+  "files": [
+   "KSubsetTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "KSubsetCases",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "KSubsetTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "KSubsetCases",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

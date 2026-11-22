@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/simulation/NQSpec/MC",
+ "wall_ms": 483.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "NQSpec",
+   "QSpec",
+   "NQSpecImpliesQSpec",
+   "MC"
+  ],
+  "files": [
+   "MC",
+   "NQSpecImpliesQSpec",
+   "TLC",
+   "NQSpec",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals",
+   "QSpec"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC",
+   "NQSpecImpliesQSpec",
+   "TLC",
+   "NQSpec",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals",
+   "QSpec"
+  ],
+  "msg": ""
+ }
+}

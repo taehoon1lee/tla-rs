@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/CoffeeCan/CoffeeCan3000Beans",
+ "wall_ms": 600406.7,
+ "status": "timeout",
+ "timeout_s": 600
+}

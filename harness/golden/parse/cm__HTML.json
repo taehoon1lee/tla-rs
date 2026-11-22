@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/HTML",
+ "wall_ms": 533.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "HTML"
+  ],
+  "files": [
+   "HTML",
+   "Sequences",
+   "SequencesExt",
+   "Naturals",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "HTML",
+   "Sequences",
+   "SequencesExt",
+   "Naturals",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

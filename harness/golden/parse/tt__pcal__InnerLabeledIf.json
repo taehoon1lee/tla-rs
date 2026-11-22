@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/pcal/InnerLabeledIf",
+ "wall_ms": 432.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "InnerLabeledIf"
+  ],
+  "files": [
+   "InnerLabeledIf",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "InnerLabeledIf",
+   "Sequences",
+   "Naturals",
+   "TLC",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

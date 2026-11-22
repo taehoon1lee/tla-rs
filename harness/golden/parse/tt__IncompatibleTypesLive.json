@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/IncompatibleTypesLive",
+ "wall_ms": 322.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "IncompatibleTypesLive"
+  ],
+  "files": [
+   "IncompatibleTypesLive",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "IncompatibleTypesLive",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

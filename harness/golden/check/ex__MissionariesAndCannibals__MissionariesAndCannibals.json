@@ -1,0 +1,143 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/MissionariesAndCannibals/MissionariesAndCannibals",
+ "wall_ms": 537.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 25,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Solution",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Solution is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 225,
+  "distinct": 61,
+  "left": 11,
+  "depth": 12,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "bank_of_boat": "\"E\"",
+     "who_is_on_bank": "[E |-> {m1, m2, m3, c1, c2, c3}, W |-> {}]"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"W\"",
+     "who_is_on_bank": "[E |-> {m2, m3, c2, c3}, W |-> {m1, c1}]"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"E\"",
+     "who_is_on_bank": "[E |-> {m1, m2, m3, c2, c3}, W |-> {c1}]"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"W\"",
+     "who_is_on_bank": "[E |-> {m1, m2, m3}, W |-> {c1, c2, c3}]"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"E\"",
+     "who_is_on_bank": "[E |-> {m1, m2, m3, c1}, W |-> {c2, c3}]"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"W\"",
+     "who_is_on_bank": "[E |-> {m3, c1}, W |-> {m1, m2, c2, c3}]"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"E\"",
+     "who_is_on_bank": "[E |-> {m1, m3, c1, c2}, W |-> {m2, c3}]"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"W\"",
+     "who_is_on_bank": "[E |-> {c1, c2}, W |-> {m1, m2, m3, c3}]"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"E\"",
+     "who_is_on_bank": "[E |-> {c1, c2, c3}, W |-> {m1, m2, m3}]"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"W\"",
+     "who_is_on_bank": "[E |-> {c3}, W |-> {m1, m2, m3, c1, c2}]"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"E\"",
+     "who_is_on_bank": "[E |-> {m1, c3}, W |-> {m2, m3, c1, c2}]"
+    }
+   },
+   {
+    "n": 12,
+    "label": "<Next line 188, col 9 to line 189, col 33 of module MissionariesAndCannibals>",
+    "vars": {
+     "bank_of_boat": "\"W\"",
+     "who_is_on_bank": "[E |-> {}, W |-> {m1, m2, m3, c1, c2, c3}]"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 516.5
+}

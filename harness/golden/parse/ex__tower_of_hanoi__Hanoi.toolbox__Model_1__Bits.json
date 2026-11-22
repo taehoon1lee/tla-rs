@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tower_of_hanoi/Hanoi.toolbox/Model_1/Bits",
+ "wall_ms": 343.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Bits"
+  ],
+  "files": [
+   "Bits",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Bits",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

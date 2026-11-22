@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/acp/ACP_SB_TLC",
+ "wall_ms": 429.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "ACP_SB",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "ACP_SB_TLC"
+  ],
+  "files": [
+   "ACP_SB_TLC",
+   "ACP_SB",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ACP_SB_TLC",
+   "ACP_SB",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

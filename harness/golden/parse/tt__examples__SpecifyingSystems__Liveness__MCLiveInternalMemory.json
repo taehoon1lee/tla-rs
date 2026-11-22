@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/SpecifyingSystems/Liveness/MCLiveInternalMemory",
+ "wall_ms": 522.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "MemoryInterface",
+   "InternalMemory",
+   "LiveInternalMemory",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "MCLiveInternalMemory"
+  ],
+  "files": [
+   "MCLiveInternalMemory",
+   "LiveInternalMemory",
+   "TLC",
+   "TLCExt",
+   "InternalMemory",
+   "MemoryInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCLiveInternalMemory",
+   "LiveInternalMemory",
+   "TLC",
+   "TLCExt",
+   "InternalMemory",
+   "MemoryInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

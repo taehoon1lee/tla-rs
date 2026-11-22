@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/TwoPhaseCommit/DistributedCommit",
+ "wall_ms": 321.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "DistributedCommit"
+  ],
+  "files": [
+   "DistributedCommit"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DistributedCommit"
+  ],
+  "msg": ""
+ }
+}

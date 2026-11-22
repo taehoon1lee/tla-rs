@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SimplifiedFastPaxos/Paxos",
+ "wall_ms": 501.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Paxos"
+  ],
+  "files": [
+   "Paxos",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Paxos",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

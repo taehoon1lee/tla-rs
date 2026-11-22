@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/etest16",
+ "wall_ms": 280.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "etest16"
+  ],
+  "files": [
+   "etest16"
+  ],
+  "msg": "Semantic errors: *** Errors: 2 line 5, col 27 to line 5, col 27 of module etest16 Non-unique fields in constructor. line 7, col 27 to line 7, col 27 of module etest16 Non-unique fields in constructor."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "etest16"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TESpecTest/TESpecRuntimeErrorTest",
+ "wall_ms": 299.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "TESpecRuntimeErrorTest"
+  ],
+  "files": [
+   "TESpecRuntimeErrorTest",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TESpecRuntimeErrorTest",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1389ViolatedC",
+ "wall_ms": 400.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "Github1389ViolatedC"
+  ],
+  "files": [
+   "Github1389ViolatedC",
+   "Naturals",
+   "FiniteSets",
+   "TLCExt",
+   "Sequences",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1389ViolatedC",
+   "Naturals",
+   "FiniteSets",
+   "TLCExt",
+   "Sequences",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

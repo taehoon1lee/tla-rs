@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/NanoBlockchain/Nano",
+ "wall_ms": 531.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Bags",
+   "Nano"
+  ],
+  "files": [
+   "Nano",
+   "Naturals",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Nano",
+   "Naturals",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

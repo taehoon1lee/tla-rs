@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/KeyValueStore/ClientCentric",
+ "wall_ms": 461.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Folds",
+   "Functions",
+   "Util",
+   "ClientCentric"
+  ],
+  "files": [
+   "ClientCentric",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets",
+   "Util",
+   "Functions",
+   "Integers",
+   "Folds"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ClientCentric",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets",
+   "Util",
+   "Functions",
+   "Integers",
+   "Folds"
+  ],
+  "msg": ""
+ }
+}

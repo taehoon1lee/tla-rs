@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/dijkstra-mutex/DijkstraMutex.toolbox/Safety-4-processors/MC",
+ "wall_ms": 429712.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 22,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 4,
+  "init_generated": 4,
+  "success": true,
+  "first_error": null,
+  "violation": null,
+  "error_codes": [],
+  "errors": [],
+  "warnings": [],
+  "generated": 146157716,
+  "distinct": 33288512,
+  "left": 0,
+  "depth": 89,
+  "outdegree": "The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 8 and the 95th percentile is 2).",
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ }
+}

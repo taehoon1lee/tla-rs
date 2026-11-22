@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/etest6",
+ "wall_ms": 399.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "etest6"
+  ],
+  "files": [
+   "etest6",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "etest6",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/allocator/SchedulingAllocator",
+ "wall_ms": 439.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SchedulingAllocator"
+  ],
+  "files": [
+   "SchedulingAllocator",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SchedulingAllocator",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

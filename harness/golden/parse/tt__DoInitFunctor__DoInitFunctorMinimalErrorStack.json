@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/DoInitFunctor/DoInitFunctorMinimalErrorStack",
+ "wall_ms": 360.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "DoInitFunctorMinimalErrorStack"
+  ],
+  "files": [
+   "DoInitFunctorMinimalErrorStack",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DoInitFunctorMinimalErrorStack",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

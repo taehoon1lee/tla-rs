@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/April20aMC",
+ "wall_ms": 345.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "April20a",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "April20aMC"
+  ],
+  "files": [
+   "April20aMC",
+   "April20a",
+   "TLC",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "April20aMC",
+   "April20a",
+   "TLC",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

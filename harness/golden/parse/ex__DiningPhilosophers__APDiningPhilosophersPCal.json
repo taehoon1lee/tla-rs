@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/DiningPhilosophers/APDiningPhilosophersPCal",
+ "wall_ms": 425.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "DiningPhilosophersPCal",
+   "APDiningPhilosophersPCal"
+  ],
+  "files": [
+   "APDiningPhilosophersPCal",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "DiningPhilosophersPCal",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APDiningPhilosophersPCal",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "DiningPhilosophersPCal",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

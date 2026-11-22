@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/Functions",
+ "wall_ms": 356.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Folds",
+   "Functions"
+  ],
+  "files": [
+   "Functions",
+   "Integers",
+   "Folds",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Functions",
+   "Integers",
+   "Folds",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

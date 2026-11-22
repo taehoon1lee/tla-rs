@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/ActionLevelPropETest",
+ "wall_ms": 446.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 151,
+  "exit_name": "error_config_parse",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2274,
+  "violation": null,
+  "error_codes": [
+   2274
+  ],
+  "errors": [
+   {
+    "code": 2274,
+    "text": "The formula ActionLivePropE at line 32, col 5 to line 32, col 17 of module ActionLevelProp is an action-level formula (i.e., it contains no temporal operators). Only temporal-level (or state-level) formulas are allowed under PROPERTY or PROPERTIES. To check that infinitely many ActionLivePropE steps occur, define a temporal property by applying the \"always eventually\" temporal operator combination ([]<>) to the formula at line 32, col 5 to line 32, col 17 of module ActionLevelProp (compare page 91 of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html)."
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 411.8
+}

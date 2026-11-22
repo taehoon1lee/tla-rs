@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1417Inlined",
+ "wall_ms": 275.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Github1417Ops",
+   "Github1417Thm",
+   "Github1417Inlined"
+  ],
+  "files": [
+   "Github1417Inlined",
+   "Github1417Ops",
+   "Github1417Thm"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1417Inlined",
+   "Github1417Ops",
+   "Github1417Thm"
+  ],
+  "msg": ""
+ }
+}

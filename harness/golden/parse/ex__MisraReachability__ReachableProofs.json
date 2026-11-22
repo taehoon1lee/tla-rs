@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/MisraReachability/ReachableProofs",
+ "wall_ms": 652.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Reachability",
+   "Reachable",
+   "NaturalsInduction",
+   "TLAPS",
+   "ReachabilityProofs",
+   "ReachableProofs"
+  ],
+  "files": [
+   "ReachableProofs",
+   "Reachable",
+   "ReachabilityProofs",
+   "TLAPS",
+   "Reachability",
+   "Integers",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ReachableProofs",
+   "Reachable",
+   "ReachabilityProofs",
+   "TLAPS",
+   "Reachability",
+   "Integers",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ }
+}

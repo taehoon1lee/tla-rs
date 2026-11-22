@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/ChooseTableauSymmetryMCa",
+ "wall_ms": 374.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "ChooseTableauSymmetry",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "ChooseTableauSymmetryMCa"
+  ],
+  "files": [
+   "ChooseTableauSymmetryMCa",
+   "ChooseTableauSymmetry",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ChooseTableauSymmetryMCa",
+   "ChooseTableauSymmetry",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

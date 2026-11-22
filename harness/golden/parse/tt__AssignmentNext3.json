@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/AssignmentNext3",
+ "wall_ms": 428.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "AssignmentNext3"
+  ],
+  "files": [
+   "AssignmentNext3",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "AssignmentNext3",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

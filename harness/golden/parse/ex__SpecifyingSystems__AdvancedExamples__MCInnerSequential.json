@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/AdvancedExamples/MCInnerSequential",
+ "wall_ms": 396.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "InnerSequential",
+   "MCInnerSequential"
+  ],
+  "files": [
+   "MCInnerSequential",
+   "InnerSequential",
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCInnerSequential",
+   "InnerSequential",
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

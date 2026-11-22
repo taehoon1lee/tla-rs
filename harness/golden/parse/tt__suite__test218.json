@@ -1,0 +1,33 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test218",
+ "wall_ms": 247.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "test218"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test218.tla In module test218 Cannot find source file for module Test218a imported in module test218. *** Errors: 1 In module test218 Cannot find source file for module Test218a imported in module test218."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "test218"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test218.tla In module test218 Cannot find source file for module Test218a imported in module test218. *** Errors: 1 In module test218 Cannot find source file for module Test218a imported in module test218."
+ }
+}

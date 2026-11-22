@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/braf/BufferedRandomAccessFile",
+ "wall_ms": 645.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Common",
+   "RandomAccessFile",
+   "BufferedRandomAccessFile"
+  ],
+  "files": [
+   "BufferedRandomAccessFile",
+   "Naturals",
+   "Sequences",
+   "TLC",
+   "Common",
+   "FiniteSets",
+   "RandomAccessFile"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "BufferedRandomAccessFile",
+   "Naturals",
+   "Sequences",
+   "TLC",
+   "Common",
+   "FiniteSets",
+   "RandomAccessFile"
+  ],
+  "msg": ""
+ }
+}

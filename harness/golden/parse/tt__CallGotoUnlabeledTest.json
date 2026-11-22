@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/CallGotoUnlabeledTest",
+ "wall_ms": 341.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 4,
+  "status": "semantic_error",
+  "markers": [
+   "semantic_errors"
+  ],
+  "modules": [
+   "CallGotoUnlabeledTest"
+  ],
+  "files": [
+   "CallGotoUnlabeledTest"
+  ],
+  "msg": "Semantic errors: *** Errors: 8 line 36, col 20 to line 36, col 20 of module CallGotoUnlabeledTest Could not find declaration or definition of symbol '+'. line 36, col 18 to line 36, col 22 of module CallGotoUnlabeledTest Couldn't resolve infix operator symbol `+'. line 37, col 19 to line 37, col 22 of module CallGotoUnlabeledTest Unknown operator: `Head'. line 38, col 22 to line 38, col 25 of module CallGotoUnlabeledTest Unknown operator: `Tail'. line 45, col 19 to line 45, col 20 of module CallGotoUnlabeledTest Could not find declaration or definition of symbol '\\o'. line 43, col 18 to line 45, col 26 of module CallGotoUnlabeledTest Couldn't resolve infix operator symbol `\\o'. line 55, col 16 to line 55, col 16 of module CallGotoUnlabeledTest Could not find declaration or definition of symbol '-'. line 55, col 14 to line 55, col 18 of module CallGotoUnlabeledTest Couldn't resolve infix operator symbol `-'."
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CallGotoUnlabeledTest"
+  ],
+  "msg": ""
+ }
+}

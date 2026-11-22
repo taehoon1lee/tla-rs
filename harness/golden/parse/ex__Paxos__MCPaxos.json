@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Paxos/MCPaxos",
+ "wall_ms": 911.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "Consensus",
+   "Voting",
+   "Paxos",
+   "TLC",
+   "MCPaxos"
+  ],
+  "files": [
+   "MCPaxos",
+   "Paxos",
+   "TLC",
+   "Integers",
+   "Naturals",
+   "Voting",
+   "TLAPS",
+   "Consensus",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCPaxos",
+   "Paxos",
+   "TLC",
+   "Integers",
+   "Naturals",
+   "Voting",
+   "TLAPS",
+   "Consensus",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

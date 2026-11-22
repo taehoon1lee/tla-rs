@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tla-sany",
+    "crates/tlc-core",
+    "crates/tlc-check",
+    "crates/tlc-cli",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.dependencies]
+# RULE: pure-Rust crates only (toolchain is x86_64-pc-windows-gnu without a C compiler).
+# Nothing external yet; ask in loop/NOTES.md before adding a dependency.
+tla-sany = { path = "crates/tla-sany" }
+tlc-core = { path = "crates/tlc-core" }
+tlc-check = { path = "crates/tlc-check" }
+
+[profile.release]
+opt-level = 3
+debug = 1            # keep symbols for profiling
+codegen-units = 4
+lto = "thin"
+panic = "unwind"     # the CLI catches panics and reports them as TLC_BUG-like crashes
+
+[profile.dev]
+opt-level = 1

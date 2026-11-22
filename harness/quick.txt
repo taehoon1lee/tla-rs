@@ -1,0 +1,38 @@
+# Smoke set for `python harness/check.py --quick` (fast, diverse). One corpus id per line.
+# --- SANY modules
+ex/spanning/MC_spanning
+ex/transaction_commit/APTCommit
+ex/SpecifyingSystems/Syntax/BNFGrammars
+ex/SpecifyingSystems/AdvancedExamples/MCInnerSerial
+tt/Empty
+tt/DoInitFunctor/DoInitFunctorProperty
+tt/symmetry/April22MC
+cm/GraphViz
+cm/CBOR
+tt/IllegalOperatorTest
+tt/suite/etest16
+tt/suite/etest5
+tt/suite/testa
+tt/suite/test218
+tt/TESpecTest/TESpecDependencyTest
+# --- TLC models
+ex/LoopInvariance/MCBinarySearch
+ex/TwoPhase/MCTwoPhase
+ex/FlashProtocol/MCFlashWithMutex
+tt/MinimumDiameterTest
+ex/ewd998/EWD998ChanTrace
+tt/BugzillaBug279Test
+ex/spanning/MC_spanning
+ex/DieHard/MCDieHarder
+ex/tower_of_hanoi/Hanoi.toolbox/Model_1/MC
+tt/TraceWithLargeSetOfInitialStatesTest
+ex/FiniteMonotonic/MCDistributedReplicatedLog
+ex/SpecifyingSystems/RealTime/MCRealTimeHourClock
+ex/SpecificationRefinement/bad
+tt/Github461Test
+tt/IncompleteNextTest
+tt/EvaluatingValueTest
+tt/EmptyOrderOfSolutionsTest
+tt/UserModuleOverrideFromJarTest
+tt/Github1455Test
+tt/Github696bTest

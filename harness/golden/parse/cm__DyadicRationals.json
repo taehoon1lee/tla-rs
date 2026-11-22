@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/DyadicRationals",
+ "wall_ms": 417.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "DyadicRationals"
+  ],
+  "files": [
+   "DyadicRationals",
+   "FiniteSets",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DyadicRationals",
+   "FiniteSets",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

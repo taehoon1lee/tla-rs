@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/NoFairnessButLivePropATest",
+ "wall_ms": 534.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property Live was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2259,
+    "text": "The stuttering counterexample above may be caused by the absence of a fairness constraint in the behavior specification SpecNoFair defined at line 11, col 1 to line 12, col 22 of module NoFairnessButLiveProp. To rule out such counterexamples, conjoin a suitable fairness constraint to SpecNoFair (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html)."
+   }
+  ],
+  "generated": 3,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "b": "FALSE"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "2: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 531.1
+}

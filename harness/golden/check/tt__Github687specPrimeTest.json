@@ -1,0 +1,99 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github687specPrimeTest",
+ "wall_ms": 528.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 27,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 7,
+  "init_generated": 7,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property FalseAECheck was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 14,
+  "distinct": 7,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "value": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>",
+    "vars": {
+     "value": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>",
+    "vars": {
+     "value": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>",
+    "vars": {
+     "value": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>",
+    "vars": {
+     "value": "4"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>",
+    "vars": {
+     "value": "5"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>",
+    "vars": {
+     "value": "6"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "1: Back to state: <Z7!Increment(7) line 29, col 1 to line 29, col 32 of module Github687spec>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 508.3
+}

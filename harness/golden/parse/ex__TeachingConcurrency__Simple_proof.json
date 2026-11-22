@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TeachingConcurrency/Simple_proof",
+ "wall_ms": 414.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "Simple",
+   "Simple_proof"
+  ],
+  "files": [
+   "Simple_proof",
+   "Simple",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Simple_proof",
+   "Simple",
+   "Integers",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

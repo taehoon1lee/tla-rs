@@ -1,0 +1,75 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/AliasSafetyPropTest",
+ "wall_ms": 715.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 18,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property SafetyProp was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 5,
+  "distinct": 4,
+  "left": 0,
+  "depth": 4,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "y": "FALSE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<A line 15, col 1 to line 17, col 13 of module Alias>",
+    "vars": {
+     "y": "TRUE"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<A line 15, col 1 to line 17, col 13 of module Alias>",
+    "vars": {
+     "y": "FALSE"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<A line 15, col 1 to line 17, col 13 of module Alias>",
+    "vars": {
+     "y": "TRUE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 734.5
+}

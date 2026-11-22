@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TwoPhase/MCTwoPhase",
+ "wall_ms": 460.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "TLAPS",
+   "Alternate",
+   "TwoPhase",
+   "MCTwoPhase"
+  ],
+  "files": [
+   "MCTwoPhase",
+   "TwoPhase",
+   "Naturals",
+   "TLAPS",
+   "Alternate"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCTwoPhase",
+   "TwoPhase",
+   "Naturals",
+   "TLAPS",
+   "Alternate"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/CachingMemory/WriteThroughCache",
+ "wall_ms": 455.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "InternalMemory",
+   "Memory",
+   "WriteThroughCache"
+  ],
+  "files": [
+   "WriteThroughCache",
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "InternalMemory",
+   "Memory"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "WriteThroughCache",
+   "Naturals",
+   "Sequences",
+   "MemoryInterface",
+   "InternalMemory",
+   "Memory"
+  ],
+  "msg": ""
+ }
+}

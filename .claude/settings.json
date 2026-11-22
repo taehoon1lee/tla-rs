@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo:*)",
+      "Bash(python harness/check.py:*)",
+      "Bash(python harness/oracle.py:*)",
+      "Bash(python harness/setup.py:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git stash:*)",
+      "Edit(/crates/**)",
+      "Write(/crates/**)",
+      "Edit(/loop/TASKS.md)",
+      "Edit(/loop/PROGRESS.md)",
+      "Edit(/loop/NOTES.md)",
+      "Edit(/docs/**)",
+      "Write(/tmp/**)"
+    ]
+  }
+}

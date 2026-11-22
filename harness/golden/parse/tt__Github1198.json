@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1198",
+ "wall_ms": 334.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Github1198abs",
+   "Github1198"
+  ],
+  "files": [
+   "Github1198",
+   "Github1198abs"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1198",
+   "Github1198abs"
+  ],
+  "msg": ""
+ }
+}

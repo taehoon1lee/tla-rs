@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/SymmetryLivenessTableauMC",
+ "wall_ms": 417.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "SymmetryLivenessTableau",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SymmetryLivenessTableauMC"
+  ],
+  "files": [
+   "SymmetryLivenessTableauMC",
+   "SymmetryLivenessTableau",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SymmetryLivenessTableauMC",
+   "SymmetryLivenessTableau",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

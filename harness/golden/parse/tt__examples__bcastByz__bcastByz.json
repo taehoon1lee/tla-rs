@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/bcastByz/bcastByz",
+ "wall_ms": 657.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "bcastByz"
+  ],
+  "files": [
+   "bcastByz",
+   "Naturals",
+   "FiniteSets",
+   "Functions",
+   "Integers",
+   "Folds",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "bcastByz",
+   "Naturals",
+   "FiniteSets",
+   "Functions",
+   "Integers",
+   "Folds",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

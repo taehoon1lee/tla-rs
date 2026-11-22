@@ -1,0 +1,68 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TLC/TestMCReachability",
+ "wall_ms": 646.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "StateGraphs",
+   "MCReachability",
+   "TestMCReachability"
+  ],
+  "files": [
+   "TestMCReachability",
+   "StateGraphs",
+   "Sequences",
+   "Integers",
+   "IOUtils",
+   "Naturals",
+   "MCReachability",
+   "TLC",
+   "SequencesExt",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TestMCReachability",
+   "StateGraphs",
+   "Sequences",
+   "Integers",
+   "IOUtils",
+   "Naturals",
+   "MCReachability",
+   "TLC",
+   "SequencesExt",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

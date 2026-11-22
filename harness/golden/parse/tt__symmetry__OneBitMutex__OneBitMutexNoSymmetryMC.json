@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/OneBitMutex/OneBitMutexNoSymmetryMC",
+ "wall_ms": 719.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "OneBitMutex",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TLCExt",
+   "OneBitMutexNoSymmetryMC"
+  ],
+  "files": [
+   "OneBitMutexNoSymmetryMC",
+   "OneBitMutex",
+   "TLC",
+   "TLCExt",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "OneBitMutexNoSymmetryMC",
+   "OneBitMutex",
+   "TLC",
+   "TLCExt",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

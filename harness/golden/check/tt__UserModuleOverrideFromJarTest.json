@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/UserModuleOverrideFromJarTest",
+ "wall_ms": 379.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 150,
+  "exit_name": "error_spec_parse",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 3002,
+  "violation": null,
+  "error_codes": [
+   3002
+  ],
+  "errors": [
+   {
+    "code": 3002,
+    "text": "Parsing or semantic analysis failed."
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": "Fatal errors while parsing TLA+ spec in file UserModuleOverrideBase In module UserModuleOverrideBase Cannot find source file for module UserModuleOverrideFromJar imported in module UserModuleOverrideBase. *** Errors: 1 In module UserModuleOverrideBase Cannot find source file for module UserModuleOverrideFromJar imported in module UserModuleOverrideBase.",
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 376.6
+}

@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd998/Utils",
+ "wall_ms": 370.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "Utils"
+  ],
+  "files": [
+   "Utils",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Functions",
+   "Naturals",
+   "Folds"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Utils",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Functions",
+   "Naturals",
+   "Folds"
+  ],
+  "msg": ""
+ }
+}

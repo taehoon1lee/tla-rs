@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/DistributedDoInitFunctorInvariantContinueTest",
+ "wall_ms": 616.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "exit_name": "success",
+  "messages": 17,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 10,
+  "init_generated": 10,
+  "success": true,
+  "first_error": 2107,
+  "violation": "NotNine",
+  "error_codes": [
+   2107
+  ],
+  "errors": [
+   {
+    "code": 2107,
+    "text": "Invariant NotNine is violated by the initial state: x = 9"
+   }
+  ],
+  "warnings": [],
+  "generated": 21,
+  "distinct": 11,
+  "left": 0,
+  "depth": 2,
+  "outdegree": "The average outdegree of the complete state graph is 0 (minimum is 0, the maximum 1 and the 95th percentile is 1).",
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 610.6
+}

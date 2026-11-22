@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Liveness/APLiveHourClock",
+ "wall_ms": 315.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "HourClock",
+   "LiveHourClock",
+   "APLiveHourClock"
+  ],
+  "files": [
+   "APLiveHourClock",
+   "Naturals",
+   "LiveHourClock",
+   "HourClock"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APLiveHourClock",
+   "Naturals",
+   "LiveHourClock",
+   "HourClock"
+  ],
+  "msg": ""
+ }
+}

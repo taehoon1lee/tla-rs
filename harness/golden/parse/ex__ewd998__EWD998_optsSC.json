@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd998/EWD998_optsSC",
+ "wall_ms": 611.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "CSV",
+   "EWD998_optsSC"
+  ],
+  "files": [
+   "EWD998_optsSC",
+   "TLC",
+   "IOUtils",
+   "Naturals",
+   "Sequences",
+   "CSV",
+   "FiniteSets",
+   "Integers",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EWD998_optsSC",
+   "TLC",
+   "IOUtils",
+   "Naturals",
+   "Sequences",
+   "CSV",
+   "FiniteSets",
+   "Integers",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

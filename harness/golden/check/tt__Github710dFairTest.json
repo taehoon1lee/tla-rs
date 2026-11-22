@@ -1,0 +1,78 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github710dFairTest",
+ "wall_ms": 619.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 22,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property NeverThree was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 4,
+  "distinct": 4,
+  "left": 0,
+  "depth": 4,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Step line 7, col 9 to line 7, col 27 of module Github710d>",
+    "vars": {
+     "x": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Step line 7, col 9 to line 7, col 27 of module Github710d>",
+    "vars": {
+     "x": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Step line 7, col 9 to line 7, col 27 of module Github710d>",
+    "vars": {
+     "x": "3"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "5: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 656.0
+}

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SingleLaneBridge/APSingleLaneBridge",
+ "wall_ms": 371.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "SingleLaneBridge",
+   "APSingleLaneBridge"
+  ],
+  "files": [
+   "APSingleLaneBridge",
+   "Naturals",
+   "FiniteSets",
+   "Sequences",
+   "SingleLaneBridge"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APSingleLaneBridge",
+   "Naturals",
+   "FiniteSets",
+   "Sequences",
+   "SingleLaneBridge"
+  ],
+  "msg": ""
+ }
+}

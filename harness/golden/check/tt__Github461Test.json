@@ -1,0 +1,87 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github461Test",
+ "wall_ms": 643.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 14,
+  "exit_name": "violation_assert",
+  "messages": 19,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2132,
+  "violation": null,
+  "error_codes": [
+   2132,
+   2121,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 2132,
+    "text": "The first argument of Assert evaluated to FALSE; the second argument was: \"Failure of assertion at line 8, column 4.\""
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 9, column 5 to line 10, column 17 in Github461 1. Line 9, column 8 to line 9, column 65 in Github461"
+   }
+  ],
+  "warnings": [],
+  "generated": 5,
+  "distinct": 5,
+  "left": 0,
+  "depth": 5,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 9, col 5 to line 10, col 17 of module Github461>",
+    "vars": {
+     "x": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 9, col 5 to line 10, col 17 of module Github461>",
+    "vars": {
+     "x": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 9, col 5 to line 10, col 17 of module Github461>",
+    "vars": {
+     "x": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 9, col 5 to line 10, col 17 of module Github461>",
+    "vars": {
+     "x": "4"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 644.3
+}

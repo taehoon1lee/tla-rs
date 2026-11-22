@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/LazyValueDiskStateQueue",
+ "wall_ms": 306.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "LazyValueDiskStateQueue"
+  ],
+  "files": [
+   "LazyValueDiskStateQueue",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LazyValueDiskStateQueue",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

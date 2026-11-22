@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/FingerprintExceptionNext",
+ "wall_ms": 307.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "FingerprintExceptionNext"
+  ],
+  "files": [
+   "FingerprintExceptionNext",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "FingerprintExceptionNext",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

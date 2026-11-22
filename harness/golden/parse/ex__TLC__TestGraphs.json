@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TLC/TestGraphs",
+ "wall_ms": 652.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "FiniteSets",
+   "TLC",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "StateGraphs",
+   "MCReachability",
+   "TLCMC",
+   "TestGraphs"
+  ],
+  "files": [
+   "TestGraphs",
+   "StateGraphs",
+   "Sequences",
+   "Integers",
+   "IOUtils",
+   "Naturals",
+   "TLCMC",
+   "FiniteSets",
+   "TLC",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "MCReachability"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TestGraphs",
+   "StateGraphs",
+   "Sequences",
+   "Integers",
+   "IOUtils",
+   "Naturals",
+   "TLCMC",
+   "FiniteSets",
+   "TLC",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "MCReachability"
+  ],
+  "msg": ""
+ }
+}

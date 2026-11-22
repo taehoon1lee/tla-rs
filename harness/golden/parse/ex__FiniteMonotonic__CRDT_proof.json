@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/CRDT_proof",
+ "wall_ms": 1008.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "CRDT",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "FunctionTheorems",
+   "TLAPS",
+   "CRDT_proof"
+  ],
+  "files": [
+   "CRDT_proof",
+   "CRDT",
+   "Functions",
+   "NaturalsInduction",
+   "FunctionTheorems",
+   "TLAPS",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CRDT_proof",
+   "CRDT",
+   "Functions",
+   "NaturalsInduction",
+   "FunctionTheorems",
+   "TLAPS",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

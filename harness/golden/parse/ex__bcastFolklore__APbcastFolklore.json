@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/bcastFolklore/APbcastFolklore",
+ "wall_ms": 351.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "bcastFolklore",
+   "APbcastFolklore"
+  ],
+  "files": [
+   "APbcastFolklore",
+   "Naturals",
+   "bcastFolklore"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APbcastFolklore",
+   "Naturals",
+   "bcastFolklore"
+  ],
+  "msg": ""
+ }
+}

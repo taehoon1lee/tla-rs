@@ -1,0 +1,125 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/SymmetryTableauModelCheckerTest",
+ "wall_ms": 953.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 28,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 2,
+  "init_generated": 8,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property prop_144172195414092000 was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2279,
+    "text": "Declaring symmetry during liveness checking is dangerous. It might cause TLC to miss violations of the stated liveness properties. Please check liveness without symmetry defined."
+   }
+  ],
+  "generated": 779,
+  "distinct": 168,
+  "left": 0,
+  "depth": 10,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"rdy\" @@ d :> \"rdy\")",
+     "buf": "(c :> NoVal @@ d :> NoVal)",
+     "memInt": "<<c, NoVal>>"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Req(c) line 35, col 11 to line 40, col 26 of module SymmetryLivenessTableau>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"busy\" @@ d :> \"rdy\")",
+     "buf": "(c :> [op |-> \"Rd\", adr |-> e] @@ d :> NoVal)",
+     "memInt": "<<c, [op |-> \"Rd\", adr |-> e]>>"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Do(c) line 43, col 3 to line 51, col 21 of module SymmetryLivenessTableau>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"done\" @@ d :> \"rdy\")",
+     "buf": "(c :> a @@ d :> NoVal)",
+     "memInt": "<<c, [op |-> \"Rd\", adr |-> e]>>"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Req(d) line 35, col 11 to line 40, col 26 of module SymmetryLivenessTableau>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"done\" @@ d :> \"busy\")",
+     "buf": "(c :> a @@ d :> [op |-> \"Rd\", adr |-> f])",
+     "memInt": "<<d, [op |-> \"Rd\", adr |-> f]>>"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Do(d) line 43, col 3 to line 51, col 21 of module SymmetryLivenessTableau>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"done\" @@ d :> \"done\")",
+     "buf": "(c :> a @@ d :> b)",
+     "memInt": "<<d, [op |-> \"Rd\", adr |-> f]>>"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Rsp(c) line 53, col 11 to line 56, col 35 of module SymmetryLivenessTableau>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"rdy\" @@ d :> \"done\")",
+     "buf": "(c :> a @@ d :> b)",
+     "memInt": "<<c, a>>"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Req(c) line 35, col 11 to line 40, col 26 of module SymmetryLivenessTableau>",
+    "vars": {
+     "mem": "(e :> a @@ f :> b)",
+     "ctl": "(c :> \"busy\" @@ d :> \"done\")",
+     "buf": "(c :> [op |-> \"Rd\", adr |-> e] @@ d :> b)",
+     "memInt": "<<c, [op |-> \"Rd\", adr |-> e]>>"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "5: Back to state: <Do(c) line 43, col 3 to line 51, col 21 of module SymmetryLivenessTableau>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 1042.3
+}

@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/NormalizationTheorems",
+ "wall_ms": 735.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "NormalizationCases",
+   "NormalizationTheorems"
+  ],
+  "files": [
+   "NormalizationTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "Sequences",
+   "TLAPS",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "NormalizationCases"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "NormalizationTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "Sequences",
+   "TLAPS",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "NormalizationCases"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/RealTime/RealTimeHourClock",
+ "wall_ms": 364.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Reals",
+   "HourClock",
+   "RealTimeHourClock"
+  ],
+  "files": [
+   "RealTimeHourClock",
+   "Reals",
+   "HourClock",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "RealTimeHourClock",
+   "Reals",
+   "HourClock",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

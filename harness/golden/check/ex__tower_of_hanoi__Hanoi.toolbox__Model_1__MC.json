@@ -1,0 +1,271 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/tower_of_hanoi/Hanoi.toolbox/Model_1/MC",
+ "wall_ms": 715.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 46,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NotSolved",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NotSolved is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 768,
+  "distinct": 233,
+  "left": 26,
+  "depth": 32,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "towers": "<<31, 0, 0>>"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<30, 0, 1>>"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<28, 2, 1>>"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<28, 3, 0>>"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<24, 3, 4>>"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<25, 2, 4>>"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<25, 0, 6>>"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<24, 0, 7>>"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<16, 8, 7>>"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<16, 9, 6>>"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<18, 9, 4>>"
+    }
+   },
+   {
+    "n": 12,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<19, 8, 4>>"
+    }
+   },
+   {
+    "n": 13,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<19, 12, 0>>"
+    }
+   },
+   {
+    "n": 14,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<18, 12, 1>>"
+    }
+   },
+   {
+    "n": 15,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<16, 14, 1>>"
+    }
+   },
+   {
+    "n": 16,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<16, 15, 0>>"
+    }
+   },
+   {
+    "n": 17,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<0, 15, 16>>"
+    }
+   },
+   {
+    "n": 18,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<1, 14, 16>>"
+    }
+   },
+   {
+    "n": 19,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<1, 12, 18>>"
+    }
+   },
+   {
+    "n": 20,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<0, 12, 19>>"
+    }
+   },
+   {
+    "n": 21,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<4, 8, 19>>"
+    }
+   },
+   {
+    "n": 22,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<4, 9, 18>>"
+    }
+   },
+   {
+    "n": 23,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<6, 9, 16>>"
+    }
+   },
+   {
+    "n": 24,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<7, 8, 16>>"
+    }
+   },
+   {
+    "n": 25,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<7, 0, 24>>"
+    }
+   },
+   {
+    "n": 26,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<6, 0, 25>>"
+    }
+   },
+   {
+    "n": 27,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<4, 2, 25>>"
+    }
+   },
+   {
+    "n": 28,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<4, 3, 24>>"
+    }
+   },
+   {
+    "n": 29,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<0, 3, 28>>"
+    }
+   },
+   {
+    "n": 30,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<1, 2, 28>>"
+    }
+   },
+   {
+    "n": 31,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<1, 0, 30>>"
+    }
+   },
+   {
+    "n": 32,
+    "label": "<Next line 89, col 38 to line 91, col 34 of module Hanoi>",
+    "vars": {
+     "towers": "<<0, 0, 31>>"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 689.8
+}

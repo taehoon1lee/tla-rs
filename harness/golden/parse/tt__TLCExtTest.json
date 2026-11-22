@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TLCExtTest",
+ "wall_ms": 390.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "TLCExtTest"
+  ],
+  "files": [
+   "TLCExtTest",
+   "TLCExt",
+   "TLC",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TLCExtTest",
+   "TLCExt",
+   "TLC",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

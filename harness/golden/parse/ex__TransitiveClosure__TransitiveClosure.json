@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TransitiveClosure/TransitiveClosure",
+ "wall_ms": 450.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "TransitiveClosure"
+  ],
+  "files": [
+   "TransitiveClosure",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TransitiveClosure",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

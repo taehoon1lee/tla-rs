@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Moving_Cat_Puzzle/APCat",
+ "wall_ms": 331.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Cat",
+   "APCat"
+  ],
+  "files": [
+   "APCat",
+   "Naturals",
+   "Cat"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APCat",
+   "Naturals",
+   "Cat"
+  ],
+  "msg": ""
+ }
+}

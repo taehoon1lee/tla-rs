@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/nbacg_guer01/APnbacg_guer01",
+ "wall_ms": 399.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "nbacg_guer01",
+   "APnbacg_guer01"
+  ],
+  "files": [
+   "APnbacg_guer01",
+   "Naturals",
+   "FiniteSets",
+   "nbacg_guer01",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APnbacg_guer01",
+   "Naturals",
+   "FiniteSets",
+   "nbacg_guer01",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

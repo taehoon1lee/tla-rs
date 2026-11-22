@@ -1,0 +1,61 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/EvaluatingValueTest",
+ "wall_ms": 610.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 76,
+  "exit_name": "failure_safety_eval",
+  "messages": 16,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2111,
+  "violation": null,
+  "error_codes": [
+   2111,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2111,
+    "text": "Evaluating invariant Inv failed. @!@!@STARTMSG 2158:0 @!@!@ Attempted to check if the value: FALSE is an element of Nat. @!@!@ENDMSG 2158 @!@!@"
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 2,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": "The average outdegree of the complete state graph is 1 (minimum is 1, the maximum 1 and the 95th percentile is 1).",
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "1"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<A line 8, col 6 to line 8, col 15 of module EvaluatingValueTest>",
+    "vars": {
+     "x": "FALSE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 607.2
+}

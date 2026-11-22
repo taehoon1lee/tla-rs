@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1389StateGuardTest",
+ "wall_ms": 600168.0,
+ "status": "timeout",
+ "timeout_s": 600
+}

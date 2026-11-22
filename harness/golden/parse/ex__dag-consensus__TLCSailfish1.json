@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/dag-consensus/TLCSailfish1",
+ "wall_ms": 499.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Utils",
+   "Digraph",
+   "TLC",
+   "BlockDag",
+   "Sailfish",
+   "TLCSailfish1"
+  ],
+  "files": [
+   "TLCSailfish1",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "Sailfish",
+   "Sequences",
+   "BlockDag",
+   "Utils",
+   "Digraph",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TLCSailfish1",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "Sailfish",
+   "Sequences",
+   "BlockDag",
+   "Utils",
+   "Digraph",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

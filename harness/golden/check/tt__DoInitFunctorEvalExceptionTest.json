@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/DoInitFunctorEvalExceptionTest",
+ "wall_ms": 688.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2102,
+  "violation": null,
+  "error_codes": [
+   2102,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 2102,
+    "text": "@!@!@STARTMSG 2215:0 @!@!@ TLC expected a boolean value, but did not find one. line 15, col 15 to line 15, col 18 of module DoInitFunctorEvalException @!@!@ENDMSG 2215 @!@!@ While working on the initial state: x = 1"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 7, column 9 to line 7, column 19 in DoInitFunctorEvalException"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 0,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 655.2
+}

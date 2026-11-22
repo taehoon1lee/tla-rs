@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test30-true",
+ "wall_ms": 243.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "could_not_parse",
+   "fatal",
+   "parse_error"
+  ],
+  "modules": [],
+  "files": [
+   "test30-true"
+  ],
+  "msg": "***Parse Error*** Was expecting \"==== or more Module body\" Encountered \"MCSeq\" at line 15, column 1 and token \"}\" Residual stack trace follows: Module definition starting at line 1, column 1. Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test30-true.tla In module test30-true Could not parse module test30-true from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test30-true.tla *** Errors: 1 In module test30-true Could not parse module test30-true from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test30-true.tla"
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "could_not_parse",
+   "fatal",
+   "parse_error"
+  ],
+  "modules": [],
+  "files": [
+   "test30-true"
+  ],
+  "msg": "***Parse Error*** Was expecting \"==== or more Module body\" Encountered \"MCSeq\" at line 15, column 1 and token \"}\" Residual stack trace follows: Module definition starting at line 1, column 1. Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test30-true.tla In module test30-true Could not parse module test30-true from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test30-true.tla *** Errors: 1 In module test30-true Could not parse module test30-true from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test30-true.tla"
+ }
+}

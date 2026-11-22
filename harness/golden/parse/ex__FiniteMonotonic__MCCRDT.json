@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/MCCRDT",
+ "wall_ms": 413.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "CRDT",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "MCCRDT"
+  ],
+  "files": [
+   "MCCRDT",
+   "CRDT",
+   "FiniteSetsExt",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCCRDT",
+   "CRDT",
+   "FiniteSetsExt",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

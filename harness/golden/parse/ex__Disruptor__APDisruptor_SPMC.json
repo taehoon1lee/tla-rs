@@ -1,0 +1,49 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Disruptor/APDisruptor_SPMC",
+ "wall_ms": 403.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [
+   "warnings"
+  ],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "RingBuffer",
+   "Disruptor_SPMC",
+   "APDisruptor_SPMC"
+  ],
+  "files": [
+   "APDisruptor_SPMC",
+   "Integers",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Disruptor_SPMC",
+   "RingBuffer"
+  ],
+  "msg": "*** Warnings: 1 line 40, col 1 to line 40, col 23 of module APDisruptor_SPMC Multiple declarations or definitions for symbol Range. This duplicates the one at line 38, col 1 to line 38, col 38 of module APDisruptor_SPMC. Linting of module RingBuffer Linting of module Disruptor_SPMC Linting of module APDisruptor_SPMC"
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APDisruptor_SPMC",
+   "Integers",
+   "FiniteSets",
+   "Sequences",
+   "Naturals",
+   "Disruptor_SPMC",
+   "RingBuffer"
+  ],
+  "msg": ""
+ }
+}

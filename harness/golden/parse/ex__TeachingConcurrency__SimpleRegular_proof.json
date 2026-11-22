@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/TeachingConcurrency/SimpleRegular_proof",
+ "wall_ms": 435.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "SimpleRegular",
+   "SimpleRegular_proof"
+  ],
+  "files": [
+   "SimpleRegular_proof",
+   "SimpleRegular",
+   "TLAPS",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SimpleRegular_proof",
+   "SimpleRegular",
+   "TLAPS",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

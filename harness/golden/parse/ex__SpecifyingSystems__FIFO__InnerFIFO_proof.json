@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/FIFO/InnerFIFO_proof",
+ "wall_ms": 379.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "Channel",
+   "InnerFIFO",
+   "TLAPS",
+   "InnerFIFO_proof"
+  ],
+  "files": [
+   "InnerFIFO_proof",
+   "InnerFIFO",
+   "TLAPS",
+   "Naturals",
+   "Sequences",
+   "Channel"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "InnerFIFO_proof",
+   "InnerFIFO",
+   "TLAPS",
+   "Naturals",
+   "Sequences",
+   "Channel"
+  ],
+  "msg": ""
+ }
+}

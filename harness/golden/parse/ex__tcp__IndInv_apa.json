@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tcp/IndInv_apa",
+ "wall_ms": 711.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Apalache",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "tcp",
+   "IndInv_apa"
+  ],
+  "files": [
+   "IndInv_apa",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Apalache",
+   "Naturals",
+   "tcp",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "IndInv_apa",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Apalache",
+   "Naturals",
+   "tcp",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

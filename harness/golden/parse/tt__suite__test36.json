@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test36",
+ "wall_ms": 525.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Bags",
+   "test36"
+  ],
+  "files": [
+   "test36",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "test36",
+   "Naturals",
+   "TLC",
+   "Sequences",
+   "FiniteSets",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

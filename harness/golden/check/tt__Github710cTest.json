@@ -1,0 +1,92 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github710cTest",
+ "wall_ms": 586.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 24,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property AtMostOnce was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 5,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 8, col 9 to line 8, col 22 of module Github710a>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 8, col 9 to line 8, col 22 of module Github710a>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 8, col 9 to line 8, col 22 of module Github710a>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 8, col 9 to line 8, col 22 of module Github710a>",
+    "vars": {
+     "x": "FALSE"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 8, col 9 to line 8, col 22 of module Github710a>",
+    "vars": {
+     "x": "TRUE"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "5: Back to state: <Next line 8, col 9 to line 8, col 22 of module Github710a>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 572.4
+}

@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/cdot/CdotWithContextA",
+ "wall_ms": 333.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "CdotWithContextA"
+  ],
+  "files": [
+   "CdotWithContextA",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CdotWithContextA",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

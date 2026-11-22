@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/LetInstanceThmXmlDefs",
+ "wall_ms": 260.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "LetInstanceThmXmlDefs"
+  ],
+  "files": [
+   "LetInstanceThmXmlDefs"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LetInstanceThmXmlDefs"
+  ],
+  "msg": ""
+ }
+}

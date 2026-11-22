@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/locks_auxiliary_vars/LockHS",
+ "wall_ms": 905.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TLAPS",
+   "Lock",
+   "NaturalsInduction",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Stuttering",
+   "Peterson",
+   "LockHS"
+  ],
+  "files": [
+   "LockHS",
+   "Lock",
+   "NaturalsInduction",
+   "Integers",
+   "TLAPS",
+   "Naturals",
+   "Stuttering",
+   "TLC",
+   "Peterson",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LockHS",
+   "Lock",
+   "NaturalsInduction",
+   "Integers",
+   "TLAPS",
+   "Naturals",
+   "Stuttering",
+   "TLC",
+   "Peterson",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

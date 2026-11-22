@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/Graphs",
+ "wall_ms": 680.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "Relation",
+   "Graphs"
+  ],
+  "files": [
+   "Graphs",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "SequencesExt",
+   "Relation",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Graphs",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "SequencesExt",
+   "Relation",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

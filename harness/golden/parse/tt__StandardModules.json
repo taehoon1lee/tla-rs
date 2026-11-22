@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/StandardModules",
+ "wall_ms": 409.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Bags",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Reals",
+   "RealTime",
+   "Randomization",
+   "StandardModules"
+  ],
+  "files": [
+   "StandardModules",
+   "Bags",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "RealTime",
+   "Naturals",
+   "Integers",
+   "Randomization",
+   "Reals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "StandardModules",
+   "Bags",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "RealTime",
+   "Naturals",
+   "Integers",
+   "Randomization",
+   "Reals"
+  ],
+  "msg": ""
+ }
+}

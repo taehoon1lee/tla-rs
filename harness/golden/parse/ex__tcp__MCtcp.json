@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tcp/MCtcp",
+ "wall_ms": 542.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "tcp",
+   "MCtcp"
+  ],
+  "files": [
+   "MCtcp",
+   "tcp",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "Naturals",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCtcp",
+   "tcp",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "Naturals",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,82 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/SpecifyingSystems/RealTime/MCRealTimeHourClock",
+ "wall_ms": 672.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 28,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 72,
+  "init_generated": 72,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property ErrorTemporal was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2257,
+    "text": "The stuttering counterexample above may be caused by the absence of a behavior specification (SPECIFICATION). Only INIT and NEXT have been provided, so TLC permits infinite stuttering. To rule out such counterexamples, use SPECIFICATION Spec, with Spec asserting a suitable fairness constraint (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html)."
+   }
+  ],
+  "generated": 696,
+  "distinct": 216,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "now": "1",
+     "hr": "2",
+     "t": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<BigNext line 23, col 12 to line 27, col 43 of module MCRealTimeHourClock>",
+    "vars": {
+     "now": "4",
+     "hr": "2",
+     "t": "3"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<BigNext line 23, col 12 to line 27, col 43 of module MCRealTimeHourClock>",
+    "vars": {
+     "now": "4",
+     "hr": "3",
+     "t": "0"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "stuttering",
+   "text": "4: Stuttering"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 775.0
+}

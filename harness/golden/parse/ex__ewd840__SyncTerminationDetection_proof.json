@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/ewd840/SyncTerminationDetection_proof",
+ "wall_ms": 377.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "SyncTerminationDetection",
+   "TLAPS",
+   "SyncTerminationDetection_proof"
+  ],
+  "files": [
+   "SyncTerminationDetection_proof",
+   "SyncTerminationDetection",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SyncTerminationDetection_proof",
+   "SyncTerminationDetection",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

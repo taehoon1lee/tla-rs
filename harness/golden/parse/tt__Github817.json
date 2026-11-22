@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github817",
+ "wall_ms": 382.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Abstract2",
+   "Abstract",
+   "Github817"
+  ],
+  "files": [
+   "Github817",
+   "Abstract",
+   "Abstract2"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github817",
+   "Abstract",
+   "Abstract2"
+  ],
+  "msg": ""
+ }
+}

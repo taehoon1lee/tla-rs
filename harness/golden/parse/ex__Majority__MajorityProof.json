@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Majority/MajorityProof",
+ "wall_ms": 590.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Majority",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "MajorityProof"
+  ],
+  "files": [
+   "MajorityProof",
+   "Majority",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MajorityProof",
+   "Majority",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ }
+}

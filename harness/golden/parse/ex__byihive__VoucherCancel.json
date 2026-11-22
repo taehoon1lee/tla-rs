@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/byihive/VoucherCancel",
+ "wall_ms": 429.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "VoucherLifeCycle",
+   "VoucherCancel"
+  ],
+  "files": [
+   "VoucherCancel",
+   "VoucherLifeCycle"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "VoucherCancel",
+   "VoucherLifeCycle"
+  ],
+  "msg": ""
+ }
+}

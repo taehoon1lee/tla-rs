@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/ValueSemanticsTheorems",
+ "wall_ms": 1465.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "ValueSemanticsCases",
+   "ValueSemanticsTheorems"
+  ],
+  "files": [
+   "ValueSemanticsTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "Sequences",
+   "TLAPS",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "ValueSemanticsCases"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ValueSemanticsTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "Integers",
+   "Sequences",
+   "TLAPS",
+   "Functions",
+   "WellFoundedInduction",
+   "Naturals",
+   "Folds",
+   "NaturalsInduction",
+   "ValueSemanticsCases"
+  ],
+  "msg": ""
+ }
+}

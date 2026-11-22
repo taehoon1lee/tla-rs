@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github179cTest",
+ "wall_ms": 662.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 1000,
+  "violation": null,
+  "error_codes": [
+   1000,
+   2121,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 1000,
+    "text": "TLC threw an unexpected exception. This was probably caused by an error in the spec or model. See the User Output or TLC Console for clues to what happened. The exception was a java.lang.RuntimeException : @!@!@STARTMSG 2154:0 @!@!@ Attempted to apply the operator overridden by the Java method public static tlc2.value.impl.Value tlc2.module.TLC.PrintT(tlc2.value.impl.Value), but it produced the following error: Attempted to check equality of integer 1 with non-integer: {1} @!@!@ENDMSG 2154 @!@!@"
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 16, column 9 to line 16, column 42 in Github179c 1. Line 16, column 9 to line 16, column 33 in Github179c 2. Line 16, column 9 to line 16, column 25 in Github179c 3. Line 10, column 11 to line 12, column 39 in Github179c 4. Line 10, column 24 to line 12, column 39 in Github179c 5. Line 10, column 27 to line 10, column 36 in Github179c"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "v": "0"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 661.6
+}

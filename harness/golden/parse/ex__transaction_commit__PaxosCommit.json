@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/transaction_commit/PaxosCommit",
+ "wall_ms": 493.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TCommit",
+   "PaxosCommit"
+  ],
+  "files": [
+   "PaxosCommit",
+   "Integers",
+   "Naturals",
+   "TCommit"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "PaxosCommit",
+   "Integers",
+   "Naturals",
+   "TCommit"
+  ],
+  "msg": ""
+ }
+}

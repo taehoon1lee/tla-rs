@@ -1,0 +1,33 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Bug156/TE",
+ "wall_ms": 3602.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "TE"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/Bug156/TE.tla In module TE Cannot find source file for module FindOpWithoutPrint imported in module TE. *** Errors: 1 In module TE Cannot find source file for module FindOpWithoutPrint imported in module TE."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "TE"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/Bug156/TE.tla In module TE Cannot find source file for module FindOpWithoutPrint imported in module TE. *** Errors: 1 In module TE Cannot find source file for module FindOpWithoutPrint imported in module TE."
+ }
+}

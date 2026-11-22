@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Bug156/FindOp",
+ "wall_ms": 735.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal"
+  ],
+  "modules": [],
+  "files": [
+   "FindOp"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/Bug156/FindOp.tla Unknown location File name 'FindOp' does not match the name 'FindOpWithoutPrint' of the top level module it contains. *** Errors: 1 Unknown location File name 'FindOp' does not match the name 'FindOpWithoutPrint' of the top level module it contains."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal"
+  ],
+  "modules": [],
+  "files": [
+   "FindOp"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/Bug156/FindOp.tla Unknown location File name 'FindOp' does not match the name 'FindOpWithoutPrint' of the top level module it contains. *** Errors: 1 Unknown location File name 'FindOp' does not match the name 'FindOpWithoutPrint' of the top level module it contains."
+ }
+}

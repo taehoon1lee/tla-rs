@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github715bTest",
+ "wall_ms": 448.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 151,
+  "exit_name": "error_config_parse",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2236,
+  "violation": null,
+  "error_codes": [
+   2236
+  ],
+  "errors": [
+   {
+    "code": 2236,
+    "text": "The operator x, which equals line 2, col 10 to line 2, col 10 of module Github715, cannot be used as a spec"
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 453.4
+}

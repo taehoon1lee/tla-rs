@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tcp/tcp",
+ "wall_ms": 669.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "tcp"
+  ],
+  "files": [
+   "tcp",
+   "Integers",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "Naturals",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "tcp",
+   "Integers",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "Naturals",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,87 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/N-Queens/Queens.toolbox/FourQueens/MC",
+ "wall_ms": 597.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 18,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NoSolutions",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NoSolutions is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 62,
+  "distinct": 40,
+  "left": 25,
+  "depth": 5,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "todo": "{<<>>}",
+     "sols": "{}"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<PlaceQueen line 50, col 15 to line 62, col 26 of module Queens>",
+    "vars": {
+     "todo": "{<<1>>, <<2>>, <<3>>, <<4>>}",
+     "sols": "{}"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<PlaceQueen line 50, col 15 to line 62, col 26 of module Queens>",
+    "vars": {
+     "todo": "{<<1>>, <<3>>, <<4>>, <<2, 4>>}",
+     "sols": "{}"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<PlaceQueen line 50, col 15 to line 62, col 26 of module Queens>",
+    "vars": {
+     "todo": "{<<1>>, <<3>>, <<4>>, <<2, 4, 1>>}",
+     "sols": "{}"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<PlaceQueen line 50, col 15 to line 62, col 26 of module Queens>",
+    "vars": {
+     "todo": "{<<1>>, <<3>>, <<4>>}",
+     "sols": "{<<2, 4, 1, 3>>}"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 628.1
+}

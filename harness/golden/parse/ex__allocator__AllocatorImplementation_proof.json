@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/allocator/AllocatorImplementation_proof",
+ "wall_ms": 903.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SchedulingAllocator",
+   "AllocatorImplementation",
+   "Integers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "TLAPS",
+   "SequenceTheorems",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "AllocatorImplementation_proof"
+  ],
+  "files": [
+   "AllocatorImplementation_proof",
+   "AllocatorImplementation",
+   "Integers",
+   "SequenceTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLAPS",
+   "Sequences",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "NaturalsInduction",
+   "SchedulingAllocator",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "AllocatorImplementation_proof",
+   "AllocatorImplementation",
+   "Integers",
+   "SequenceTheorems",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLAPS",
+   "Sequences",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "NaturalsInduction",
+   "SchedulingAllocator",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,167 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/DieHard/MCDieHardest",
+ "wall_ms": 1061.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 25,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NotSolved",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NotSolved is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 140897,
+  "distinct": 11566,
+  "left": 3737,
+  "depth": 12,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "c1": "[j1 |-> 0, j2 |-> 0]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "0",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<NextInterleaved line 187, col 8 to line 187, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 5, j2 |-> 0]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "1",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<NextInterleaved line 187, col 8 to line 187, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 2, j2 |-> 3]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "2",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<NextInterleaved line 187, col 8 to line 187, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 2, j2 |-> 0]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "3",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<NextInterleaved line 187, col 8 to line 187, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 0, j2 |-> 2]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "4",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<NextInterleaved line 187, col 8 to line 187, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 5, j2 |-> 2]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "5",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<NextInterleaved line 187, col 8 to line 187, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 4, j2 |-> 3]",
+     "c2": "[j1 |-> 0, j2 |-> 0, j3 |-> 0]",
+     "s1": "6",
+     "s2": "0"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<NextInterleaved line 188, col 8 to line 188, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 4, j2 |-> 3]",
+     "c2": "[j1 |-> 5, j2 |-> 0, j3 |-> 0]",
+     "s1": "6",
+     "s2": "1"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<NextInterleaved line 188, col 8 to line 188, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 4, j2 |-> 3]",
+     "c2": "[j1 |-> 2, j2 |-> 3, j3 |-> 0]",
+     "s1": "6",
+     "s2": "2"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<NextInterleaved line 188, col 8 to line 188, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 4, j2 |-> 3]",
+     "c2": "[j1 |-> 0, j2 |-> 3, j3 |-> 2]",
+     "s1": "6",
+     "s2": "3"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<NextInterleaved line 188, col 8 to line 188, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 4, j2 |-> 3]",
+     "c2": "[j1 |-> 5, j2 |-> 3, j3 |-> 2]",
+     "s1": "6",
+     "s2": "4"
+    }
+   },
+   {
+    "n": 12,
+    "label": "<NextInterleaved line 188, col 8 to line 188, col 54 of module DieHardest>",
+    "vars": {
+     "c1": "[j1 |-> 4, j2 |-> 3]",
+     "c2": "[j1 |-> 4, j2 |-> 3, j3 |-> 3]",
+     "s1": "6",
+     "s2": "5"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 1016.9
+}

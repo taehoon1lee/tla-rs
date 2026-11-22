@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Standard/Bags",
+ "wall_ms": 421.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Peano",
+   "ProtoReals",
+   "Naturals",
+   "Bags"
+  ],
+  "files": [
+   "Bags",
+   "Naturals",
+   "ProtoReals",
+   "Peano"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Bags",
+   "Naturals",
+   "ProtoReals",
+   "Peano"
+  ],
+  "msg": ""
+ }
+}

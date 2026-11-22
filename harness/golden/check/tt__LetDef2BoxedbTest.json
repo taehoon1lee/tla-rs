@@ -1,0 +1,61 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/LetDef2BoxedbTest",
+ "wall_ms": 503.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2112,
+  "violation": "def_arg",
+  "error_codes": [
+   2112,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2112,
+    "text": "Action property def_arg is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 2,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "TRUE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 7, col 9 to line 7, col 15 of module LetDef2Boxed>",
+    "vars": {
+     "x": "FALSE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 484.4
+}

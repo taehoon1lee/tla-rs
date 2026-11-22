@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/GermanProtocol/MCGermanData",
+ "wall_ms": 524.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "GermanControl",
+   "GermanData",
+   "TLC",
+   "MCGermanData"
+  ],
+  "files": [
+   "MCGermanData",
+   "GermanData",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "GermanControl",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCGermanData",
+   "GermanData",
+   "TLC",
+   "Naturals",
+   "FiniteSets",
+   "GermanControl",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

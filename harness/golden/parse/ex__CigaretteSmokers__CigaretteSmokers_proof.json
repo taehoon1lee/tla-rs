@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/CigaretteSmokers/CigaretteSmokers_proof",
+ "wall_ms": 632.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "CigaretteSmokers",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "CigaretteSmokers_proof"
+  ],
+  "files": [
+   "CigaretteSmokers_proof",
+   "CigaretteSmokers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Integers",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CigaretteSmokers_proof",
+   "CigaretteSmokers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Integers",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

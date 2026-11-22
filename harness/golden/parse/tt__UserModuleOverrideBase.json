@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/UserModuleOverrideBase",
+ "wall_ms": 284.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "UserModuleOverrideBase",
+   "Naturals"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/UserModuleOverrideBase.tla In module UserModuleOverrideBase Cannot find source file for module UserModuleOverrideFromJar imported in module UserModuleOverrideBase. *** Errors: 1 In module UserModuleOverrideBase Cannot find source file for module UserModuleOverrideFromJar imported in module UserModuleOverrideBase."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "UserModuleOverrideBase",
+   "Naturals"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/UserModuleOverrideBase.tla In module UserModuleOverrideBase Cannot find source file for module UserModuleOverrideFromJar imported in module UserModuleOverrideBase. *** Errors: 1 In module UserModuleOverrideBase Cannot find source file for module UserModuleOverrideFromJar imported in module UserModuleOverrideBase."
+ }
+}

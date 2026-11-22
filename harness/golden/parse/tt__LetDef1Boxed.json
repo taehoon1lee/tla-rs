@@ -1,0 +1,29 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/LetDef1Boxed",
+ "wall_ms": 274.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "LetDef1Boxed"
+  ],
+  "files": [
+   "LetDef1Boxed"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LetDef1Boxed"
+  ],
+  "msg": ""
+ }
+}

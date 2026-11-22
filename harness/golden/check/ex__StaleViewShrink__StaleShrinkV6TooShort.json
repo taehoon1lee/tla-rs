@@ -1,0 +1,157 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/StaleViewShrink/StaleShrinkV6TooShort",
+ "wall_ms": 711.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 23,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Safety",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Safety is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 5850,
+  "distinct": 2132,
+  "left": 844,
+  "depth": 10,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "now": "0",
+     "snapshots": "<<>>",
+     "announced": "{}",
+     "holds": "{1, 2, 3, 4}",
+     "intent": "<<0, 0, 0, 0>>"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Announce(1) line 138, col 5 to line 143, col 42 of module StaleShrink>",
+    "vars": {
+     "now": "0",
+     "snapshots": "<<>>",
+     "announced": "{1}",
+     "holds": "{1, 2, 3, 4}",
+     "intent": "<<1, 0, 0, 0>>"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Announce(2) line 138, col 5 to line 143, col 42 of module StaleShrink>",
+    "vars": {
+     "now": "0",
+     "snapshots": "<<>>",
+     "announced": "{1, 2}",
+     "holds": "{1, 2, 3, 4}",
+     "intent": "<<1, 1, 0, 0>>"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Announce(3) line 138, col 5 to line 143, col 42 of module StaleShrink>",
+    "vars": {
+     "now": "0",
+     "snapshots": "<<>>",
+     "announced": "{1, 2, 3}",
+     "holds": "{1, 2, 3, 4}",
+     "intent": "<<1, 1, 1, 0>>"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Announce(4) line 138, col 5 to line 143, col 42 of module StaleShrink>",
+    "vars": {
+     "now": "0",
+     "snapshots": "<<>>",
+     "announced": "{1, 2, 3, 4}",
+     "holds": "{1, 2, 3, 4}",
+     "intent": "<<1, 1, 1, 1>>"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<AdvanceTime line 159, col 5 to line 164, col 45 of module StaleShrink>",
+    "vars": {
+     "now": "1",
+     "snapshots": "<<<<{1, 2, 3, 4}, {1, 2, 3, 4}>>>>",
+     "announced": "{1, 2, 3, 4}",
+     "holds": "{1, 2, 3, 4}",
+     "intent": "<<1, 1, 1, 1>>"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Recheck(1) line 147, col 5 to line 154, col 46 of module StaleShrink>",
+    "vars": {
+     "now": "1",
+     "snapshots": "<<<<{1, 2, 3, 4}, {1, 2, 3, 4}>>>>",
+     "announced": "{1, 2, 3, 4}",
+     "holds": "{2, 3, 4}",
+     "intent": "<<0, 1, 1, 1>>"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Recheck(2) line 147, col 5 to line 154, col 46 of module StaleShrink>",
+    "vars": {
+     "now": "1",
+     "snapshots": "<<<<{1, 2, 3, 4}, {1, 2, 3, 4}>>>>",
+     "announced": "{1, 2, 3, 4}",
+     "holds": "{3, 4}",
+     "intent": "<<0, 0, 1, 1>>"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Recheck(3) line 147, col 5 to line 154, col 46 of module StaleShrink>",
+    "vars": {
+     "now": "1",
+     "snapshots": "<<<<{1, 2, 3, 4}, {1, 2, 3, 4}>>>>",
+     "announced": "{1, 2, 3, 4}",
+     "holds": "{4}",
+     "intent": "<<0, 0, 0, 1>>"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<Recheck(4) line 147, col 5 to line 154, col 46 of module StaleShrink>",
+    "vars": {
+     "now": "1",
+     "snapshots": "<<<<{1, 2, 3, 4}, {1, 2, 3, 4}>>>>",
+     "announced": "{1, 2, 3, 4}",
+     "holds": "{}",
+     "intent": "<<0, 0, 0, 0>>"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 631.6
+}

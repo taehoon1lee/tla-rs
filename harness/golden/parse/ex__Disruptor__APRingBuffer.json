@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Disruptor/APRingBuffer",
+ "wall_ms": 405.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "RingBuffer",
+   "APRingBuffer"
+  ],
+  "files": [
+   "APRingBuffer",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "RingBuffer",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APRingBuffer",
+   "Integers",
+   "FiniteSets",
+   "Naturals",
+   "RingBuffer",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

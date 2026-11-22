@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/gh1134/SingleUser",
+ "wall_ms": 402.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "UserStateMachine",
+   "Base",
+   "SingleUser"
+  ],
+  "files": [
+   "SingleUser",
+   "Base",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "UserStateMachine",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SingleUser",
+   "Base",
+   "FiniteSets",
+   "Integers",
+   "TLC",
+   "Naturals",
+   "UserStateMachine",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

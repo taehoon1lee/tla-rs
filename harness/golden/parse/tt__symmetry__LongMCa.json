@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/LongMCa",
+ "wall_ms": 380.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "SymmetryLivenessLong",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "LongMCa"
+  ],
+  "files": [
+   "LongMCa",
+   "SymmetryLivenessLong",
+   "TLC",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LongMCa",
+   "SymmetryLivenessLong",
+   "TLC",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

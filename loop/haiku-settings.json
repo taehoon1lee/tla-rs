@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "deny": [
+      "Edit(/harness/**)",
+      "Write(/harness/**)",
+      "Edit(/reference/**)",
+      "Write(/reference/**)",
+      "Edit(/loop/PROMPT.md)",
+      "Write(/loop/PROMPT.md)",
+      "Edit(/loop/run-loop.ps1)",
+      "Write(/loop/run-loop.ps1)",
+      "Edit(/loop/haiku-settings.json)",
+      "Write(/loop/haiku-settings.json)",
+      "Edit(/CLAUDE.md)",
+      "Write(/CLAUDE.md)",
+      "Edit(/.claude/**)",
+      "Write(/.claude/**)",
+      "Bash(git push:*)",
+      "Bash(git reset --hard:*)"
+    ]
+  }
+}

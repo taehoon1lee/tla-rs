@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/Composing/JointActionMemory",
+ "wall_ms": 325.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "MemoryInterface",
+   "InternalMemory",
+   "JointActionMemory"
+  ],
+  "files": [
+   "JointActionMemory",
+   "MemoryInterface",
+   "InternalMemory"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "JointActionMemory",
+   "MemoryInterface",
+   "InternalMemory"
+  ],
+  "msg": ""
+ }
+}

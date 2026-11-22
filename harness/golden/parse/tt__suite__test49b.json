@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test49b",
+ "wall_ms": 294.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "could_not_parse",
+   "fatal",
+   "parse_error"
+  ],
+  "modules": [],
+  "files": [
+   "test49b"
+  ],
+  "msg": "***Parse Error*** Was expecting \"==== or more Module body\" Encountered \"u\" at line 16, column 1 and token \"u\" Residual stack trace follows: Module definition starting at line 1, column 1. Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test49b.tla In module test49b Could not parse module test49b from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test49b.tla *** Errors: 1 In module test49b Could not parse module test49b from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test49b.tla"
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "could_not_parse",
+   "fatal",
+   "parse_error"
+  ],
+  "modules": [],
+  "files": [
+   "test49b"
+  ],
+  "msg": "***Parse Error*** Was expecting \"==== or more Module body\" Encountered \"u\" at line 16, column 1 and token \"u\" Residual stack trace follows: Module definition starting at line 1, column 1. Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test49b.tla In module test49b Could not parse module test49b from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test49b.tla *** Errors: 1 In module test49b Could not parse module test49b from file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test49b.tla"
+ }
+}

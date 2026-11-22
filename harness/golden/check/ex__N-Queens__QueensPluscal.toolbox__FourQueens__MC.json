@@ -1,0 +1,92 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/N-Queens/QueensPluscal.toolbox/FourQueens/MC",
+ "wall_ms": 623.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 19,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "NoSolutions",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant NoSolutions is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 62,
+  "distinct": 40,
+  "left": 25,
+  "depth": 5,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "todo": "{<<>>}",
+     "sols": "{}",
+     "pc": "\"nxtQ\""
+    }
+   },
+   {
+    "n": 2,
+    "label": "<nxtQ line 78, col 9 to line 92, col 48 of module QueensPluscal>",
+    "vars": {
+     "todo": "{<<1>>, <<2>>, <<3>>, <<4>>}",
+     "sols": "{}",
+     "pc": "\"nxtQ\""
+    }
+   },
+   {
+    "n": 3,
+    "label": "<nxtQ line 78, col 9 to line 92, col 48 of module QueensPluscal>",
+    "vars": {
+     "todo": "{<<1>>, <<3>>, <<4>>, <<2, 4>>}",
+     "sols": "{}",
+     "pc": "\"nxtQ\""
+    }
+   },
+   {
+    "n": 4,
+    "label": "<nxtQ line 78, col 9 to line 92, col 48 of module QueensPluscal>",
+    "vars": {
+     "todo": "{<<1>>, <<3>>, <<4>>, <<2, 4, 1>>}",
+     "sols": "{}",
+     "pc": "\"nxtQ\""
+    }
+   },
+   {
+    "n": 5,
+    "label": "<nxtQ line 78, col 9 to line 92, col 48 of module QueensPluscal>",
+    "vars": {
+     "todo": "{<<1>>, <<3>>, <<4>>}",
+     "sols": "{<<2, 4, 1, 3>>}",
+     "pc": "\"nxtQ\""
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 628.2
+}

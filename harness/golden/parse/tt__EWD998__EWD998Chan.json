@@ -1,0 +1,53 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EWD998/EWD998Chan",
+ "wall_ms": 610.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Utils",
+   "TLC",
+   "TLCExt",
+   "EWD998",
+   "EWD998Chan"
+  ],
+  "files": [
+   "EWD998Chan",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Utils",
+   "Naturals",
+   "EWD998",
+   "TLC",
+   "TLCExt"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EWD998Chan",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Utils",
+   "Naturals",
+   "EWD998",
+   "TLC",
+   "TLCExt"
+  ],
+  "msg": ""
+ }
+}

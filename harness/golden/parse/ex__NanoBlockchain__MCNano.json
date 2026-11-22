@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/NanoBlockchain/MCNano",
+ "wall_ms": 452.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Bags",
+   "Nano",
+   "MCNano"
+  ],
+  "files": [
+   "MCNano",
+   "Naturals",
+   "FiniteSets",
+   "Nano",
+   "Bags",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCNano",
+   "Naturals",
+   "FiniteSets",
+   "Nano",
+   "Bags",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

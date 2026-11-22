@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/allocator/SimpleAllocator_proof",
+ "wall_ms": 427.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "SimpleAllocator",
+   "TLAPS",
+   "SimpleAllocator_proof"
+  ],
+  "files": [
+   "SimpleAllocator_proof",
+   "SimpleAllocator",
+   "TLAPS",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SimpleAllocator_proof",
+   "SimpleAllocator",
+   "TLAPS",
+   "FiniteSets",
+   "TLC",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

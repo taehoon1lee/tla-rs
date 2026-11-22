@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/StringDeserializeTLCTest",
+ "wall_ms": 750.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 10,
+  "exit_name": "violation_assumption",
+  "messages": 7,
+  "reached_sany_end": true,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2105,
+  "violation": null,
+  "error_codes": [
+   2105
+  ],
+  "errors": [
+   {
+    "code": 2105,
+    "text": "Evaluating assumption line 27, col 8 to line 27, col 33 of module StringDeserialize failed. @!@!@STARTMSG 2154:0 @!@!@ Attempted to apply the operator overridden by the Java method public static final tlc2.value.IValue tlc2.overrides.IOUtils.ioDeserialize(tlc2.value.impl.StringValue,tlc2.value.impl.BoolValue) throws java.io.IOException, but it produced the following error: -DStringDeserializeTLCTest.vosFileName (\uc9c0\uc815\ub41c \ud30c\uc77c\uc744 \ucc3e\uc744 \uc218 \uc5c6\uc2b5\ub2c8\ub2e4) @!@!@ENDMSG 2154 @!@!@"
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 710.5
+}

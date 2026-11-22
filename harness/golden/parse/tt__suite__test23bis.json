@@ -1,0 +1,31 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/suite/test23bis",
+ "wall_ms": 318.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal"
+  ],
+  "modules": [],
+  "files": [
+   "test23bis"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test23bis.tla Unknown location File name 'test23bis' does not match the name 'test23' of the top level module it contains. *** Errors: 1 Unknown location File name 'test23bis' does not match the name 'test23' of the top level module it contains."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal"
+  ],
+  "modules": [],
+  "files": [
+   "test23bis"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/suite/test23bis.tla Unknown location File name 'test23bis' does not match the name 'test23' of the top level module it contains. *** Errors: 1 Unknown location File name 'test23bis' does not match the name 'test23' of the top level module it contains."
+ }
+}

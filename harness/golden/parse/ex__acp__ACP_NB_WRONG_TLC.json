@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/acp/ACP_NB_WRONG_TLC",
+ "wall_ms": 380.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "ACP_SB",
+   "ACP_NB_WRONG_TLC"
+  ],
+  "files": [
+   "ACP_NB_WRONG_TLC",
+   "ACP_SB"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ACP_NB_WRONG_TLC",
+   "ACP_SB"
+  ],
+  "msg": ""
+ }
+}

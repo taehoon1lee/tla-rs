@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/PrintTraceRace/PrintTraceRace",
+ "wall_ms": 344.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "PrintTraceRace"
+  ],
+  "files": [
+   "PrintTraceRace",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "PrintTraceRace",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

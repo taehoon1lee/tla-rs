@@ -1,0 +1,8 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "ex/ewd998/EWD998Chan",
+ "wall_ms": 600288.6,
+ "status": "timeout",
+ "timeout_s": 600
+}

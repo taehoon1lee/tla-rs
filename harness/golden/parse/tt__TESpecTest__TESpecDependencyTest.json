@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TESpecTest/TESpecDependencyTest",
+ "wall_ms": 305.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "TESpecDependencyTest",
+   "Naturals"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/TESpecTest/TESpecDependencyTest.tla In module TESpecDependencyTest Cannot find source file for module DoesNotExist imported in module TESpecDependencyTest. *** Errors: 1 In module TESpecDependencyTest Cannot find source file for module DoesNotExist imported in module TESpecDependencyTest."
+ },
+ "syntax": {
+  "exit_code": -1,
+  "status": "error",
+  "markers": [
+   "fatal",
+   "missing_module"
+  ],
+  "modules": [],
+  "files": [
+   "TESpecDependencyTest",
+   "Naturals"
+  ],
+  "msg": "Fatal errors while parsing TLA+ spec in file <ROOT>/reference/tlaplus/tlatools/org.lamport.tlatools/test-model/TESpecTest/TESpecDependencyTest.tla In module TESpecDependencyTest Cannot find source file for module DoesNotExist imported in module TESpecDependencyTest. *** Errors: 1 In module TESpecDependencyTest Cannot find source file for module DoesNotExist imported in module TESpecDependencyTest."
+ }
+}

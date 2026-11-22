@@ -1,0 +1,68 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/DiningPhilosophers/DiningPhilosophers_anim",
+ "wall_ms": 615.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "SequencesExt",
+   "IOUtils",
+   "SVG",
+   "DiningPhilosophers",
+   "DiningPhilosophers_anim"
+  ],
+  "files": [
+   "DiningPhilosophers_anim",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "SVG",
+   "DiningPhilosophers",
+   "Naturals",
+   "FiniteSets",
+   "IOUtils",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DiningPhilosophers_anim",
+   "TLC",
+   "Integers",
+   "Sequences",
+   "SVG",
+   "DiningPhilosophers",
+   "Naturals",
+   "FiniteSets",
+   "IOUtils",
+   "SequencesExt",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags"
+  ],
+  "msg": ""
+ }
+}

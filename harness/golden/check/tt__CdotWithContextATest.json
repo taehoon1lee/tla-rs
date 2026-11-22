@@ -1,0 +1,60 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CdotWithContextATest",
+ "wall_ms": 509.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 1000,
+  "violation": null,
+  "error_codes": [
+   1000,
+   2121,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 1000,
+    "text": "TLC threw an unexpected exception. This was probably caused by an error in the spec or model. See the User Output or TLC Console for clues to what happened. The exception was a java.lang.RuntimeException : The current version of TLC does not support action composition. An incomplete implementation can be enabled via the tlc2.tool.impl.Tool.cdot=true java property."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 19, column 9 to line 22, column 28 in CdotWithContextA 1. Line 19, column 9 to line 19, column 16 in CdotWithContextA 2. Line 19, column 12 to line 19, column 16 in CdotWithContextA 3. Line 20, column 8 to line 22, column 28 in CdotWithContextA 4. Line 21, column 11 to line 22, column 28 in CdotWithContextA 5. Line 21, column 14 to line 21, column 20 in CdotWithContextA 6. Line 22, column 14 to line 22, column 28 in CdotWithContextA"
+   }
+  ],
+  "warnings": [],
+  "generated": 1,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "S": "{1, 2}",
+     "x": "0"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 509.5
+}

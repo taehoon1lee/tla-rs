@@ -1,0 +1,167 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CodePlexBug08AgentRingTest",
+ "wall_ms": 781.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 31,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2116,
+  "violation": null,
+  "error_codes": [
+   2116,
+   2264
+  ],
+  "errors": [
+   {
+    "code": 2116,
+    "text": "Temporal property prop_142745588773041000 was violated."
+   },
+   {
+    "code": 2264,
+    "text": "The following behavior constitutes a counter-example:"
+   }
+  ],
+  "warnings": [],
+  "generated": 361,
+  "distinct": 120,
+  "left": 0,
+  "depth": 13,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "Agent": "[Loc |-> 0, LastLoad |-> 0, ReadyToMove |-> TRUE, Task |-> 0]",
+     "CanCreate": "TRUE",
+     "Nodes": "(0 :> [Load |-> 0] @@ 1 :> [Load |-> 0])"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<CreateTasks line 82, col 3 to line 84, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 0, LastLoad |-> 0, ReadyToMove |-> TRUE, Task |-> 0]",
+     "CanCreate": "TRUE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 0])"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Move line 58, col 3 to line 60, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 0, ReadyToMove |-> FALSE, Task |-> 0]",
+     "CanCreate": "TRUE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 0])"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<CreateTasks line 82, col 3 to line 84, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 0, ReadyToMove |-> FALSE, Task |-> 0]",
+     "CanCreate": "TRUE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 2])"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Stop line 78, col 3 to line 79, col 31 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 0, ReadyToMove |-> FALSE, Task |-> 0]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 2])"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<LookAndAct line 63, col 3 to line 75, col 24 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 1, ReadyToMove |-> TRUE, Task |-> 1]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 1])"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Move line 58, col 3 to line 60, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 0, LastLoad |-> 1, ReadyToMove |-> FALSE, Task |-> 1]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 1])"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<LookAndAct line 63, col 3 to line 75, col 24 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 0, LastLoad |-> 2, ReadyToMove |-> TRUE, Task |-> 1]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 1])"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Move line 58, col 3 to line 60, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 2, ReadyToMove |-> FALSE, Task |-> 1]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 1])"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<LookAndAct line 63, col 3 to line 75, col 24 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 2, ReadyToMove |-> TRUE, Task |-> 0]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 2])"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<Move line 58, col 3 to line 60, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 0, LastLoad |-> 2, ReadyToMove |-> FALSE, Task |-> 0]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 2])"
+    }
+   },
+   {
+    "n": 12,
+    "label": "<LookAndAct line 63, col 3 to line 75, col 24 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 0, LastLoad |-> 2, ReadyToMove |-> TRUE, Task |-> 0]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 2])"
+    }
+   },
+   {
+    "n": 13,
+    "label": "<Move line 58, col 3 to line 60, col 35 of module AgentRing>",
+    "vars": {
+     "Agent": "[Loc |-> 1, LastLoad |-> 2, ReadyToMove |-> FALSE, Task |-> 0]",
+     "CanCreate": "FALSE",
+     "Nodes": "(0 :> [Load |-> 2] @@ 1 :> [Load |-> 2])"
+    }
+   }
+  ],
+  "trace_tail": {
+   "kind": "back_to",
+   "text": "10: Back to state: <LookAndAct line 63, col 3 to line 75, col 24 of module AgentRing>"
+  },
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 814.2
+}

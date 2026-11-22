@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/ShiViz",
+ "wall_ms": 399.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Json",
+   "Toolbox",
+   "ShiViz"
+  ],
+  "files": [
+   "ShiViz",
+   "Integers",
+   "Naturals",
+   "Json",
+   "TLC",
+   "Toolbox",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "ShiViz",
+   "Integers",
+   "Naturals",
+   "Json",
+   "TLC",
+   "Toolbox",
+   "Sequences",
+   "FiniteSets"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/bosco/APbosco",
+ "wall_ms": 378.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "bosco",
+   "APbosco"
+  ],
+  "files": [
+   "APbosco",
+   "Naturals",
+   "FiniteSets",
+   "bosco",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APbosco",
+   "Naturals",
+   "FiniteSets",
+   "bosco",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

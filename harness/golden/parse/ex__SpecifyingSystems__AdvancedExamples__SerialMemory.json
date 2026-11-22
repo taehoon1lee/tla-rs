@@ -1,0 +1,47 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/AdvancedExamples/SerialMemory",
+ "wall_ms": 535.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "RegisterInterface",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "InnerSerial",
+   "SerialMemory"
+  ],
+  "files": [
+   "SerialMemory",
+   "RegisterInterface",
+   "InnerSerial",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SerialMemory",
+   "RegisterInterface",
+   "InnerSerial",
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/byihive/VoucherRedeem",
+ "wall_ms": 487.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "VoucherLifeCycle",
+   "VoucherRedeem"
+  ],
+  "files": [
+   "VoucherRedeem",
+   "VoucherLifeCycle"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "VoucherRedeem",
+   "VoucherLifeCycle"
+  ],
+  "msg": ""
+ }
+}

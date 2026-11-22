@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/AdvancedExamples/DifferentialEquations",
+ "wall_ms": 344.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Reals",
+   "Sequences",
+   "DifferentialEquations"
+  ],
+  "files": [
+   "DifferentialEquations",
+   "Reals",
+   "Integers",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DifferentialEquations",
+   "Reals",
+   "Integers",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

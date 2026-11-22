@@ -1,0 +1,63 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/IncompleteNextTest",
+ "wall_ms": 730.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2109,
+  "violation": null,
+  "error_codes": [
+   2109,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2109,
+    "text": "Successor state is not completely specified by the next-state action. The following variable is not defined: y."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 2,
+  "distinct": 1,
+  "left": 0,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "0",
+     "y": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Action line 6, col 30 to line 6, col 35 of module IncompleteNext>",
+    "vars": {
+     "x": "1",
+     "y": "null"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 657.1
+}

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/TLC/MCAlternatingBit",
+ "wall_ms": 476.9,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "AlternatingBit",
+   "ABCorrectness",
+   "MCAlternatingBit"
+  ],
+  "files": [
+   "MCAlternatingBit",
+   "AlternatingBit",
+   "Naturals",
+   "Sequences",
+   "ABCorrectness"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCAlternatingBit",
+   "AlternatingBit",
+   "Naturals",
+   "Sequences",
+   "ABCorrectness"
+  ],
+  "msg": ""
+ }
+}

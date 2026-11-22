@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/SequencesExtTheorems",
+ "wall_ms": 1069.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "SequencesExtTheorems"
+  ],
+  "files": [
+   "SequencesExtTheorems",
+   "Sequences",
+   "SequencesExt",
+   "Functions",
+   "Integers",
+   "WellFoundedInduction",
+   "Naturals",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Bags",
+   "TLC",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "SequencesExtTheorems",
+   "Sequences",
+   "SequencesExt",
+   "Functions",
+   "Integers",
+   "WellFoundedInduction",
+   "Naturals",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Bags",
+   "TLC",
+   "NaturalsInduction"
+  ],
+  "msg": ""
+ }
+}

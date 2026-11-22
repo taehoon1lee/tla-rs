@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/Prisoners/APPrisoners",
+ "wall_ms": 373.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Prisoners",
+   "APPrisoners"
+  ],
+  "files": [
+   "APPrisoners",
+   "Naturals",
+   "FiniteSets",
+   "Prisoners",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APPrisoners",
+   "Naturals",
+   "FiniteSets",
+   "Prisoners",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

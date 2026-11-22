@@ -1,0 +1,65 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/transaction_commit/PaxosCommit_proof",
+ "wall_ms": 858.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "TCommit",
+   "PaxosCommit",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "PaxosCommit_proof"
+  ],
+  "files": [
+   "PaxosCommit_proof",
+   "PaxosCommit",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLAPS",
+   "Integers",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "NaturalsInduction",
+   "TCommit",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "PaxosCommit_proof",
+   "PaxosCommit",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "WellFoundedInduction",
+   "TLAPS",
+   "Integers",
+   "Naturals",
+   "Functions",
+   "Folds",
+   "NaturalsInduction",
+   "TCommit",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

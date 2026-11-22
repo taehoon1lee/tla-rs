@@ -1,0 +1,62 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/tcp/APtcp",
+ "wall_ms": 547.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "tcp",
+   "APtcp"
+  ],
+  "files": [
+   "APtcp",
+   "Integers",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "Naturals",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "tcp"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APtcp",
+   "Integers",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "Naturals",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "tcp"
+  ],
+  "msg": ""
+ }
+}

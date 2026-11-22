@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/TESpecTest/TESpecNoErrorTest",
+ "wall_ms": 318.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "TESpecNoErrorTest"
+  ],
+  "files": [
+   "TESpecNoErrorTest",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "TESpecNoErrorTest",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

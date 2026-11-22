@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/lamport_mutex/MCLamportMutex",
+ "wall_ms": 388.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "LamportMutex",
+   "MCLamportMutex"
+  ],
+  "files": [
+   "MCLamportMutex",
+   "LamportMutex",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCLamportMutex",
+   "LamportMutex",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

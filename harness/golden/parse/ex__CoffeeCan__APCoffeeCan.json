@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/CoffeeCan/APCoffeeCan",
+ "wall_ms": 321.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "CoffeeCan",
+   "APCoffeeCan"
+  ],
+  "files": [
+   "APCoffeeCan",
+   "Naturals",
+   "CoffeeCan"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APCoffeeCan",
+   "Naturals",
+   "CoffeeCan"
+  ],
+  "msg": ""
+ }
+}

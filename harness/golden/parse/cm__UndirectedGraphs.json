@@ -1,0 +1,59 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/UndirectedGraphs",
+ "wall_ms": 558.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "Bags",
+   "TLC",
+   "SequencesExt",
+   "UndirectedGraphs"
+  ],
+  "files": [
+   "UndirectedGraphs",
+   "Naturals",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "UndirectedGraphs",
+   "Naturals",
+   "Sequences",
+   "SequencesExt",
+   "FiniteSets",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "Bags",
+   "TLC",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

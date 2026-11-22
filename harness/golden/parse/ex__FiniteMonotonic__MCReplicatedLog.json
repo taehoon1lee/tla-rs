@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/FiniteMonotonic/MCReplicatedLog",
+ "wall_ms": 441.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "ReplicatedLog",
+   "Integers",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "MCReplicatedLog"
+  ],
+  "files": [
+   "MCReplicatedLog",
+   "ReplicatedLog",
+   "FiniteSetsExt",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "FiniteSets",
+   "Folds",
+   "Functions"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MCReplicatedLog",
+   "ReplicatedLog",
+   "FiniteSetsExt",
+   "TLC",
+   "Naturals",
+   "Sequences",
+   "Integers",
+   "FiniteSets",
+   "Folds",
+   "Functions"
+  ],
+  "msg": ""
+ }
+}

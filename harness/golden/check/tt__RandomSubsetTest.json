@@ -1,0 +1,69 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/RandomSubsetTest",
+ "wall_ms": 1236.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 27,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 8008,
+  "init_generated": 8008,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 8009,
+  "distinct": 8009,
+  "left": 8007,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "p": "<<133, 38, 59>>",
+     "q": "<<3202, 2529, 927>>",
+     "x": "15341",
+     "y": "100000009",
+     "z": "TRUE"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 17, col 9 to line 18, col 21 of module RandomSubset>",
+    "vars": {
+     "p": "<<133, 38, 59>>",
+     "q": "<<3202, 2529, 927>>",
+     "x": "15341",
+     "y": "100000009",
+     "z": "FALSE"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 1221.0
+}

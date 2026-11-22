@@ -1,0 +1,46 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/DoInitFunctorPropertyTest",
+ "wall_ms": 621.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2108,
+  "violation": "NotNine",
+  "error_codes": [
+   2108
+  ],
+  "errors": [
+   {
+    "code": 2108,
+    "text": "Property NotNine is violated by the initial state: x = 9"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2255,
+    "text": "The formula NotNine is a state-level formula, but it was used as a PROPERTY (or PROPERTIES), where a temporal formula is typically expected. State-level formulas used as PROPERTY or PROPERTIES are only checked in the initial state. To verify that the formula NotNine holds in all states of every behavior, use INVARIANT NotNine instead. Alternatively, applying the \"always\" temporal operator ([]) to the state-level formula NotNine changes it into a temporal formula, asserting that NotNine holds in all states of every behavior. See https://explain.tlapl.us/invariants-and-properties for additional details."
+   }
+  ],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 604.5
+}

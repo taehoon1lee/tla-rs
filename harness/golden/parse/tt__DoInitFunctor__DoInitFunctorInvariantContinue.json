@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/DoInitFunctor/DoInitFunctorInvariantContinue",
+ "wall_ms": 354.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "DoInitFunctorInvariantContinue"
+  ],
+  "files": [
+   "DoInitFunctorInvariantContinue",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "DoInitFunctorInvariantContinue",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

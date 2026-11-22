@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/symmetry/NQ/NQSpec",
+ "wall_ms": 461.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "NQSpec"
+  ],
+  "files": [
+   "NQSpec",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "NQSpec",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

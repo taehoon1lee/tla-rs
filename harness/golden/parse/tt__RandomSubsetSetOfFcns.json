@@ -1,0 +1,44 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/RandomSubsetSetOfFcns",
+ "wall_ms": 369.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Randomization",
+   "RandomSubsetSetOfFcns"
+  ],
+  "files": [
+   "RandomSubsetSetOfFcns",
+   "Integers",
+   "FiniteSets",
+   "Randomization",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "RandomSubsetSetOfFcns",
+   "Integers",
+   "FiniteSets",
+   "Randomization",
+   "Naturals",
+   "Sequences"
+  ],
+  "msg": ""
+ }
+}

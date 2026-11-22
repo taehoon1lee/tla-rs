@@ -1,0 +1,7 @@
+[package]
+name = "tla-sany"
+version.workspace = true
+edition.workspace = true
+description = "TLA+ front-end: port of tla2sany (lexer, parser, module resolution, semantic analysis, level checking)"
+
+[dependencies]

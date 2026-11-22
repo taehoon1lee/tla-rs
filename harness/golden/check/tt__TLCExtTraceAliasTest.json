@@ -1,0 +1,103 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/TLCExtTraceAliasTest",
+ "wall_ms": 622.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 20,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv2",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv2 is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 7,
+  "distinct": 7,
+  "left": 0,
+  "depth": 7,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "1",
+     "t": "<<[x |-> 1]>>"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Action line 14, col 21 to line 14, col 40 of module TLCExtTrace>",
+    "vars": {
+     "x": "2",
+     "t": "<<[x |-> 1], [x |-> 2]>>"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Action line 14, col 21 to line 14, col 40 of module TLCExtTrace>",
+    "vars": {
+     "x": "3",
+     "t": "<<[x |-> 1], [x |-> 2], [x |-> 3]>>"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Action line 14, col 21 to line 14, col 40 of module TLCExtTrace>",
+    "vars": {
+     "x": "4",
+     "t": "<<[x |-> 1], [x |-> 2], [x |-> 3], [x |-> 4]>>"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Action line 14, col 21 to line 14, col 40 of module TLCExtTrace>",
+    "vars": {
+     "x": "5",
+     "t": "<<[x |-> 1], [x |-> 2], [x |-> 3], [x |-> 4], [x |-> 5]>>"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Action line 14, col 21 to line 14, col 40 of module TLCExtTrace>",
+    "vars": {
+     "x": "6",
+     "t": "<<[x |-> 1], [x |-> 2], [x |-> 3], [x |-> 4], [x |-> 5], [x |-> 6]>>"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Action line 14, col 21 to line 14, col 40 of module TLCExtTrace>",
+    "vars": {
+     "x": "7",
+     "t": "<<[x |-> 1], [x |-> 2], [x |-> 3], [x |-> 4], [x |-> 5], [x |-> 6], [x |-> 7]>>"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 603.1
+}

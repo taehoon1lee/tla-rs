@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "cm/Json",
+ "wall_ms": 360.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Json"
+  ],
+  "files": [
+   "Json",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Json",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

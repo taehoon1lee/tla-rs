@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/GermanProtocol/APGermanCMPWithMutex",
+ "wall_ms": 314.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "GermanCMPWithMutex",
+   "APGermanCMPWithMutex"
+  ],
+  "files": [
+   "APGermanCMPWithMutex",
+   "GermanCMPWithMutex"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APGermanCMPWithMutex",
+   "GermanCMPWithMutex"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,61 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github817bTest",
+ "wall_ms": 507.1,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 13,
+  "exit_name": "violation_liveness",
+  "messages": 15,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2112,
+  "violation": "op",
+  "error_codes": [
+   2112,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2112,
+    "text": "Action property op is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 2,
+  "distinct": 2,
+  "left": 0,
+  "depth": 2,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "\"init\""
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 6, col 8 to line 6, col 39 of module Github817>",
+    "vars": {
+     "x": "\"in-progress\""
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 496.3
+}

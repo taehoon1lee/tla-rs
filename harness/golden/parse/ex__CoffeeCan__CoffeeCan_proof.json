@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/CoffeeCan/CoffeeCan_proof",
+ "wall_ms": 421.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "CoffeeCan",
+   "TLAPS",
+   "CoffeeCan_proof"
+  ],
+  "files": [
+   "CoffeeCan_proof",
+   "CoffeeCan",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "CoffeeCan_proof",
+   "CoffeeCan",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

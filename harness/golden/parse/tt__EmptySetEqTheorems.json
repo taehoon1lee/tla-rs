@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/EmptySetEqTheorems",
+ "wall_ms": 530.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "EmptySetEqTheorems"
+  ],
+  "files": [
+   "EmptySetEqTheorems",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EmptySetEqTheorems",
+   "FiniteSets",
+   "Integers",
+   "Sequences",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

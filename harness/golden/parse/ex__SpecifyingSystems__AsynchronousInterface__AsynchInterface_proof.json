@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/AsynchronousInterface/AsynchInterface_proof",
+ "wall_ms": 352.2,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "AsynchInterface",
+   "TLAPS",
+   "AsynchInterface_proof"
+  ],
+  "files": [
+   "AsynchInterface_proof",
+   "AsynchInterface",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "AsynchInterface_proof",
+   "AsynchInterface",
+   "TLAPS",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

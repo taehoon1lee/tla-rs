@@ -1,0 +1,56 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/KnuthYao/KnuthYao",
+ "wall_ms": 441.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "Integers",
+   "Folds",
+   "Functions",
+   "FiniteSetsExt",
+   "TLC",
+   "DyadicRationals",
+   "KnuthYao"
+  ],
+  "files": [
+   "KnuthYao",
+   "DyadicRationals",
+   "FiniteSets",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "TLC"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "KnuthYao",
+   "DyadicRationals",
+   "FiniteSets",
+   "Integers",
+   "Naturals",
+   "Sequences",
+   "FiniteSetsExt",
+   "Folds",
+   "Functions",
+   "TLC"
+  ],
+  "msg": ""
+ }
+}

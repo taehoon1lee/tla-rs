@@ -1,0 +1,4 @@
+* text=auto eol=lf
+*.ps1 text eol=crlf
+# exact bytes of the StandardModules inside tla2tools.jar (they contain CRLF)
+crates/tla-sany/lib/*.tla -text

@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/Github1455Test",
+ "wall_ms": 346.7,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 151,
+  "exit_name": "error_config_parse",
+  "messages": 4,
+  "reached_sany_end": false,
+  "reached_init": false,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 5007,
+  "violation": null,
+  "error_codes": [
+   5007
+  ],
+  "errors": [
+   {
+    "code": 5007,
+    "text": "TLC found an error in the configuration file: Lexical error at line 4, column 14. Encountered: \"\\n\" (10), after : \"\\\"unterminated\""
+   }
+  ],
+  "warnings": [],
+  "generated": null,
+  "distinct": null,
+  "left": null,
+  "depth": null,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 372.8
+}

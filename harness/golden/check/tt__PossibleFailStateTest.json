@@ -1,0 +1,43 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/PossibleFailStateTest",
+ "wall_ms": 604.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 10,
+  "exit_name": "violation_assumption",
+  "messages": 12,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 1,
+  "init_generated": 1,
+  "success": false,
+  "first_error": 2780,
+  "violation": null,
+  "error_codes": [
+   2780
+  ],
+  "errors": [
+   {
+    "code": 2780,
+    "text": "The _POSSIBLE predicate Unreachable at line 12, col 16 to line 12, col 20 of module PossibleFail was never witnessed. Others may be unwitnessed too; only witnessed predicates appear with a non-zero count in the record printed above. See https://explain.tlapl.us/possible-conditions for additional details."
+   }
+  ],
+  "warnings": [],
+  "generated": 4,
+  "distinct": 3,
+  "left": 0,
+  "depth": 3,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [
+   "[Unreachable |-> 0]"
+  ],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 598.5
+}

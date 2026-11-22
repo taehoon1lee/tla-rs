@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/spanning/MC_spanning",
+ "wall_ms": 321.4,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "spanning",
+   "MC_spanning"
+  ],
+  "files": [
+   "MC_spanning",
+   "spanning",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "MC_spanning",
+   "spanning",
+   "Integers",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

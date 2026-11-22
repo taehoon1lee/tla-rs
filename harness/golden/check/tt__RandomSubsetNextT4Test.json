@@ -1,0 +1,135 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/RandomSubsetNextT4Test",
+ "wall_ms": 1085.3,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 12,
+  "exit_name": "violation_safety",
+  "messages": 27,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": 10,
+  "init_generated": 10,
+  "success": false,
+  "first_error": 2110,
+  "violation": "Inv",
+  "error_codes": [
+   2110,
+   2121
+  ],
+  "errors": [
+   {
+    "code": 2110,
+    "text": "Invariant Inv is violated."
+   },
+   {
+    "code": 2121,
+    "text": "The behavior up to this point is:"
+   }
+  ],
+  "warnings": [],
+  "generated": 67301,
+  "distinct": 7730,
+  "left": 999,
+  "depth": 11,
+  "outdegree": null,
+  "trace": [
+   {
+    "n": 1,
+    "label": "<Initial predicate>",
+    "vars": {
+     "x": "26",
+     "y": "0"
+    }
+   },
+   {
+    "n": 2,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "75",
+     "y": "1"
+    }
+   },
+   {
+    "n": 3,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "55",
+     "y": "2"
+    }
+   },
+   {
+    "n": 4,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "78",
+     "y": "3"
+    }
+   },
+   {
+    "n": 5,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "18",
+     "y": "4"
+    }
+   },
+   {
+    "n": 6,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "142",
+     "y": "5"
+    }
+   },
+   {
+    "n": 7,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "15",
+     "y": "6"
+    }
+   },
+   {
+    "n": 8,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "102",
+     "y": "7"
+    }
+   },
+   {
+    "n": 9,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "40",
+     "y": "8"
+    }
+   },
+   {
+    "n": 10,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "162",
+     "y": "9"
+    }
+   },
+   {
+    "n": 11,
+    "label": "<Next line 11, col 9 to line 13, col 54 of module RandomSubsetNext>",
+    "vars": {
+     "x": "16",
+     "y": "10"
+    }
+   }
+  ],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 1086.0
+}

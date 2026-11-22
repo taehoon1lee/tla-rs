@@ -1,0 +1,71 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/byzpaxos/BPConProof",
+ "wall_ms": 1821.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Integers",
+   "Sequences",
+   "FiniteSets",
+   "Folds",
+   "Functions",
+   "NaturalsInduction",
+   "WellFoundedInduction",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "TLC",
+   "Consensus",
+   "VoteProof",
+   "PConProof",
+   "BPConProof"
+  ],
+  "files": [
+   "BPConProof",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "PConProof",
+   "Sequences",
+   "VoteProof",
+   "TLC",
+   "Consensus"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "BPConProof",
+   "Integers",
+   "FiniteSets",
+   "FiniteSetTheorems",
+   "TLAPS",
+   "Naturals",
+   "Functions",
+   "WellFoundedInduction",
+   "Folds",
+   "NaturalsInduction",
+   "PConProof",
+   "Sequences",
+   "VoteProof",
+   "TLC",
+   "Consensus"
+  ],
+  "msg": ""
+ }
+}

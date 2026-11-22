@@ -1,0 +1,35 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "ex/SpecifyingSystems/FIFO/APChannel",
+ "wall_ms": 303.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Channel",
+   "APChannel"
+  ],
+  "files": [
+   "APChannel",
+   "Naturals",
+   "Channel"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "APChannel",
+   "Naturals",
+   "Channel"
+  ],
+  "msg": ""
+ }
+}

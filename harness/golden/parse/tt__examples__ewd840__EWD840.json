@@ -1,0 +1,50 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/examples/ewd840/EWD840",
+ "wall_ms": 583.5,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "Sequences",
+   "FiniteSets",
+   "TLC",
+   "Integers",
+   "TLCExt",
+   "SyncTerminationDetection",
+   "EWD840"
+  ],
+  "files": [
+   "EWD840",
+   "Naturals",
+   "TLC",
+   "TLCExt",
+   "SyncTerminationDetection",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "EWD840",
+   "Naturals",
+   "TLC",
+   "TLCExt",
+   "SyncTerminationDetection",
+   "Sequences",
+   "FiniteSets",
+   "Integers"
+  ],
+  "msg": ""
+ }
+}

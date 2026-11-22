@@ -1,0 +1,38 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/Github1417Variants",
+ "wall_ms": 352.8,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Github1417Local",
+   "Github1417Empty",
+   "Github1417Ops",
+   "Github1417Variants"
+  ],
+  "files": [
+   "Github1417Variants",
+   "Github1417Local",
+   "Github1417Empty",
+   "Github1417Ops"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "Github1417Variants",
+   "Github1417Local",
+   "Github1417Empty",
+   "Github1417Ops"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,10 @@
+/target
+/reference
+/tmp
+/loop/logs
+/loop/STOP
+/harness/results/latest.json
+/harness/.javahome
+/harness/*.log
+__pycache__/
+*.pyc

@@ -1,0 +1,32 @@
+{
+ "schema": 1,
+ "tool": "java-sany-1.8.0",
+ "id": "tt/LazySetPredDiskStateQueue",
+ "wall_ms": 303.6,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [
+   "Naturals",
+   "LazySetPredDiskStateQueue"
+  ],
+  "files": [
+   "LazySetPredDiskStateQueue",
+   "Naturals"
+  ],
+  "msg": ""
+ },
+ "syntax": {
+  "exit_code": 0,
+  "status": "ok",
+  "markers": [],
+  "modules": [],
+  "files": [
+   "LazySetPredDiskStateQueue",
+   "Naturals"
+  ],
+  "msg": ""
+ }
+}

@@ -1,0 +1,51 @@
+{
+ "schema": 1,
+ "tool": "java-tlc-1.8.0",
+ "id": "tt/CdotWithContextDTest",
+ "wall_ms": 535.0,
+ "status": "ok",
+ "parsed": {
+  "exit_code": 75,
+  "exit_name": "failure_spec_eval",
+  "messages": 13,
+  "reached_sany_end": true,
+  "reached_init": true,
+  "init_distinct": null,
+  "init_generated": null,
+  "success": false,
+  "first_error": 2102,
+  "violation": null,
+  "error_codes": [
+   2102,
+   2103
+  ],
+  "errors": [
+   {
+    "code": 2102,
+    "text": "The current version of TLC does not support action composition. An incomplete implementation can be enabled via the tlc2.tool.impl.Tool.cdot=true java property. While working on the initial state: /\\ S = {1, 2} /\\ x = 0"
+   },
+   {
+    "code": 2103,
+    "text": "The error occurred when TLC was evaluating the nested expressions at the following positions: 0. Line 7, column 5 to line 7, column 22 in CdotWithContextD 1. Line 7, column 5 to line 7, column 9 in CdotWithContextD 2. Line 7, column 14 to line 7, column 22 in CdotWithContextD 3. Line 29, column 9 to line 29, column 23 in CdotWithContextD 4. Line 29, column 11 to line 29, column 22 in CdotWithContextD 5. Line 29, column 19 to line 29, column 22 in CdotWithContextD 6. Line 16, column 9 to line 20, column 43 in CdotWithContextD 7. Line 16, column 9 to line 17, column 22 in CdotWithContextD 8. Line 16, column 12 to line 16, column 16 in CdotWithContextD 9. Line 17, column 12 to line 17, column 22 in CdotWithContextD 10. Line 17, column 22 to line 17, column 22 in CdotWithContextD 11. Line 18, column 8 to line 20, column 43 in CdotWithContextD 12. Line 19, column 11 to line 20, column 43 in CdotWithContextD 13. Line 19, column 14 to line 19, column 20 in CdotWithContextD 14. Line 20, column 14 to line 20, column 43 in CdotWithContextD"
+   }
+  ],
+  "warnings": [
+   {
+    "code": 2255,
+    "text": "The formula Prop2 is a state-level formula, but it was used as a PROPERTY (or PROPERTIES), where a temporal formula is typically expected. State-level formulas used as PROPERTY or PROPERTIES are only checked in the initial state. To verify that the formula Prop2 holds in all states of every behavior, use INVARIANT Prop2 instead. Alternatively, applying the \"always\" temporal operator ([]) to the state-level formula Prop2 changes it into a temporal formula, asserting that Prop2 holds in all states of every behavior. See https://explain.tlapl.us/invariants-and-properties for additional details."
+   }
+  ],
+  "generated": 1,
+  "distinct": 1,
+  "left": 1,
+  "depth": 1,
+  "outdegree": null,
+  "trace": [],
+  "trace_tail": null,
+  "output": [],
+  "sany_errors": null,
+  "bug": false
+ },
+ "nondet": [],
+ "wall_ms_2": 507.0
+}
