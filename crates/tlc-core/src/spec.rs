@@ -47,7 +47,11 @@ pub struct Setup {
     pub symmetry: Option<Top>,
     pub check_deadlock: bool,
     /// temporal formulas to be checked (PROPERTY) and fairness of the spec (liveness)
+    /// temporal properties (checked by the liveness checker)
     pub properties: Vec<(String, sem::Expr)>,
+    /// state-level properties `P` (checked in the initial states) / action properties `[][A]_v` (checked on every step)
+    pub implied_inits: Vec<Top>,
+    pub implied_actions: Vec<Top>,
     pub spec_temporal: Vec<sem::Expr>,
     /// names and locations of the "actions" (top-level disjuncts of Next) for trace labels
     pub root: Rc<sem::ModuleNode>,
@@ -224,6 +228,8 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         symmetry: None,
         check_deadlock: cfg.check_deadlock.unwrap_or(true),
         properties: vec![],
+        implied_inits: vec![],
+        implied_actions: vec![],
         spec_temporal: vec![],
         root: root.clone(),
     };
@@ -395,12 +401,17 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
             None => {
                 return serr(
                     ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
-                    format!("The property {} specified in the configuration file\nis not defined in the specification.", name),
+                    format!("The property {} specified in the configuration file
+is not defined in the specification.", name),
                 )
             }
         };
+        if def.arity() != 0 {
+            return serr(ec::TLC_CONFIG_ID_REQUIRES_NO_ARG, format!("TLC requires property {} not to take any argument.", name));
+        }
         if let Some(b) = def.body() {
-            setup.properties.push((name.clone(), b));
+            let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
+            classify_property(&mut setup, name, &b, &def, &mut wraps, 0)?;
         }
     }
     // ---- assumptions
@@ -416,6 +427,94 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         ev.const_ops.borrow_mut().insert(id, cd);
     }
     Ok(setup)
+}
+
+/// Port of `SpecProcessor.processConfigProps`: split a PROPERTY into invariants (`[]P`), implied actions
+/// (`[][A]_v`), implied initial predicates and temporal formulas.
+fn classify_property(
+    setup: &mut Setup,
+    name: &str,
+    e: &sem::Expr,
+    owner: &Rc<sem::OpDef>,
+    wraps: &mut Vec<Rc<Vec<sem::Subst>>>,
+    depth: usize,
+) -> Result<(), SetupErr> {
+    if depth > 100 {
+        return Ok(());
+    }
+    let mk_top = |setup: &mut Setup, nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>]| -> Top {
+        let w = wrap_all(x, wraps);
+        let (ex, n) = setup.comp.compile_top(&w);
+        Top { name: nm.to_string(), ex, nslots: n, loc: x.loc, module: owner.module.to_string() }
+    };
+    match &e.kind {
+        EKind::SubstIn(subs, b) => {
+            wraps.push(subs.clone());
+            let r = classify_property(setup, name, b, owner, wraps, depth + 1);
+            wraps.pop();
+            return r;
+        }
+        EKind::Label(_, _, b) => return classify_property(setup, name, b, owner, wraps, depth + 1),
+        EKind::Apply(Callee::Def(d), args) if args.is_empty() && d.kind != sem::DefKind::ModuleInstance => {
+            if let Some(b) = d.body() {
+                // a definition: recurse with its name
+                return classify_property(setup, &d.name.to_string(), &b, d, wraps, depth + 1);
+            }
+        }
+        EKind::Conj(items) | EKind::Bi(B::And, items) => {
+            for x in items {
+                classify_property(setup, name, x, owner, wraps, depth + 1)?;
+            }
+            return Ok(());
+        }
+        EKind::Bi(B::Always, args) => {
+            let x = &args[0];
+            match &x.kind {
+                EKind::ActionSub { boxed: true, .. } => {
+                    let t = mk_top(setup, name, x, wraps);
+                    setup.implied_actions.push(t);
+                    return Ok(());
+                }
+                _ if x.level < sem::Level::Action => {
+                    let nm = match &x.kind {
+                        EKind::Apply(Callee::Def(d), a) if a.is_empty() => d.name.to_string(),
+                        _ => name.to_string(),
+                    };
+                    let t = mk_top(setup, &nm, x, wraps);
+                    setup.invariants.push(t);
+                    return Ok(());
+                }
+                _ => {
+                    setup.properties.push((name.to_string(), wrap_all(e, wraps)));
+                    return Ok(());
+                }
+            }
+        }
+        _ => {}
+    }
+    match e.level {
+        sem::Level::Const | sem::Level::State => {
+            let t = mk_top(setup, name, e, wraps);
+            setup.implied_inits.push(t);
+        }
+        sem::Level::Temporal => setup.properties.push((name.to_string(), wrap_all(e, wraps))),
+        _ => {
+            let (code, kind) = match &e.kind {
+                EKind::ActionSub { boxed: true, .. } => (ec::TLC_CONFIG_PROPERTY_ACTION_LEVEL_SQUARE_A_SUB_V, 1),
+                EKind::ActionSub { boxed: false, .. } => (ec::TLC_CONFIG_PROPERTY_ACTION_LEVEL_ANGLE_A_SUB_V, 2),
+                _ => (ec::TLC_CONFIG_PROPERTY_ACTION_LEVEL, 0),
+            };
+            let _ = kind;
+            return serr(
+                code,
+                format!(
+                    "The formula {} at line {}, col {} to line {}, col {} of module {} is an action-level formula.",
+                    name, e.loc.bl, e.loc.bc, e.loc.el, e.loc.ec, owner.module
+                ),
+            );
+        }
+    }
+    Ok(())
 }
 
 /// Port of `SpecProcessor.processConfigSpec`: split the temporal formula `Spec` into the initial predicate(s), the

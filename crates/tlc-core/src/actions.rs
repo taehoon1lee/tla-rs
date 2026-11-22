@@ -46,10 +46,31 @@ impl Ev {
     fn target_var(&self, ex: &Ex, mode: Mode) -> Option<u32> {
         match (&**ex, mode) {
             (Node::PrimedVar(i), Mode::Next) => Some(*i),
+            // a parameter bound (by name) to a primed variable, e.g. `Send(p, d, memInt, memInt')`: `new = ...`
+            (Node::Local(s), Mode::Init) => match self.get_slot(*s) {
+                Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
+                _ => None,
+            },
+            (Node::Local(s), Mode::Next) => match self.get_slot(*s) {
+                Slot::Lazy(l) => match &*l.code {
+                    Node::PrimedVar(i) => Some(*i),
+                    Node::Prime(inner) => match &**inner {
+                        Node::Decl(dr) if dr.is_var => self.decl_target(dr.id, dr.is_var, dr.var_index, &l.substs),
+                        _ => None,
+                    },
+                    _ => None,
+                },
+                _ => None,
+            },
             (Node::Var(i), Mode::Init) => Some(*i),
             (Node::Decl(dr), Mode::Init) if dr.is_var => self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()),
             (Node::Prime(inner), Mode::Next) => match &**inner {
                 Node::Decl(dr) if dr.is_var => self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()),
+                // a parameter bound (by name) to a state variable: `q'` with `Lose(msgQ)`
+                Node::Local(s) => match self.get_slot(*s) {
+                    Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
+                    _ => None,
+                },
                 _ => None,
             },
             _ => None,
@@ -130,10 +151,7 @@ impl Ev {
             }
             Node::Or(items) => {
                 for it in items {
-                    let saved = buf.borrow().clone();
-                    let r = self.enum_action(it, mode, s0, buf, k);
-                    *buf.borrow_mut() = saved;
-                    r?;
+                    self.enum_action(it, mode, s0, buf, k)?;
                 }
                 Ok(())
             }
@@ -206,10 +224,7 @@ impl Ev {
             }
             Node::ActionSub { boxed: true, act, sub } if mode == Mode::Next => {
                 // [A]_v  ==  A \/ UNCHANGED v
-                let saved = buf.borrow().clone();
-                let r = self.enum_action(act, mode, s0, buf, k);
-                *buf.borrow_mut() = saved;
-                r?;
+                self.enum_action(act, mode, s0, buf, k)?;
                 let mut vars = vec![];
                 if self.unchanged_vars(sub, &mut vars) {
                     self.assign_unchanged(&vars, 0, s0, buf, k)
@@ -254,10 +269,7 @@ impl Ev {
             Node::Exists(bounds, body) => {
                 let evals = |e: &Ex| self.eval_expr(e, mode, s0, buf);
                 self.for_each_binding_cb(bounds, 0, &evals, &mut |_ev| {
-                    let saved = buf.borrow().clone();
-                    let r = self.enum_action(body, mode, s0, buf, k);
-                    *buf.borrow_mut() = saved;
-                    r?;
+                    self.enum_action(body, mode, s0, buf, k)?;
                     Ok(true)
                 })?;
                 Ok(())
@@ -281,61 +293,37 @@ impl Ev {
                     && d.body.borrow().is_some()
                     && (d.level >= tla_sany::sem::Level::State || !self.action_simple(ex, mode, 0)) =>
             {
-                let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
-                for a in args {
-                    let s = {
-                        let b = buf.borrow();
-                        let empty = self.empty();
-                        let (z0, z1): (&[Value], &[Value]) = match mode {
-                            Mode::Init => (&b, &empty),
-                            Mode::Next => (s0, &b),
-                        };
-                        self.eval_arg_pub(a, z0, z1)?
-                    };
-                    slots.push(s);
-                }
-                let body = d.body.borrow().as_ref().unwrap().clone();
-                let saved_label = if self.splitting.get() && !d.src.in_let.get() && d.module != "TLC".into() {
-                    let l: Rc<str> = Rc::from(format!(
-                        "<{} line {}, col {} to line {}, col {} of module {}>",
-                        d.name, body_loc(&d.src).bl, body_loc(&d.src).bc, body_loc(&d.src).el, body_loc(&d.src).ec, d.module
-                    ));
-                    Some(self.cur_label.replace(Some(l)))
-                } else {
-                    None
+                self.enum_def_call(d, args, mode, s0, buf, k)
+            }
+            // Java: user-defined operator passed as a parameter / substituted constant operator: expand its definition
+            Node::CallLocal(i, args) => match self.get_slot(*i) {
+                Slot::Op(c) => self.enum_closure(&c, args, mode, s0, buf, k),
+                _ => self.enum_guard(ex, mode, s0, buf, k),
+            },
+            Node::CallDecl(dr, args) => {
+                let found = {
+                    let ss = self.substs.borrow();
+                    let mut r = None;
+                    for ent in ss.iter().rev() {
+                        if ent.decl == dr.id {
+                            if let Slot::Op(c) = &ent.slot {
+                                r = Some(c.clone());
+                            }
+                            break;
+                        }
+                    }
+                    r
                 };
-                let caller_base = self.base.get();
-                let nslots = d.nslots.get().max(slots.len());
-                let old_len = self.stack.borrow().len();
-                let nb = old_len;
-                {
-                    let mut st = self.stack.borrow_mut();
-                    st.resize(nb + nslots, Slot::Unset);
-                    for (i, s) in slots.drain(..).enumerate() {
-                        st[nb + i] = s;
+                match found {
+                    Some(c) => self.enum_closure(&c, args, mode, s0, buf, k),
+                    None => {
+                        let d = self.const_ops.borrow().get(&dr.id).cloned();
+                        match d {
+                            Some(d) => self.enum_def_call(&d, args, mode, s0, buf, k),
+                            None => self.enum_guard(ex, mode, s0, buf, k),
+                        }
                     }
                 }
-                self.base.set(nb);
-                self.depth.set(self.depth.get() + 1);
-                let callee_base = nb;
-                let r = if self.depth.get() > 3000 {
-                    fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
-                } else {
-                    self.enum_action(&body, mode, s0, buf, &mut || {
-                        // the rest of the caller's formula runs in the caller's frame
-                        self.base.set(caller_base);
-                        let r = k();
-                        self.base.set(callee_base);
-                        r
-                    })
-                };
-                self.depth.set(self.depth.get() - 1);
-                self.base.set(caller_base);
-                self.stack.borrow_mut().truncate(old_len);
-                if let Some(l) = saved_label {
-                    *self.cur_label.borrow_mut() = l;
-                }
-                r
             }
             Node::SubstIn(subs, body) => {
                 let n0 = self.substs.borrow().len();
@@ -363,6 +351,11 @@ impl Ev {
                 self.substs.borrow_mut().truncate(n0);
                 r
             }
+            // Java: a LazyValue (call-by-name argument such as an action passed to an operator) is expanded
+            Node::Local(s) => match self.get_slot(*s) {
+                Slot::Lazy(l) => self.enum_in_frame(&l.frame, &l.substs, &[], &l.code, mode, s0, buf, k),
+                _ => self.enum_guard(ex, mode, s0, buf, k),
+            },
             // Java: OPCODE_fa: applying a (not yet evaluated) function constructor expands its body
             Node::FcnApply(f, a) => {
                 let fv = self.eval_expr(f, mode, s0, buf)?;
@@ -522,12 +515,18 @@ to argument {}, which is not in the domain of the function.",
         self.simple_memo.borrow_mut().insert(key, false);
         let r = match &**ex {
             Node::And(items) => items.iter().all(|e| self.action_simple(e, mode, depth + 1)),
-            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) => false,
+            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) | Node::CallLocal(..) | Node::CallDecl(..) => false,
             Node::Forall(_, b) => self.action_simple(b, mode, depth + 1),
             Node::Implies(_, b) => self.action_simple(b, mode, depth + 1),
             Node::If(_, t, f) => self.action_simple(t, mode, depth + 1) && self.action_simple(f, mode, depth + 1),
-            Node::Eq(l, r) => self.target_var(l, mode).is_none() && self.target_var(r, mode).is_none(),
-            Node::In(l, _) => self.target_var(l, mode).is_none(),
+            // parameters may stand for (primed) variables: be conservative
+            Node::Eq(l, r) => {
+                !matches!(&**l, Node::Local(_) | Node::Prime(_))
+                    && !matches!(&**r, Node::Local(_) | Node::Prime(_))
+                    && self.target_var(l, mode).is_none()
+                    && self.target_var(r, mode).is_none()
+            }
+            Node::In(l, _) => !matches!(&**l, Node::Local(_) | Node::Prime(_)) && self.target_var(l, mode).is_none(),
             Node::InlineCall { .. } | Node::SubstIn(..) => false,
             Node::Call(d, _, _) => {
                 if d.native.get().is_none() {
@@ -548,6 +547,179 @@ to argument {}, which is not in the domain of the function.",
         r
     }
 
+    /// enumerate `body` inside a copy of a captured frame; the continuation `k` runs in the caller's frame
+    fn enum_in_frame(
+        &self,
+        frame: &Rc<Vec<Slot>>,
+        substs: &Rc<Vec<SubstEntry>>,
+        assigns: &[(u32, Slot)],
+        body: &Ex,
+        mode: Mode,
+        s0: &[Value],
+        buf: &Buf,
+        k: &mut Cont,
+    ) -> R<()> {
+        let caller_base = self.base.get();
+        let nb = self.stack.borrow().len();
+        {
+            let mut st = self.stack.borrow_mut();
+            st.extend(frame.iter().cloned());
+            for (i, sl) in assigns {
+                let idx = nb + *i as usize;
+                if idx >= st.len() {
+                    st.resize(idx + 1, Slot::Unset);
+                }
+                st[idx] = sl.clone();
+            }
+        }
+        self.base.set(nb);
+        let caller_substs = std::mem::replace(&mut *self.substs.borrow_mut(), (**substs).clone());
+        self.depth.set(self.depth.get() + 1);
+        let r = if self.depth.get() > 3000 {
+            fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
+        } else {
+            self.enum_action(body, mode, s0, buf, &mut || {
+                self.base.set(caller_base);
+                let callee_substs = std::mem::replace(&mut *self.substs.borrow_mut(), caller_substs.clone());
+                let r = k();
+                *self.substs.borrow_mut() = callee_substs;
+                self.base.set(nb);
+                r
+            })
+        };
+        self.depth.set(self.depth.get() - 1);
+        *self.substs.borrow_mut() = caller_substs;
+        self.base.set(caller_base);
+        self.stack.borrow_mut().truncate(nb);
+        r
+    }
+
+    fn enum_guard(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        match self.guard(ex, mode, s0, buf)? {
+            Value::Bool(true) => k(),
+            Value::Bool(false) => Ok(()),
+            other => fail(format!("The expression of an action or initial predicate evaluated to the non-boolean value
+{}", other.to_tla())),
+        }
+    }
+
+    fn enum_closure(&self, c: &Rc<OpClosure>, args: &[Arg], mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        match &**c {
+            OpClosure::Def(d) if d.native.get().is_none() && d.body.borrow().is_some() => self.enum_def_call(d, args, mode, s0, buf, k),
+            OpClosure::Decl(id) => {
+                let d = self.const_ops.borrow().get(id).cloned();
+                match d {
+                    Some(d) if d.native.get().is_none() && d.body.borrow().is_some() => self.enum_def_call(&d, args, mode, s0, buf, k),
+                    _ => fail("A constant operator was used but has not been assigned a value."),
+                }
+            }
+            OpClosure::Lambda { def, frame } => {
+                let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
+                for a in args {
+                    let s = {
+                        let b = buf.borrow();
+                        let empty = self.empty();
+                        let (z0, z1): (&[Value], &[Value]) = match mode {
+                            Mode::Init => (&b, &empty),
+                            Mode::Next => (s0, &b),
+                        };
+                        self.eval_arg_pub(a, z0, z1)?
+                    };
+                    slots.push(s);
+                }
+                let caller_base = self.base.get();
+                let nb = self.stack.borrow().len();
+                {
+                    let mut st = self.stack.borrow_mut();
+                    st.extend(frame.iter().cloned());
+                    for (i, s) in slots.into_iter().enumerate() {
+                        let idx = nb + def.nslots + i;
+                        if idx >= st.len() {
+                            st.resize(idx + 1, Slot::Unset);
+                        }
+                        st[idx] = s;
+                    }
+                }
+                self.base.set(nb);
+                let caller_substs = self.substs.borrow().clone();
+                let r = self.enum_action(&def.body, mode, s0, buf, &mut || {
+                    self.base.set(caller_base);
+                    let r = k();
+                    self.base.set(nb);
+                    r
+                });
+                *self.substs.borrow_mut() = caller_substs;
+                self.base.set(caller_base);
+                self.stack.borrow_mut().truncate(nb);
+                r
+            }
+            OpClosure::Builtin(_) | OpClosure::Def(_) => fail("Internal error: cannot expand this operator while enumerating an action"),
+        }
+    }
+
+    /// Java: getNextStatesApplImpl for a user-defined operator: continue with the operator's body
+    fn enum_def_call(&self, d: &Rc<CompiledDef>, args: &[Arg], mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
+        for a in args {
+            let s = {
+                let b = buf.borrow();
+                let empty = self.empty();
+                let (z0, z1): (&[Value], &[Value]) = match mode {
+                    Mode::Init => (&b, &empty),
+                    Mode::Next => (s0, &b),
+                };
+                self.eval_arg_pub(a, z0, z1)?
+            };
+            slots.push(s);
+        }
+        let body = d.body.borrow().as_ref().unwrap().clone();
+        let saved_label = if self.splitting.get() {
+            let lab = d.label_cache.get_or_init(|| {
+                if !d.src.in_let.get() && &*d.module != "TLC" {
+                    let bl = body_loc(&d.src);
+                    Some(Rc::from(format!("<{} line {}, col {} to line {}, col {} of module {}>", d.name, bl.bl, bl.bc, bl.el, bl.ec, d.module)))
+                } else {
+                    None
+                }
+            });
+            lab.as_ref().map(|l| self.cur_label.replace(Some(l.clone())))
+        } else {
+            None
+        };
+        let caller_base = self.base.get();
+        let nslots = d.nslots.get().max(slots.len());
+        let old_len = self.stack.borrow().len();
+        let nb = old_len;
+        {
+            let mut st = self.stack.borrow_mut();
+            st.resize(nb + nslots, Slot::Unset);
+            for (i, s) in slots.drain(..).enumerate() {
+                st[nb + i] = s;
+            }
+        }
+        self.base.set(nb);
+        self.depth.set(self.depth.get() + 1);
+        let callee_base = nb;
+        let r = if self.depth.get() > 3000 {
+            fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
+        } else {
+            self.enum_action(&body, mode, s0, buf, &mut || {
+                // the rest of the caller's formula runs in the caller's frame
+                self.base.set(caller_base);
+                let r = k();
+                self.base.set(callee_base);
+                r
+            })
+        };
+        self.depth.set(self.depth.get() - 1);
+        self.base.set(caller_base);
+        self.stack.borrow_mut().truncate(old_len);
+        if let Some(l) = saved_label {
+            *self.cur_label.borrow_mut() = l;
+        }
+        r
+    }
+
     fn enum_conj(&self, items: &[Ex], idx: usize, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
         if idx == items.len() {
             return k();
@@ -558,25 +730,44 @@ to argument {}, which is not in the domain of the function.",
         self.enum_action(&items[idx], mode, s0, buf, &mut || self.enum_conj(items, idx + 1, mode, s0, buf, k))
     }
 
-    /// variables mentioned by an UNCHANGED argument (variable, tuple of variables, definition of such)
+    /// variables mentioned by an UNCHANGED argument (variable, tuple of variables, definition of such,
+    /// a variable declaration substituted by one of those)
     fn unchanged_vars(&self, ex: &Ex, out: &mut Vec<u32>) -> bool {
+        let ss = self.substs.borrow().clone();
+        self.unchanged_vars_in(ex, &ss, out)
+    }
+
+    fn unchanged_vars_in(&self, ex: &Ex, substs: &[SubstEntry], out: &mut Vec<u32>) -> bool {
         match &**ex {
             Node::Var(i) => {
                 out.push(*i);
                 true
             }
-            Node::Decl(dr) if dr.is_var => match self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()) {
-                Some(i) => {
-                    out.push(i);
-                    true
+            Node::Decl(dr) if dr.is_var => {
+                for ent in substs.iter().rev() {
+                    if ent.decl == dr.id {
+                        return match &ent.slot {
+                            Slot::Lazy(l) => self.unchanged_vars_in(&l.code, &l.substs, out),
+                            _ => false,
+                        };
+                    }
                 }
-                None => false,
+                if dr.var_index != u32::MAX {
+                    out.push(dr.var_index);
+                    true
+                } else {
+                    false
+                }
+            }
+            Node::Local(s) => match self.get_slot(*s) {
+                Slot::Lazy(l) => self.unchanged_vars_in(&l.code, &l.substs, out),
+                _ => false,
             },
-            Node::Tuple(es) => es.iter().all(|e| self.unchanged_vars(e, out)),
+            Node::Tuple(es) => es.iter().all(|e| self.unchanged_vars_in(e, substs, out)),
             Node::Call(d, args, _) if args.is_empty() && d.native.get().is_none() => {
                 let body = d.body.borrow().clone();
                 match body {
-                    Some(b) => self.unchanged_vars(&b, out),
+                    Some(b) => self.unchanged_vars_in(&b, substs, out),
                     None => false,
                 }
             }

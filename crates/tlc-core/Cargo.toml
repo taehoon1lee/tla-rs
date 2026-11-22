@@ -6,3 +6,7 @@ description = "TLC core: values, evaluation (Tool), .cfg parsing, built-in modul
 
 [dependencies]
 tla-sany = { workspace = true }
+
+[features]
+# sampling profiler hooks (diagnostics only)
+prof = []

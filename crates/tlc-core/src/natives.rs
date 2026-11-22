@@ -322,13 +322,13 @@ fn print(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let v1 = arg(ev, a, 0, s0, s1)?.normalize()?;
     let v2 = arg(ev, a, 1, s0, s1)?;
     let n2 = v2.normalize()?;
-    ev.out.borrow_mut().push(format!("{}  {}", v1.to_tla(), n2.to_tla()));
+    ev.out.borrow_mut().push(format!("{}  {}", crate::pprint::ppr(&v1.to_tla()), crate::pprint::ppr(&n2.to_tla())));
     Ok(v2)
 }
 
 fn print_t(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let v = arg(ev, a, 0, s0, s1)?.normalize()?;
-    ev.out.borrow_mut().push(v.to_tla());
+    ev.out.borrow_mut().push(crate::pprint::ppr(&v.to_tla()));
     Ok(Value::Bool(true))
 }
 
@@ -478,6 +478,188 @@ fn tlc_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     }
 }
 
+// ------------------------------------------------------------------ community modules (tlc2.overrides.*)
+
+fn op_arg(a: &mut Vec<Slot>, i: usize, who: &str) -> R<Rc<OpClosure>> {
+    match std::mem::replace(&mut a[i], Slot::Unset) {
+        Slot::Op(c) => Ok(c),
+        _ => fail(format!("The argument of {} must be an operator.", who)),
+    }
+}
+
+fn module_arg_err<T>(which: &str, op: &str, what: &str, v: &Value) -> R<T> {
+    fail_code(
+        ec::TLC_MODULE_ARGUMENT_ERROR,
+        format!("The {} argument of {} should be a {}, but instead it is:\n{}", which, op, what, crate::pprint::ppr(&v.to_tla())),
+    )
+}
+
+
+/// `+` / `*` applied to two integers without going through the generic call machinery
+fn fast_bin(op: &Rc<OpClosure>, x: &Value, y: &Value) -> Option<Value> {
+    if let (OpClosure::Def(d), Value::Int(p), Value::Int(q)) = (&**op, x, y) {
+        if d.native.get().is_some() && matches!(&*d.module, "Naturals" | "Integers") {
+            return match &*d.name {
+                "+" => p.checked_add(*q).map(Value::Int),
+                "*" => p.checked_mul(*q).map(Value::Int),
+                _ => None,
+            };
+        }
+    }
+    None
+}
+
+/// Java: Functions.foldFunctionOnSet: fold in the order of the (normalized) set: acc := op(fun[x], acc)
+fn fold_function_on_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let op = op_arg(a, 0, "FoldFunctionOnSet")?;
+    let base = arg(ev, a, 1, s0, s1)?;
+    let fun = arg(ev, a, 2, s0, s1)?;
+    let set = arg(ev, a, 3, s0, s1)?;
+    if !fun.is_fcn_like() {
+        return module_arg_err("third", "FoldFunctionOnSet", "function", &fun);
+    }
+    if !set.is_set_like() {
+        return module_arg_err("fourth", "FoldFunctionOnSet", "set", &set);
+    }
+    let elems = set.enumerate()?;
+    let mut acc = base;
+    for x in elems.iter() {
+        let fx = fun.apply(x)?;
+        if let Some(v) = fast_bin(&op, &fx, &acc) {
+            acc = v;
+            continue;
+        }
+        acc = ev.apply_closure_slots(&op, vec![Slot::V(fx), Slot::V(acc)], s0, s1)?;
+    }
+    Ok(acc)
+}
+
+fn fold_function(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let op = op_arg(a, 0, "FoldFunction")?;
+    let base = arg(ev, a, 1, s0, s1)?;
+    let fun = arg(ev, a, 2, s0, s1)?;
+    if !fun.is_fcn_like() {
+        return module_arg_err("third", "FoldFunction", "function", &fun);
+    }
+    let dom = fun.domain()?;
+    let elems = dom.enumerate()?;
+    let mut acc = base;
+    for x in elems.iter() {
+        let fx = fun.apply(x)?;
+        if let Some(v) = fast_bin(&op, &fx, &acc) {
+            acc = v;
+            continue;
+        }
+        acc = ev.apply_closure_slots(&op, vec![Slot::V(fx), Slot::V(acc)], s0, s1)?;
+    }
+    Ok(acc)
+}
+
+/// Java: FiniteSetsExt.foldSet
+fn fold_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let op = op_arg(a, 0, "FoldSet")?;
+    let base = arg(ev, a, 1, s0, s1)?;
+    let set = arg(ev, a, 2, s0, s1)?;
+    if !set.is_set_like() {
+        return module_arg_err("third", "FoldSet", "set", &set);
+    }
+    let elems = set.enumerate()?;
+    let mut acc = base;
+    for x in elems.iter() {
+        acc = ev.apply_closure_slots(&op, vec![Slot::V(x.clone()), Slot::V(acc)], s0, s1)?;
+    }
+    Ok(acc)
+}
+
+/// Java: FiniteSetsExt.quantify
+fn quantify(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let set = arg(ev, a, 0, s0, s1)?;
+    let test = op_arg(a, 1, "Quantify")?;
+    if !set.is_set_like() {
+        return module_arg_err("first", "Quantify", "set", &set);
+    }
+    let elems = set.enumerate()?;
+    let mut n = 0;
+    for x in elems.iter() {
+        match ev.apply_closure_slots(&test, vec![Slot::V(x.clone())], s0, s1)? {
+            Value::Bool(true) => n += 1,
+            Value::Bool(false) => {}
+            _ => return fail_code(ec::TLC_MODULE_ARGUMENT_ERROR, "The second argument of Quantify should be a boolean-valued operator, but instead it is:\nan operator".to_string()),
+        }
+    }
+    Ok(Value::Int(n))
+}
+
+/// Java: Functions.IsInjective
+fn is_injective(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let f = arg(ev, a, 0, s0, s1)?;
+    let vals = match f.force_fcn()?.fcn_parts() {
+        Some((_, v)) => v,
+        None => {
+            return fail_code(
+                ec::TLC_MODULE_ONE_ARGUMENT_ERROR,
+                format!("The argument of IsInjective should be a function, but instead it is:\n{}", crate::pprint::ppr(&f.to_tla())),
+            )
+        }
+    };
+    for i in 0..vals.len() {
+        for j in i + 1..vals.len() {
+            if vals[i].eq_val(&vals[j])? {
+                return Ok(Value::Bool(false));
+            }
+        }
+    }
+    Ok(Value::Bool(true))
+}
+
+/// Java: Functions.antiFunction
+fn anti_function(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let f = arg(ev, a, 0, s0, s1)?;
+    let (dom, vals) = match f.force_fcn()?.fcn_parts() {
+        Some(p) => p,
+        None => {
+            return fail_code(
+                ec::TLC_MODULE_ONE_ARGUMENT_ERROR,
+                format!("The argument of AntiFunction should be a functions, but instead it is:\n{}", crate::pprint::ppr(&f.to_tla())),
+            )
+        }
+    };
+    let mut seen: Vec<(Value, Value)> = vec![];
+    for (d, v) in dom.iter().zip(vals.iter()) {
+        let mut dup = false;
+        for (k, _) in &seen {
+            if k.eq_val(v)? {
+                dup = true;
+                break;
+            }
+        }
+        if !dup {
+            seen.push((v.clone(), d.clone()));
+        }
+    }
+    Value::fcn_from(seen)
+}
+
+/// IOUtils.IOEnv: the environment variables as a record
+fn io_env(_: &Ev, _: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Value> {
+    let mut pairs: Vec<(Value, Value)> = vec![];
+    for (k, v) in std::env::vars() {
+        pairs.push((Value::str(&k), Value::str(&v)));
+    }
+    Value::fcn_from(pairs)
+}
+
+/// IOUtils.atoi
+fn atoi(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    match arg(ev, a, 0, s0, s1)? {
+        Value::Str(id) => match intern::name_of(id).trim().parse::<i32>() {
+            Ok(n) => Ok(Value::Int(n)),
+            Err(_) => fail(format!("For input string: \"{}\"", intern::name_of(id))),
+        },
+        v => module_arg_err("first", "atoi", "string", &v),
+    }
+}
+
 // ---------------------------------------------------------------------------------------------- lookup
 
 pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
@@ -518,6 +700,14 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("TLC", "SortSeq") => sort_seq,
         ("TLC", "TLCGet") => tlc_get,
         ("TLC", "TLCSet") => tlc_set,
+        ("Functions", "FoldFunctionOnSet") => fold_function_on_set,
+        ("Functions", "FoldFunction") => fold_function,
+        ("Functions", "IsInjective") => is_injective,
+        ("Functions", "AntiFunction") => anti_function,
+        ("FiniteSetsExt", "FoldSet") => fold_set,
+        ("FiniteSetsExt", "Quantify") => quantify,
+        ("IOUtils", "IOEnv") => io_env,
+        ("IOUtils", "atoi") => atoi,
         _ => return None,
     };
     Some(f)

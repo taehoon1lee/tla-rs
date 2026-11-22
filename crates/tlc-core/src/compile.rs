@@ -105,6 +105,7 @@ impl Compiler {
             cache: RefCell::new(None),
             is_fcn: d.is_fcn_def.get(),
             src: d.clone(),
+            label_cache: std::cell::OnceCell::new(),
         });
         self.defs.insert(d.id, cd.clone());
         if let Some(v) = self.def_values.get(&d.id).cloned() {
@@ -207,7 +208,12 @@ impl Compiler {
 
     fn arg(&mut self, a: &SArg) -> Arg {
         match a {
-            SArg::Expr(e) => Arg::Val(self.expr(e), e.level >= sem::Level::Action),
+            SArg::Expr(e) => {
+                let c = self.expr(e);
+                // a bare state variable stands for the variable itself (it may be assigned: `XInit(x)` with `XInit(v) == v = 0`)
+                let by_name = e.level >= sem::Level::Action || matches!(&*c, Node::Var(_)) || matches!(&*c, Node::Decl(dr) if dr.is_var);
+                Arg::Val(c, by_name)
+            }
             SArg::Op(oa) => Arg::Op(self.opref(oa)),
         }
     }
@@ -348,8 +354,12 @@ impl Compiler {
         for (i, a) in args.iter().enumerate() {
             out.push(match a {
                 SArg::Expr(e) => {
-                    let by_name = e.level >= sem::Level::Action || (e.level >= sem::Level::State && self.param_primed(d, i));
-                    Arg::Val(self.expr(e), by_name)
+                    let c = self.expr(e);
+                    let by_name = e.level >= sem::Level::Action
+                        || (e.level >= sem::Level::State && self.param_primed(d, i))
+                        || matches!(&*c, Node::Var(_))
+                        || matches!(&*c, Node::Decl(dr) if dr.is_var);
+                    Arg::Val(c, by_name)
                 }
                 SArg::Op(oa) => Arg::Op(self.opref(oa)),
             });
@@ -363,7 +373,40 @@ impl Compiler {
 
     // ------------------------------------------------------------------ expressions
 
+    /// can `e` be evaluated once and cached (closed, constant, pure)?
+    fn foldable(e: &sem::Expr) -> bool {
+        if e.level != sem::Level::Const {
+            return false;
+        }
+        match &e.kind {
+            EKind::Num(_) | EKind::Str(_) => true,
+            EKind::SetEnum(v) | EKind::Tuple(v) => v.iter().all(Self::foldable),
+            EKind::Bi(b, args) => !matches!(b, B::Prime | B::Unchanged | B::Enabled) && args.iter().all(Self::foldable),
+            EKind::Apply(Callee::Def(d), args) => {
+                let ok_def = matches!(&*d.module, "Naturals" | "Integers" | "Reals" | "Sequences" | "FiniteSets")
+                    || (args.is_empty() && d.level.get() == sem::Level::Const && !d.in_let.get() && &*d.module != "TLC");
+                ok_def
+                    && args.iter().all(|a| match a {
+                        SArg::Expr(x) => Self::foldable(x),
+                        SArg::Op(_) => false,
+                    })
+            }
+            _ => false,
+        }
+    }
+
     pub fn expr(&mut self, e: &sem::Expr) -> Ex {
+        let n = self.expr_raw(e);
+        if Self::foldable(e) && !matches!(&*n, Node::Const(_) | Node::Fold(..) | Node::Unsupported(_) | Node::Fail(_)) {
+            // only worth it for operations (a bare definition call is cached by the definition itself)
+            if matches!(&e.kind, EKind::Bi(..) | EKind::SetEnum(_) | EKind::Tuple(_) | EKind::Apply(..)) {
+                return Rc::new(Node::Fold(n, RefCell::new(None)));
+            }
+        }
+        n
+    }
+
+    fn expr_raw(&mut self, e: &sem::Expr) -> Ex {
         let loc = e.loc;
         match &e.kind {
             EKind::Num(t) => match parse_num(t) {
@@ -629,9 +672,11 @@ impl Compiler {
             }
             Callee::Decl(d) => {
                 if args.is_empty() && d.arity == 0 {
-                    if let Some(def) = self.const_ops.get(&d.id).cloned() {
-                        let cd = self.compile_def(&def);
-                        return Rc::new(Node::Call(cd, vec![], loc));
+                    if !self.substitutable.contains(&d.id) {
+                        if let Some(def) = self.const_ops.get(&d.id).cloned() {
+                            let cd = self.compile_def(&def);
+                            return Rc::new(Node::Call(cd, vec![], loc));
+                        }
                     }
                     if !self.substitutable.contains(&d.id) {
                         if d.kind == sem::DeclKind::Variable {
@@ -659,6 +704,25 @@ impl Compiler {
                     return self.inline_let(d, args);
                 }
                 let cd = self.compile_def(d);
+                if let Some(nf) = cd.native.get() {
+                    if args.len() == 2 && matches!(&*cd.module, "Naturals" | "Integers") {
+                        let op = match &*cd.name {
+                            "+" => Some(ArithOp::Plus),
+                            "-" => Some(ArithOp::Minus),
+                            "*" => Some(ArithOp::Times),
+                            "<" => Some(ArithOp::Lt),
+                            ">" => Some(ArithOp::Gt),
+                            r"\leq" => Some(ArithOp::Le),
+                            r"\geq" => Some(ArithOp::Ge),
+                            ".." => Some(ArithOp::DotDot),
+                            _ => None,
+                        };
+                        if let (Some(op), SArg::Expr(x), SArg::Expr(y)) = (op, &args[0], &args[1]) {
+                            let (a, b) = (self.expr(x), self.expr(y));
+                            return Rc::new(Node::Arith(op, a, b, nf));
+                        }
+                    }
+                }
                 let a = self.args_for(d, args);
                 Rc::new(Node::Call(cd, a, loc))
             }

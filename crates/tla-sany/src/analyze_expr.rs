@@ -152,7 +152,15 @@ fn level_params(e: &Expr, out: &mut HashSet<usize>) {
                 level_params(o, out);
             }
         }
-        EKind::LetIn(_, b) => level_params(b, out),
+        EKind::LetIn(defs, b) => {
+            // parameters used by the bodies of the LET definitions also influence the level (SANY: LetInNode.levelCheck)
+            for d in defs.iter() {
+                if let Some(db) = d.body() {
+                    level_params(&db, out);
+                }
+            }
+            level_params(b, out)
+        }
         EKind::BQuant { bounds, body, .. } => {
             bounds.iter().for_each(|b| level_params(&b.set, out));
             level_params(body, out);

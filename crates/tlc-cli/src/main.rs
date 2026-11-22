@@ -7,6 +7,11 @@
 //!
 //! This file is infrastructure: keep the protocol stable. Put semantics in the library crates.
 
+mod alloc;
+
+#[global_allocator]
+static GLOBAL: alloc::FastAlloc = alloc::FastAlloc;
+
 use std::path::{Path, PathBuf};
 use tla_sany::Resolver;
 use tlc_core::mp::{self, Reporter};

@@ -11,6 +11,52 @@ use std::rc::{Rc, Weak};
 use tla_sany::intern;
 use tla_sany::sem::{self, B};
 
+#[cfg(feature = "prof")]
+pub static PROF_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+#[cfg(feature = "prof")]
+pub static PROF_CUR: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+#[cfg(feature = "prof")]
+pub fn node_kind(n: &Node) -> String {
+    match n {
+        Node::Const(_) => "Const".into(),
+        Node::Local(_) => "Local".into(),
+        Node::Var(_) => "Var".into(),
+        Node::PrimedVar(_) => "PrimedVar".into(),
+        Node::Decl(d) => format!("Decl({})", d.name),
+        Node::CallDecl(..) => "CallDecl".into(),
+        Node::Prime(_) => "Prime".into(),
+        Node::Unchanged(_) => "Unchanged".into(),
+        Node::Call(d, ..) => format!("Call({})", d.name),
+        Node::CallLocal(..) => "CallLocal".into(),
+        Node::Bi(b, _) => format!("Bi({:?})", b),
+        Node::And(_) => "And".into(),
+        Node::Or(_) => "Or".into(),
+        Node::Not(_) => "Not".into(),
+        Node::Implies(..) => "Implies".into(),
+        Node::Equiv(..) => "Equiv".into(),
+        Node::Eq(..) => "Eq".into(),
+        Node::Neq(..) => "Neq".into(),
+        Node::In(..) => "In".into(),
+        Node::NotIn(..) => "NotIn".into(),
+        Node::Tuple(_) => "Tuple".into(),
+        Node::SetEnum(_) => "SetEnum".into(),
+        Node::FcnApply(..) => "FcnApply".into(),
+        Node::Record(..) => "Record".into(),
+        Node::SubsetOf { .. } => "SubsetOf".into(),
+        Node::SetOfAll(..) => "SetOfAll".into(),
+        Node::FcnCons(..) => "FcnCons".into(),
+        Node::Except(..) => "Except".into(),
+        Node::If(..) => "If".into(),
+        Node::Exists(..) => "Exists".into(),
+        Node::Forall(..) => "Forall".into(),
+        Node::Choose(..) => "Choose".into(),
+        Node::SubstIn(..) => "SubstIn".into(),
+        Node::RcdCons(..) => "RcdCons".into(),
+        _ => "Other".into(),
+    }
+}
+
 #[derive(Clone)]
 pub struct Captured {
     pub frame: Rc<Vec<Slot>>,
@@ -54,6 +100,8 @@ pub struct Ev {
     pub simple_memo: RefCell<HashMap<(usize, bool), bool>>,
     /// Java: Tool.getNextStatesAllAssigned: once every variable is assigned the remaining conjuncts are only evaluated
     pub eval_only: Cell<bool>,
+    pub no_frame: Rc<Vec<Slot>>,
+    pub no_substs: Rc<Vec<SubstEntry>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
     pub warn: Cell<bool>,
 }
@@ -85,6 +133,8 @@ impl Ev {
             splitting: Cell::new(false),
             simple_memo: RefCell::new(HashMap::new()),
             eval_only: Cell::new(false),
+            no_frame: Rc::new(Vec::new()),
+            no_substs: Rc::new(Vec::new()),
             warn: Cell::new(true),
         })
     }
@@ -188,8 +238,16 @@ impl Ev {
         match a {
             Arg::Val(e, by_name) => {
                 if *by_name {
-                    let cap = self.capture(s0, s1);
-                    return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: cap.frame, substs: cap.substs })));
+                    if matches!(&**e, Node::Var(_) | Node::PrimedVar(_)) {
+                        // a plain state variable does not depend on the frame or on substitutions
+                        return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs: self.no_substs.clone() })));
+                    }
+                    let frame = {
+                        let st = self.stack.borrow();
+                        Rc::new(st[self.base.get()..].to_vec())
+                    };
+                    let substs = Rc::new(self.substs.borrow().clone());
+                    return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame, substs })));
                 }
                 match self.eval(e, s0, s1) {
                     Ok(v) => Ok(Slot::V(v)),
@@ -230,6 +288,24 @@ impl Ev {
             Slot::Poison(e) => Err(e),
             Slot::Lazy(l) => {
                 // call-by-name: evaluated in the *current* state context
+                match &*l.code {
+                    Node::Var(i) => {
+                        return match &s0[*i as usize] {
+                            Value::Undef => fail(format!("The variable {} is not assigned a value in the current state.", self.var_name(*i))),
+                            v => Ok(v.clone()),
+                        }
+                    }
+                    Node::PrimedVar(i) => {
+                        return match s1.get(*i as usize) {
+                            Some(Value::Undef) | None => fail(format!(
+                                "Attempted to evaluate the primed variable {}', which is not yet assigned a value.",
+                                self.var_name(*i)
+                            )),
+                            Some(v) => Ok(v.clone()),
+                        }
+                    }
+                    _ => {}
+                }
                 let cap = Captured { frame: l.frame.clone(), substs: l.substs.clone(), s0: Rc::new(vec![]), s1: Rc::new(vec![]) };
                 self.run_captured_in(&cap, &[], &l.code, s0, s1)
             }
@@ -241,6 +317,47 @@ impl Ev {
     // ------------------------------------------------------------------ calls
 
     fn call_def(&self, d: &Rc<CompiledDef>, args: &[Arg], s0: &[Value], s1: &[Value]) -> R<Value> {
+        if d.native.get().is_none() {
+            let cacheable = d.nparams == 0 && d.level == sem::Level::Const;
+            if cacheable {
+                if let Some(v) = &*d.cache.borrow() {
+                    return Ok(v.clone());
+                }
+            }
+            let body = match &*d.body.borrow() {
+                Some(b) => b.clone(),
+                None => return fail(format!("The definition of {} has no body.", d.name)),
+            };
+            // the arguments are evaluated in the caller's frame and pushed directly into the callee's frame
+            let nb = self.stack.borrow().len();
+            for a in args {
+                match self.eval_arg(a, s0, s1) {
+                    Ok(sl) => self.stack.borrow_mut().push(sl),
+                    Err(e) => {
+                        self.stack.borrow_mut().truncate(nb);
+                        return Err(e);
+                    }
+                }
+            }
+            let nslots = d.nslots.get().max(args.len());
+            self.stack.borrow_mut().resize(nb + nslots, Slot::Unset);
+            let old = self.base.get();
+            self.base.set(nb);
+            self.depth.set(self.depth.get() + 1);
+            let r = if self.depth.get() > MAX_DEPTH {
+                fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
+            } else {
+                self.eval(&body, s0, s1)
+            };
+            self.depth.set(self.depth.get() - 1);
+            self.stack.borrow_mut().truncate(nb);
+            self.base.set(old);
+            let v = r?;
+            if cacheable {
+                *d.cache.borrow_mut() = Some(v.clone());
+            }
+            return Ok(v);
+        }
         let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
         for a in args {
             slots.push(self.eval_arg(a, s0, s1)?);
@@ -380,7 +497,21 @@ impl Ev {
 
     // ------------------------------------------------------------------ the evaluator
 
+    #[inline(always)]
     pub fn eval(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
+        #[cfg(feature = "prof")]
+        {
+            if PROF_ON.load(std::sync::atomic::Ordering::Relaxed) {
+                let prev = PROF_CUR.swap(Rc::as_ptr(e) as usize, std::sync::atomic::Ordering::Relaxed);
+                let r = self.eval_inner(e, s0, s1);
+                PROF_CUR.store(prev, std::sync::atomic::Ordering::Relaxed);
+                return r;
+            }
+        }
+        self.eval_inner(e, s0, s1)
+    }
+
+    pub fn eval_inner(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
         match &**e {
             Node::Const(v) => Ok(v.clone()),
             Node::Local(i) => {
@@ -418,6 +549,10 @@ impl Ev {
                         Some(v) => Ok(v.clone()),
                     }
                 } else {
+                    let d0 = self.const_ops.borrow().get(&dr.id).cloned();
+                    if let Some(d) = d0 {
+                        return self.call_def(&d, &[], s0, s1);
+                    }
                     match self.consts.borrow().get(&dr.id) {
                         Some(v) => Ok(v.clone()),
                         None => fail_code(
@@ -458,6 +593,44 @@ impl Ev {
                 let empty = self.empty_state();
                 let nxt = self.eval(inner, s1, &empty)?;
                 Ok(Value::Bool(cur.eq_val(&nxt)?))
+            }
+            Node::Fold(inner, cache) => {
+                if let Some(v) = &*cache.borrow() {
+                    return Ok(v.clone());
+                }
+                let v = self.eval(inner, s0, s1)?;
+                *cache.borrow_mut() = Some(v.clone());
+                Ok(v)
+            }
+            Node::Arith(op, a, b, nf) => {
+                let x = self.eval(a, s0, s1)?;
+                let y = self.eval(b, s0, s1)?;
+                if let (Value::Int(p), Value::Int(q)) = (&x, &y) {
+                    let (p, q) = (*p, *q);
+                    match op {
+                        ArithOp::Plus => {
+                            if let Some(r) = p.checked_add(q) {
+                                return Ok(Value::Int(r));
+                            }
+                        }
+                        ArithOp::Minus => {
+                            if let Some(r) = p.checked_sub(q) {
+                                return Ok(Value::Int(r));
+                            }
+                        }
+                        ArithOp::Times => {
+                            if let Some(r) = p.checked_mul(q) {
+                                return Ok(Value::Int(r));
+                            }
+                        }
+                        ArithOp::Lt => return Ok(Value::Bool(p < q)),
+                        ArithOp::Gt => return Ok(Value::Bool(p > q)),
+                        ArithOp::Le => return Ok(Value::Bool(p <= q)),
+                        ArithOp::Ge => return Ok(Value::Bool(p >= q)),
+                        ArithOp::DotDot => return Ok(Value::Interval(p, q)),
+                    }
+                }
+                nf(self, &mut vec![Slot::V(x), Slot::V(y)], s0, s1)
             }
             Node::Call(d, args, _loc) => self.call_def(d, args, s0, s1),
             Node::CallLocal(i, args) => match self.get_slot(*i) {
@@ -724,6 +897,13 @@ impl Ev {
             }
             Node::Except(f, specs) => {
                 let mut cur = self.eval(f, s0, s1)?;
+                // fast path: `[f EXCEPT ![i] = e]`
+                if specs.len() == 1 && specs[0].path.len() == 1 {
+                    if let PathIr::Index(x) = &specs[0].path[0] {
+                        let arg = self.eval(x, s0, s1)?;
+                        return self.except_path(&cur, std::slice::from_ref(&arg), 0, specs[0].at_slot, &specs[0].val, s0, s1);
+                    }
+                }
                 for sp in specs {
                     let mut idx = Vec::with_capacity(sp.path.len());
                     for p in &sp.path {

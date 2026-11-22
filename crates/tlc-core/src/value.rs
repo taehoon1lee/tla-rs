@@ -46,7 +46,7 @@ pub fn not_ported<T>(what: impl Into<String>) -> R<T> {
 
 pub struct Fcn {
     /// sorted domain (never a `1..n` integer domain: those are tuples)
-    pub dom: Vec<Value>,
+    pub dom: Rc<Vec<Value>>,
     pub vals: Vec<Value>,
 }
 
@@ -250,7 +250,7 @@ impl Value {
         if is_seq || n == 0 {
             Value::Tuple(Rc::new(vals))
         } else {
-            Value::Fcn(Rc::new(Fcn { dom, vals }))
+            Value::Fcn(Rc::new(Fcn { dom: Rc::new(dom), vals }))
         }
     }
 
@@ -542,8 +542,10 @@ impl Value {
             Value::Interval(lo, hi) => match e {
                 Value::Int(i) => Ok(*lo <= *i && *i <= *hi),
                 Value::Model(_) => Ok(false),
+                // Java: IntervalValue.member: an empty interval contains nothing, whatever the element
+                _ if *lo > *hi => Ok(false),
                 _ => fail(format!(
-                    "Attempted to check if the value:\n{}\nis an element of the integer interval {}",
+                    "Attempted to check if the value:\n{}\nis in the integer interval {}",
                     e.to_tla(),
                     self.to_tla()
                 )),
@@ -683,7 +685,7 @@ impl Value {
     /// (domain, values) of a function-like value that is not a tuple
     pub fn fcn_parts(&self) -> Option<(Vec<Value>, Vec<Value>)> {
         match self {
-            Value::Fcn(f) => Some((f.dom.clone(), f.vals.clone())),
+            Value::Fcn(f) => Some((f.dom.to_vec(), f.vals.clone())),
             Value::Tuple(t) => Some(((1..=t.len() as i32).map(Value::Int).collect(), t.to_vec())),
             _ => None,
         }
@@ -700,7 +702,7 @@ impl Value {
     pub fn domain(&self) -> R<Value> {
         match self {
             Value::Tuple(t) => Ok(Value::Interval(1, t.len() as i32)),
-            Value::Fcn(f) => Ok(Value::Set(Rc::new(f.dom.clone()))),
+            Value::Fcn(f) => Ok(Value::Set(f.dom.clone())),
             Value::FcnLam(l) => Ok(l.dom.clone()),
             v => fail(format!("Attempted to apply the operator DOMAIN to the non-function value\n{}", v.to_tla())),
         }
@@ -809,6 +811,26 @@ impl Value {
                 }
                 Ok(Ordering::Equal)
             }
+            (Fcn(fa), Fcn(fb)) => {
+                if !Rc::ptr_eq(&fa.dom, &fb.dom) {
+                    if fa.dom.len() != fb.dom.len() {
+                        return Ok(fa.dom.len().cmp(&fb.dom.len()));
+                    }
+                    for (x, y) in fa.dom.iter().zip(fb.dom.iter()) {
+                        let c = x.cmp_val(y)?;
+                        if c != Ordering::Equal {
+                            return Ok(c);
+                        }
+                    }
+                }
+                for (x, y) in fa.vals.iter().zip(fb.vals.iter()) {
+                    let c = x.cmp_val(y)?;
+                    if c != Ordering::Equal {
+                        return Ok(c);
+                    }
+                }
+                Ok(Ordering::Equal)
+            }
             (a, b) if a.is_fcn_like() && b.is_fcn_like() => {
                 let (fa, fb) = (a.force_fcn()?, b.force_fcn()?);
                 let (da, va) = fa.fcn_parts().unwrap();
@@ -840,6 +862,22 @@ impl Value {
                         return Ok(Ordering::Equal);
                     }
                     return Ok(a1.cmp(a2));
+                }
+                // an interval against an explicit set: no allocation
+                if let (Interval(lo, hi), Set(v)) | (Set(v), Interval(lo, hi)) = (a, b) {
+                    let n = if hi < lo { 0 } else { *hi as i64 - *lo as i64 + 1 };
+                    let swapped = matches!(a, Set(_));
+                    if n != v.len() as i64 {
+                        let o = n.cmp(&(v.len() as i64));
+                        return Ok(if swapped { o.reverse() } else { o });
+                    }
+                    for (i, y) in v.iter().enumerate() {
+                        let c = Int(*lo + i as i32).cmp_val(y)?;
+                        if c != Ordering::Equal {
+                            return Ok(if swapped { c.reverse() } else { c });
+                        }
+                    }
+                    return Ok(Ordering::Equal);
                 }
                 let ea = a.enumerate()?;
                 let eb = b.enumerate()?;
@@ -1202,5 +1240,15 @@ mod tests {
         assert_eq!(fs.size().unwrap(), 4);
         assert_eq!(fs.enumerate().unwrap().len(), 4);
         assert!(fs.member(&Value::tuple(vec![Value::Int(0), Value::Int(1)])).unwrap());
+    }
+}
+
+#[cfg(test)]
+mod size_tests {
+    #[test]
+    fn print_sizes() {
+        eprintln!("size Value = {}", std::mem::size_of::<super::Value>());
+        eprintln!("size Slot = {}", std::mem::size_of::<crate::ir::Slot>());
+        eprintln!("size Node = {}", std::mem::size_of::<crate::ir::Node>());
     }
 }

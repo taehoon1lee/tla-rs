@@ -69,6 +69,8 @@ pub struct CompiledDef {
     /// for `f[x \in S] == ...`: a recursive function definition
     pub is_fcn: bool,
     pub src: Rc<sem::OpDef>,
+    /// `<Name line .., col .. to line .., col .. of module M>` (computed on first use)
+    pub label_cache: std::cell::OnceCell<Option<Rc<str>>>,
 }
 
 pub enum OpRef {
@@ -113,7 +115,24 @@ pub struct DeclRef {
     pub arity: usize,
 }
 
+/// binary operators of Naturals/Integers with an inlined fast path for `Int` operands
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ArithOp {
+    Plus,
+    Minus,
+    Times,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    DotDot,
+}
+
 pub enum Node {
+    /// a closed constant expression: evaluated once, on first use
+    Fold(Ex, RefCell<Option<Value>>),
+    /// fast path of a native binary operator; the native function handles every other case (errors included)
+    Arith(ArithOp, Ex, Ex, NativeFn),
     Const(Value),
     Local(u32),
     /// state variable (not substitutable)
