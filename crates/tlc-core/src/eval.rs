@@ -888,6 +888,23 @@ impl Ev {
                 Value::set_from(v)
             }
             Node::FcnApply(f, a) => {
+                // a state variable or a constant is applied in place (no reference-count traffic): the argument is evaluated
+                // first (a variable or constant read has no effect and cannot fail on its own)
+                match &**f {
+                    Node::Var(i) => {
+                        if let Some(fv) = s0.get(*i as usize) {
+                            if !matches!(fv, Value::Undef) {
+                                let av = self.eval(a, s0, s1)?;
+                                return fv.apply(&av);
+                            }
+                        }
+                    }
+                    Node::Const(fv) => {
+                        let av = self.eval(a, s0, s1)?;
+                        return fv.apply(&av);
+                    }
+                    _ => {}
+                }
                 let fv = self.eval(f, s0, s1)?;
                 let av = self.eval(a, s0, s1)?;
                 fv.apply(&av)

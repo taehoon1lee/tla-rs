@@ -4692,6 +4692,7 @@
 "ex/SimplifiedFastPaxos/FastPaxos",
 "ex/SimplifiedFastPaxos/Paxos",
 "ex/SingleLaneBridge/MC",
+"ex/SlidingPuzzles/SlidingPuzzles_anim",
 "ex/SlushProtocol/SlushSmall",
 "ex/SpanningTree/SpanTree",
 "ex/SpanningTree/SpanTreeTest4Nodes",

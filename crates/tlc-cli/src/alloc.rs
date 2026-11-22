@@ -11,7 +11,7 @@ use std::ptr::null_mut;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 const GRAIN: usize = 16;
-const MAX_SMALL: usize = 512;
+const MAX_SMALL: usize = 4096;
 const NCLASS: usize = MAX_SMALL / GRAIN + 1;
 const CHUNK: usize = 1 << 20;
 

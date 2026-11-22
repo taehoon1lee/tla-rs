@@ -184,7 +184,7 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
             if !dom_changed && !vals_changed {
                 None
             } else if !dom_changed {
-                Some(Value::Fcn(Rc::new(Fcn { dom: f.dom.clone(), vals: nvals })))
+                Some(Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), nvals))))
             } else {
                 Some(Value::fcn_from(ndom.into_iter().zip(nvals.into_iter()).collect())?)
             }

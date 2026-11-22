@@ -48,6 +48,16 @@ pub struct Fcn {
     /// sorted domain (never a `1..n` integer domain: those are tuples)
     pub dom: Rc<Vec<Value>>,
     pub vals: Vec<Value>,
+    /// memo of the fingerprint of this (immutable) function; 0 = not computed yet
+    pub fp: std::cell::Cell<u64>,
+    /// memo: no lazily evaluated component remains (`needs_normalize` is false)
+    pub norm_ok: std::cell::Cell<bool>,
+}
+
+impl Fcn {
+    pub fn new(dom: Rc<Vec<Value>>, vals: Vec<Value>) -> Fcn {
+        Fcn { dom, vals, fp: std::cell::Cell::new(0), norm_ok: std::cell::Cell::new(false) }
+    }
 }
 
 pub struct SetPred {
@@ -250,7 +260,7 @@ impl Value {
         if is_seq || n == 0 {
             Value::Tuple(Rc::new(vals))
         } else {
-            Value::Fcn(Rc::new(Fcn { dom: Rc::new(dom), vals }))
+            Value::Fcn(Rc::new(Fcn::new(Rc::new(dom), vals)))
         }
     }
 
@@ -795,7 +805,7 @@ impl Value {
                 Some(i) => {
                     let mut vals = f.vals.clone();
                     vals[i] = v;
-                    Ok(Value::Fcn(Rc::new(Fcn { dom: f.dom.clone(), vals })))
+                    Ok(Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), vals))))
                 }
                 None => Ok(self.clone()),
             },
@@ -1118,12 +1128,21 @@ impl Value {
                 }
             }
             Value::Fcn(f) => {
-                h.write_u64(0x70);
-                h.write_u64(f.dom.len() as u64);
-                for (d, v) in f.dom.iter().zip(f.vals.iter()) {
-                    d.hash_into(h)?;
-                    v.hash_into(h)?;
+                // hierarchical: the hash of a function is computed once (the same `Rc` is shared by successive states)
+                let mut sub = f.fp.get();
+                if sub == 0 {
+                    let mut hh = Hasher::new();
+                    hh.write_u64(0x70);
+                    hh.write_u64(f.dom.len() as u64);
+                    for (d, v) in f.dom.iter().zip(f.vals.iter()) {
+                        d.hash_into(&mut hh)?;
+                        v.hash_into(&mut hh)?;
+                    }
+                    sub = hh.finish().max(1);
+                    f.fp.set(sub);
                 }
+                h.write_u64(0x70);
+                h.write_u64(sub);
             }
             Value::FcnLam(_) => self.force_fcn()?.hash_into(h)?,
             v if v.is_set_like() => {
@@ -1171,7 +1190,7 @@ impl Value {
                     for e in f.vals.iter() {
                         vals.push(e.normalize()?);
                     }
-                    Ok(Value::Fcn(Rc::new(Fcn { dom: f.dom.clone(), vals })))
+                    Ok(Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), vals))))
                 } else {
                     Ok(self.clone())
                 }
@@ -1190,7 +1209,16 @@ impl Value {
             Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) => false,
             Value::Set(v) => v.iter().any(|e| e.needs_normalize()),
             Value::Tuple(t) => t.iter().any(|e| e.needs_normalize()),
-            Value::Fcn(f) => f.vals.iter().any(|e| e.needs_normalize()) || f.dom.iter().any(|e| e.needs_normalize()),
+            Value::Fcn(f) => {
+                if f.norm_ok.get() {
+                    return false;
+                }
+                let n = f.vals.iter().any(|e| e.needs_normalize()) || f.dom.iter().any(|e| e.needs_normalize());
+                if !n {
+                    f.norm_ok.set(true);
+                }
+                n
+            }
             _ => true,
         }
     }
