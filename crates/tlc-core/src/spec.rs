@@ -46,6 +46,8 @@ pub struct Setup {
     pub action_constraints: Vec<Top>,
     pub assumes: Vec<(Top, String)>,
     pub view: Option<Top>,
+    /// Java: `ALIAS`: the record printed instead of the state variables in error traces
+    pub alias: Option<Top>,
     pub symmetry: Option<Top>,
     /// the SYMMETRY definition and the configuration's `Spec <- Replacement` names (for warning 2300)
     pub symmetry_def: Option<Rc<sem::OpDef>>,
@@ -246,6 +248,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Res
         action_constraints: vec![],
         assumes: vec![],
         view: None,
+        alias: None,
         symmetry: None,
         symmetry_def: None,
         override_rev: cfg.overrides.iter().map(|(l, r)| (r.clone(), l.clone())).collect(),
@@ -411,6 +414,13 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Res
                 ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
                 format!("The view {} specified in the configuration file\nis not defined in the specification.", cfg.view),
             );
+        }
+    }
+    if !cfg.alias.is_empty() {
+        if let Some(def) = lookup_def(&root, &cfg.alias) {
+            let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
+            let (ex, n) = setup.comp.compile_top(&e);
+            setup.alias = Some(Top { name: cfg.alias.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] });
         }
     }
     if !cfg.symmetry.is_empty() {

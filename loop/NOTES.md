@@ -118,3 +118,12 @@
 - Java reseeds it with `state.fingerPrint() ^ seed` while the successors of a state are generated (BFS only); that needs Java's
   FP64 state fingerprint, which we do not reproduce. Constant-level uses (SpanTreeRandom's `Edges`, evaluated once at startup)
   and initial-state generation use the plain sequence and match Java exactly.
+
+## ALIAS / IOUtils.Serialize / SVG / Json
+- `ALIAS` (Setup.alias, `bfs::state_text_at`): every state of an error trace is printed as the fields of the alias record,
+  evaluated with s0 = the state, s1 = the next trace state (itself for the last one) and `TLCGet("level")` = trace position.
+  An evaluation error prints the state variables plus `_ALIASEvalError` (all lines with `/\`); `_format` is honoured.
+- Natives: `IOUtils.Serialize` (TXT, writes the file, returns the exit record), `SVG.SVGElemToString`, `SequencesExt.SetToSeq`,
+  `Json.ndJsonDeserialize/JsonDeserialize` (override errors carry the framed 2154 text; the FileNotFoundException text is
+  `<path with \ on Windows> (<OS message minus the final period>)`), `\o` and `Len` accept strings like Sequences.java.
+- A LET-local `INSTANCE M` of an operator with a native implementation is called, not inlined (`is_native_copy`).

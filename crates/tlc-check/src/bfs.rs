@@ -178,6 +178,90 @@ impl<'a> Checker<'a> {
         s
     }
 
+    /// Java: `Tool.evalAlias` + `RecordValue.PrintTLCState.toString`: the state at trace position `level` (1-based) as printed, with
+    /// `succ` its successor in the trace.  Without an ALIAS (or if it is not a record) these are the state variables.
+    fn state_text_at(&mut self, level: usize, vals: &[Value], succ: &[Value]) -> String {
+        let setup = self.setup;
+        let alias = match &setup.alias {
+            Some(a) => a,
+            None => return self.state_text(vals),
+        };
+        let ev = setup.ev.clone();
+        let saved = ev.counters.get();
+        let mut c = saved;
+        c[0] = level as i64;
+        ev.counters.set(c);
+        let r = setup.run_top(alias, vals, succ);
+        ev.counters.set(saved);
+        self.flush_output();
+        let rec = match r {
+            Ok(v) => match v {
+                Value::FcnLam(_) => v.force_fcn().ok(),
+                other => Some(other),
+            },
+            Err(e) => {
+                // Java: the evaluation error is attached to the state as the variable `_ALIASEvalError` (the record then
+                // has at least two fields: every line is printed with `/\`)
+                let mut s = String::new();
+                for (i, v) in self.setup.vars.iter().enumerate() {
+                    s.push_str(&format!("/\\ {} = {}\n", v.name, tlc_core::pprint::ppr(&vals[i].to_tla())));
+                }
+                let err = tlc_core::pprint::ppr(&Value::str(&e.msg).to_tla());
+                s.push_str(&format!("/\\ _ALIASEvalError = {}\n", err));
+                return s;
+            }
+        };
+        let (dom, fvals) = match rec.as_ref().and_then(|r| r.fcn_parts()) {
+            Some((d, v)) if !matches!(rec, Some(Value::Tuple(_))) && d.iter().all(|x| matches!(x, Value::Str(_))) => (d, v),
+            _ => return self.state_text(vals),
+        };
+        let fmt_idx = dom.iter().position(|d| matches!(d, Value::Str(id) if &*tla_sany::intern::name_of(*id) == "_format"));
+        let format = match fmt_idx {
+            Some(i) => match &fvals[i] {
+                Value::Str(id) => tla_sany::intern::name_of(*id).to_string(),
+                _ => "/\\ %s = %s\n".to_string(),
+            },
+            None if dom.len() == 1 => "%s = %s\n".to_string(),
+            None => "/\\ %s = %s\n".to_string(),
+        };
+        let mut out = String::new();
+        for (i, (d, v)) in dom.iter().zip(fvals.iter()).enumerate() {
+            if Some(i) == fmt_idx {
+                continue;
+            }
+            let key = match d {
+                Value::Str(id) => tla_sany::intern::name_of(*id).to_string(),
+                _ => String::new(),
+            };
+            let value = tlc_core::pprint::ppr(&v.to_tla());
+            // Java: String.format(format, key, value)
+            let mut args = [key, value].into_iter();
+            let mut it = format.chars().peekable();
+            while let Some(ch) = it.next() {
+                if ch == '%' {
+                    match it.peek() {
+                        Some('s') => {
+                            it.next();
+                            out.push_str(&args.next().unwrap_or_default());
+                        }
+                        Some('%') => {
+                            it.next();
+                            out.push('%');
+                        }
+                        Some('n') => {
+                            it.next();
+                            out.push('\n');
+                        }
+                        _ => out.push('%'),
+                    }
+                } else {
+                    out.push(ch);
+                }
+            }
+        }
+        out
+    }
+
     fn fp(&self, vals: &[Value]) -> R<u64> {
         // Java: TLCStateMut.fingerPrint: fingerprint the lexicographically smallest image under the symmetry group
         let canon = if self.perms.is_empty() { None } else { self.perms.canonical_state(vals, self.setup.view.is_some())? };
@@ -244,7 +328,10 @@ impl<'a> Checker<'a> {
                 Some(l) => self.setup.ev.format_label(l),
                 None => "<Initial predicate>".to_string(),
             };
-            let text = format!("{}: {}\n{}", n + 1, label, self.state_text(&self.states[si as usize].vals));
+            let nx = chain.get(n + 1).copied().unwrap_or(si);
+            let (cur, succ) = (self.states[si as usize].vals.clone(), self.states[nx as usize].vals.clone());
+            let body = self.state_text_at(n + 1, &cur, &succ);
+            let text = format!("{}: {}\n{}", n + 1, label, body);
             self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
         }
     }
@@ -311,14 +398,21 @@ impl<'a> Checker<'a> {
                 Some(l) => self.setup.ev.format_label(l),
                 None => "<Initial predicate>".to_string(),
             };
-            let text = format!("{}: {}\n{}", n + 1, l, self.state_text(&self.states[si as usize].vals));
+            let cur = self.states[si as usize].vals.clone();
+            let succ = match chain.get(n + 1) {
+                Some(&nx) => self.states[nx as usize].vals.clone(),
+                None => vals.to_vec(),
+            };
+            let body = self.state_text_at(n + 1, &cur, &succ);
+            let text = format!("{}: {}\n{}", n + 1, l, body);
             self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
         }
         let l = match label {
             Some(l) => self.setup.ev.format_label(l),
             None => "<Next>".to_string(),
         };
-        let text = format!("{}: {}\n{}", chain.len() + 1, l, self.state_text(vals));
+        let body = self.state_text_at(chain.len() + 1, vals, vals);
+        let text = format!("{}: {}\n{}", chain.len() + 1, l, body);
         self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
     }
 
@@ -951,7 +1045,12 @@ impl<'a> Checker<'a> {
                 Some(l) => ev.format_label(l),
                 None => "<Next>".to_string(),
             };
-            let text = format!("{}: {}\n{}", n + 1, label, self.state_text(v));
+            let succ = match actual.get(n + 1) {
+                Some((nv, _)) => nv.clone(),
+                None => actual[lasso.cycle_pos].0.clone(),
+            };
+            let body = self.state_text_at(n + 1, v, &succ);
+            let text = format!("{}: {}\n{}", n + 1, label, body);
             self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
         }
         let cycle_num = lasso.cycle_pos + 1;

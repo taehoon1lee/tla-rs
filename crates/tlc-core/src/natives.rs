@@ -200,14 +200,50 @@ fn seq_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 
 fn len(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let v = arg(ev, a, 0, s0, s1)?;
+    // Java: Sequences.Len accepts a string (its length in UTF-16 code units)
+    if let Value::Str(id) = &v {
+        return Ok(Value::Int(intern::name_of(*id).encode_utf16().count() as i32));
+    }
     Ok(Value::Int(as_seq(&v, "Len")?.len() as i32))
 }
 
+// Java: Sequences.Concat (strings concatenate with strings, sequences with sequences)
 fn concat(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
     let y = arg(ev, a, 1, s0, s1)?;
-    let mut s = as_seq(&x, "\\o")?;
-    s.extend(as_seq(&y, "\\o")?);
+    let evaluating = |form: &str, what: &str, v: &Value| -> R<Value> {
+        fail_code(
+            ec::TLC_MODULE_EVALUATING,
+            format!("Evaluating an expression of the form {} when s is not a {}:\n{}", form, what, crate::pprint::ppr(&v.to_tla())),
+        )
+    };
+    if let Value::Str(i1) = &x {
+        return match &y {
+            Value::Str(i2) => {
+                let (u1, u2) = (intern::name_of(*i1), intern::name_of(*i2));
+                Ok(Value::str(&format!("{}{}", u1, u2)))
+            }
+            _ => evaluating(r"t \o s", "string", &y),
+        };
+    }
+    let seq_of = |v: &Value| -> R<Option<Vec<Value>>> {
+        Ok(match v {
+            Value::Tuple(t) => Some(t.to_vec()),
+            Value::FcnLam(_) => match v.force_fcn()? {
+                Value::Tuple(t) => Some(t.to_vec()),
+                _ => None,
+            },
+            _ => None,
+        })
+    };
+    let mut s = match seq_of(&x)? {
+        Some(s) => s,
+        None => return evaluating(r"s \o t", "sequence", &x),
+    };
+    match seq_of(&y)? {
+        Some(t) => s.extend(t),
+        None => return evaluating(r"t \o s", "sequence", &y),
+    }
     Ok(Value::tuple(s))
 }
 
@@ -427,8 +463,7 @@ fn random_element_of(ev: &Ev, v: &Value) -> R<Value> {
         fail_code(
             ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE,
             format!(
-                "Applying RandomElement to a finite set, but instead it is:
-{}",
+                "Applying RandomElement to the following value,\nwhich is not a finite set:\n{}",
                 crate::pprint::ppr(&v.to_tla())
             ),
         )
@@ -735,6 +770,384 @@ fn io_env(_: &Ev, _: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Value> {
         pairs.push((Value::str(&k), Value::str(&v)));
     }
     Value::fcn_from(pairs)
+}
+
+fn str_of(v: &Value, what: &str) -> R<std::sync::Arc<str>> {
+    match v {
+        Value::Str(id) => Ok(intern::name_of(*id)),
+        _ => fail(format!("{} is not a string: {}", what, v.to_tla())),
+    }
+}
+
+fn field(v: &Value, name: &str) -> R<Value> {
+    v.apply(&Value::str(name))
+}
+
+/// the elements of a record, function or tuple in domain order
+fn components(v: &Value) -> R<Vec<Value>> {
+    let f = if matches!(v, Value::FcnLam(_)) { v.force_fcn()? } else { v.clone() };
+    match f.fcn_parts() {
+        Some((_, vals)) => Ok(vals),
+        None => fail(format!("Was unable to convert element to a tuple or (function) record: {}", v.to_tla())),
+    }
+}
+
+// Java: tlc2.overrides.SVG.SVGElemToString
+fn svg_elem(elem: &Value) -> R<String> {
+    let rec = if matches!(elem, Value::FcnLam(_)) { elem.force_fcn()? } else { elem.clone() };
+    let is_rec = matches!(&rec, Value::Fcn(f) if f.dom.iter().all(|d| matches!(d, Value::Str(_))));
+    if !is_rec {
+        return fail(format!("An SVG element must be a record. Value given is of type: {}", elem.to_tla()));
+    }
+    let name = str_of(&field(&rec, "name")?, "name")?;
+    let attrs_v = field(&rec, "attrs")?;
+    let attrs = if matches!(attrs_v, Value::FcnLam(_)) { attrs_v.force_fcn()? } else { attrs_v.clone() };
+    let mut attr_str = String::new();
+    match attrs.fcn_parts() {
+        Some((dom, vals)) => {
+            for (k, v) in dom.iter().zip(vals.iter()) {
+                attr_str.push(' ');
+                attr_str.push_str(&str_of(k, "attribute name")?.replace('_', "-"));
+                attr_str.push('=');
+                attr_str.push('\'');
+                attr_str.push_str(&str_of(v, "attribute value")?);
+                attr_str.push('\'');
+            }
+        }
+        None => return fail(format!("Was unable to convert element to a record: {}", attrs_v.to_tla())),
+    }
+    let mut child_str = String::new();
+    for c in components(&field(&rec, "children")?)? {
+        child_str.push_str(&svg_elem(&c)?);
+    }
+    let inner = str_of(&field(&rec, "innerText")?, "innerText")?.replace("<<", "&lt;&lt;").replace(">>", "&gt;&gt;");
+    Ok(format!("<{}{}>{}{}</{}>", name, attr_str, inner, child_str, name))
+}
+
+fn svg_elem_to_string(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let e = arg(ev, a, 0, s0, s1)?;
+    Ok(Value::str(&svg_elem(&e)?))
+}
+
+fn exec_record(code: i32, out: &str, err: &str) -> Value {
+    Value::record(vec![
+        (intern::intern("exitValue"), Value::Int(code)),
+        (intern::intern("stdout"), Value::str(out)),
+        (intern::intern("stderr"), Value::str(err)),
+    ])
+}
+
+// Java: tlc2.overrides.IOUtils.textSerialize (format "TXT"): writes the string and returns the exit record
+fn io_serialize(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let invalid = "Serialize error invalid parameters: ";
+    let opts = arg(ev, a, 2, s0, s1)?;
+    let format = match field(&opts, "format") {
+        Ok(f) => f,
+        Err(e) => return Ok(exec_record(1, "", &format!("{}{}", invalid, e.msg))),
+    };
+    if str_of(&format, "format").map_or(true, |f| &*f != "TXT") {
+        return fail("Serialize: unsupported serializer format");
+    }
+    let parsed = (|| -> R<(std::sync::Arc<str>, std::sync::Arc<str>, Vec<std::sync::Arc<str>>)> {
+        let payload = str_of(&arg(ev, a, 0, s0, s1)?, "payload")?;
+        let path = str_of(&arg(ev, a, 1, s0, s1)?, "filepath")?;
+        let mut options = vec![];
+        for o in components(&field(&opts, "openOptions")?)? {
+            options.push(str_of(&o, "open option")?);
+        }
+        str_of(&field(&opts, "charset")?, "charset")?;
+        Ok((payload, path, options))
+    })();
+    let (payload, path, options) = match parsed {
+        Ok(p) => p,
+        Err(e) => return Ok(exec_record(1, "", &format!("{}{}", invalid, e.msg))),
+    };
+    let mut oo = std::fs::OpenOptions::new();
+    oo.write(true);
+    if options.is_empty() {
+        oo.create(true).truncate(true);
+    }
+    for o in &options {
+        match &**o {
+            "WRITE" => {}
+            "APPEND" => {
+                oo.append(true);
+            }
+            "TRUNCATE_EXISTING" => {
+                oo.truncate(true);
+            }
+            "CREATE" => {
+                oo.create(true);
+            }
+            "CREATE_NEW" => {
+                oo.create_new(true);
+            }
+            "READ" | "DELETE_ON_CLOSE" | "SPARSE" | "SYNC" | "DSYNC" => {}
+            other => {
+                return Ok(exec_record(
+                    1,
+                    "",
+                    &format!(
+                        "Serialize error writing to the file: java.lang.IllegalArgumentException: No enum constant java.nio.file.StandardOpenOption.{}",
+                        other
+                    ),
+                ))
+            }
+        }
+    }
+    use std::io::Write;
+    match oo.open(&*path).and_then(|mut f| f.write_all(payload.as_bytes())) {
+        Ok(()) => Ok(exec_record(0, "Finish writing to the file with success!", "")),
+        Err(e) => Ok(exec_record(1, "", &format!("Serialize error writing to the file: {}", e))),
+    }
+}
+
+// Java: tlc2.overrides.SequencesExt.SetToSeq: the elements in normalized order as a sequence
+fn set_to_seq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
+    if !s.is_set_like() || matches!(s, Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_)) {
+        return fail_code(
+            ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE,
+            format!("Applying SetToSeq to the following value,\nwhich is not a finite set:\n{}", crate::pprint::ppr(&s.to_tla())),
+        );
+    }
+    Ok(Value::tuple(s.enumerate()?.to_vec()))
+}
+
+// ---------------------------------------------------------------------------------------------- Json (tlc2.overrides.Json)
+
+/// Java: `MethodValue` wraps an exception of an operator override into `TLC_MODULE_VALUE_JAVA_METHOD_OVERRIDE`; the text
+/// is built with `MP.getMessage`, hence it carries the tool-mode message framing.
+fn override_error<T>(signature: &str, msg: &str) -> R<T> {
+    fail_code(
+        ec::TLC_MODULE_VALUE_JAVA_METHOD_OVERRIDE,
+        format!(
+            "@!@!@STARTMSG 2154:0 @!@!@\nAttempted to apply the operator overridden by the Java method\n{},\nbut it produced the following error:\n{}\n@!@!@ENDMSG 2154 @!@!@",
+            signature, msg
+        ),
+    )
+}
+
+/// Java: `FileNotFoundException.getMessage()` of `new FileReader(new File(path))`: `<path> (<OS message>)`
+fn file_not_found_message(path: &str, e: &std::io::Error) -> String {
+    let shown = if cfg!(windows) { path.replace('/', "\\") } else { path.to_string() };
+    let full = e.to_string();
+    // strip Rust's " (os error N)" suffix and, like the JDK, one final '.'
+    let os = match full.rfind(" (os error") {
+        Some(i) => &full[..i],
+        None => &full[..],
+    };
+    let os = os.trim_end();
+    let os = os.strip_suffix('.').unwrap_or(os);
+    format!("{} ({})", shown, os)
+}
+
+enum Json {
+    Arr(Vec<Json>),
+    Obj(Vec<(String, Json)>),
+    Str(String),
+    Num(f64),
+    Bool(bool),
+    Null,
+}
+
+/// a lenient JSON reader (Gson `JsonParser.parseString`)
+struct JsonReader<'a> {
+    s: &'a [u8],
+    i: usize,
+}
+
+impl<'a> JsonReader<'a> {
+    fn ws(&mut self) {
+        while self.i < self.s.len() && (self.s[self.i] as char).is_whitespace() {
+            self.i += 1;
+        }
+    }
+    fn err<T>(&self, what: &str) -> Result<T, String> {
+        Err(format!("{} at character {}", what, self.i))
+    }
+    fn value(&mut self) -> Result<Json, String> {
+        self.ws();
+        match self.s.get(self.i) {
+            None => self.err("End of input"),
+            Some(b'{') => {
+                self.i += 1;
+                let mut fields = vec![];
+                loop {
+                    self.ws();
+                    match self.s.get(self.i) {
+                        Some(b'}') => {
+                            self.i += 1;
+                            return Ok(Json::Obj(fields));
+                        }
+                        Some(b',') => {
+                            self.i += 1;
+                        }
+                        Some(b'"') | Some(b'\'') => {
+                            let k = self.string()?;
+                            self.ws();
+                            if self.s.get(self.i) != Some(&b':') {
+                                return self.err("Expected ':'");
+                            }
+                            self.i += 1;
+                            let v = self.value()?;
+                            fields.push((k, v));
+                        }
+                        _ => return self.err("Expected name"),
+                    }
+                }
+            }
+            Some(b'[') => {
+                self.i += 1;
+                let mut items = vec![];
+                loop {
+                    self.ws();
+                    match self.s.get(self.i) {
+                        Some(b']') => {
+                            self.i += 1;
+                            return Ok(Json::Arr(items));
+                        }
+                        Some(b',') => {
+                            self.i += 1;
+                        }
+                        None => return self.err("End of input"),
+                        _ => items.push(self.value()?),
+                    }
+                }
+            }
+            Some(b'"') | Some(b'\'') => Ok(Json::Str(self.string()?)),
+            Some(_) => {
+                let st = self.i;
+                while self.i < self.s.len() && !matches!(self.s[self.i], b',' | b']' | b'}' | b':') && !(self.s[self.i] as char).is_whitespace() {
+                    self.i += 1;
+                }
+                let t = std::str::from_utf8(&self.s[st..self.i]).unwrap_or("");
+                match t {
+                    "true" => Ok(Json::Bool(true)),
+                    "false" => Ok(Json::Bool(false)),
+                    "null" => Ok(Json::Null),
+                    _ => match t.parse::<f64>() {
+                        Ok(n) => Ok(Json::Num(n)),
+                        Err(_) => Ok(Json::Str(t.to_string())),
+                    },
+                }
+            }
+        }
+    }
+    fn string(&mut self) -> Result<String, String> {
+        let q = self.s[self.i];
+        self.i += 1;
+        let mut out: Vec<u8> = vec![];
+        while let Some(&c) = self.s.get(self.i) {
+            self.i += 1;
+            if c == q {
+                return String::from_utf8(out).map_err(|_| "Malformed UTF-8".to_string());
+            }
+            if c == b'\\' {
+                let e = match self.s.get(self.i) {
+                    Some(&e) => e,
+                    None => break,
+                };
+                self.i += 1;
+                match e {
+                    b'n' => out.push(b'\n'),
+                    b't' => out.push(b'\t'),
+                    b'r' => out.push(b'\r'),
+                    b'b' => out.push(8),
+                    b'f' => out.push(12),
+                    b'u' => {
+                        let hex = std::str::from_utf8(self.s.get(self.i..self.i + 4).unwrap_or(&[])).unwrap_or("");
+                        let cp = u32::from_str_radix(hex, 16).map_err(|_| "Malformed \\u escape".to_string())?;
+                        self.i += 4;
+                        let mut buf = [0u8; 4];
+                        out.extend_from_slice(char::from_u32(cp).unwrap_or('?').encode_utf8(&mut buf).as_bytes());
+                    }
+                    other => out.push(other),
+                }
+            } else {
+                out.push(c);
+            }
+        }
+        self.err("Unterminated string")
+    }
+}
+
+// Java: Json.getValue
+fn json_value(j: &Json) -> Result<Value, String> {
+    match j {
+        Json::Arr(items) => {
+            let mut v = Vec::with_capacity(items.len());
+            for x in items {
+                v.push(json_value(x)?);
+            }
+            Ok(Value::tuple(v))
+        }
+        Json::Obj(fields) => {
+            let mut v = Vec::with_capacity(fields.len());
+            for (k, x) in fields {
+                v.push((intern::intern(k), json_value(x)?));
+            }
+            Ok(Value::record(v))
+        }
+        Json::Num(n) => Ok(Value::Int(*n as i32)),
+        Json::Bool(b) => Ok(Value::Bool(*b)),
+        Json::Str(s) => Ok(Value::str(s)),
+        Json::Null => Err("Cannot convert value: unsupported JSON value null".to_string()),
+    }
+}
+
+const ND_DESERIALIZE: &str =
+    "public static tlc2.value.IValue tlc2.overrides.Json.ndDeserialize(tlc2.value.impl.StringValue) throws java.io.IOException";
+const DESERIALIZE: &str =
+    "public static tlc2.value.IValue tlc2.overrides.Json.deserialize(tlc2.value.impl.StringValue) throws java.io.IOException";
+
+fn json_path(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value], sig: &str) -> R<(String, Vec<u8>)> {
+    let p = match arg(ev, a, 0, s0, s1)? {
+        Value::Str(id) => intern::name_of(id).to_string(),
+        v => return override_error(sig, &format!("class {} cannot be cast to class tlc2.value.impl.StringValue", v.to_tla())),
+    };
+    match std::fs::read(&p) {
+        Ok(b) => Ok((p, b)),
+        Err(e) => override_error(sig, &file_not_found_message(&p, &e)),
+    }
+}
+
+// Java: Json.ndDeserialize: a tuple of the newline delimited JSON values of a file
+fn json_nd_deserialize(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let (_, bytes) = json_path(ev, a, s0, s1, ND_DESERIALIZE)?;
+    let text = String::from_utf8_lossy(&bytes).to_string();
+    let mut values = vec![];
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let mut r = JsonReader { s: line.as_bytes(), i: 0 };
+        let j = match r.value() {
+            Ok(j) => j,
+            Err(m) => return override_error(ND_DESERIALIZE, &format!("com.google.gson.JsonSyntaxException: {}", m)),
+        };
+        match json_value(&j) {
+            Ok(v) => values.push(v),
+            Err(m) => return override_error(ND_DESERIALIZE, &format!("java.io.IOException: {}", m)),
+        }
+    }
+    Ok(Value::tuple(values))
+}
+
+// Java: Json.deserialize: the JSON value of a file
+fn json_deserialize(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let (_, bytes) = json_path(ev, a, s0, s1, DESERIALIZE)?;
+    let text = String::from_utf8_lossy(&bytes).to_string();
+    let mut r = JsonReader { s: text.as_bytes(), i: 0 };
+    let j = match r.value() {
+        Ok(j) => j,
+        Err(m) => return override_error(DESERIALIZE, &format!("com.google.gson.JsonSyntaxException: {}", m)),
+    };
+    match json_value(&j) {
+        Ok(v) => Ok(v),
+        Err(m) => override_error(DESERIALIZE, &format!("java.io.IOException: {}", m)),
+    }
 }
 
 /// IOUtils.atoi
@@ -1230,6 +1643,11 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("UndirectedGraphs", "AreConnectedIn") => ugraphs_are_connected_in,
         ("UndirectedGraphs", "ConnectedComponents") => ugraphs_connected_components,
         ("IOUtils", "atoi") => atoi,
+        ("IOUtils", "Serialize") => io_serialize,
+        ("SequencesExt", "SetToSeq") => set_to_seq,
+        ("SVG", "SVGElemToString") => svg_elem_to_string,
+        ("Json", "ndJsonDeserialize") => json_nd_deserialize,
+        ("Json", "JsonDeserialize") => json_deserialize,
         _ => return None,
     };
     Some(f)

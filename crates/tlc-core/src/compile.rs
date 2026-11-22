@@ -270,13 +270,20 @@ impl Compiler {
         }
     }
 
+    /// a LET-local `INSTANCE M` copy of an operator that has a native implementation (e.g. `LET IO == INSTANCE IOUtils IN
+    /// IO!Serialize(..)`): it is called like the module-level one instead of being inlined
+    fn is_native_copy(&self, d: &Rc<sem::OpDef>) -> bool {
+        let o = d.original();
+        !Rc::ptr_eq(&o, d) && (self.natives)(&o.module, &o.name).is_some()
+    }
+
     fn opref(&mut self, oa: &OpArg) -> OpRef {
         match oa {
             OpArg::Builtin(b, _) => OpRef::Builtin(*b),
             OpArg::Lambda(d) => OpRef::Lambda(self.lambda(d)),
             OpArg::Callee(c, _) => match c {
                 Callee::Def(d) => {
-                    if self.fc().lets.contains_key(&d.id) {
+                    if self.fc().lets.contains_key(&d.id) && !self.is_native_copy(d) {
                         OpRef::Lambda(self.lambda(d))
                     } else {
                         OpRef::Def(self.compile_def(d))
@@ -824,7 +831,7 @@ impl Compiler {
                     let a = self.args_of(args);
                     return Rc::new(Node::CallLocal(slot, a));
                 }
-                if self.fc().lets.contains_key(&d.id) {
+                if self.fc().lets.contains_key(&d.id) && !self.is_native_copy(d) {
                     return self.inline_let(d, args);
                 }
                 let cd = self.compile_def(d);
