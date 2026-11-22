@@ -14,12 +14,16 @@
 //!     to `out` and returns the process exit code (0 ok, 2 syntax, 4 semantic, -1 other, per `SanyExitCode`)
 //!   * [`frontend`]   ~ `SANY.frontEndMain` as called by TLC: the parsed + analysed specification
 
+pub mod analyze;
+pub mod analyze_expr;
 pub mod ast;
+pub mod driver;
 pub mod lexer;
 pub mod modules;
 pub mod ops;
 pub mod parser;
 pub mod resolve;
+pub mod sem;
 pub mod stdlib;
 
 pub use resolve::{Located, Origin, Resolver};
@@ -43,6 +47,7 @@ pub enum SanyExitCode {
 /// A fully parsed and semantically analysed specification (Java: `SpecObj` with its `ExternalModuleTable`).
 pub struct Spec {
     pub obj: modules::SpecObj,
+    pub sem: Option<analyze::SemSpec>,
 }
 
 /// Why the front-end failed. `text` is what Java prints for it.
@@ -77,19 +82,20 @@ pub fn frontend_opts(
     semantic: bool,
     level_check: bool,
 ) -> Result<Spec, FrontEndError> {
-    let _ = level_check;
     let obj = match modules::load_spec(root_file, resolver, out) {
         Ok(o) => o,
         Err(e) => {
             return Err(FrontEndError { exit: exit_from_code(e.exit), text: e.text, not_ported: false });
         }
     };
-    if semantic {
-        for name in obj.semantic_order.clone() {
-            let _ = writeln!(out, "Semantic processing of module {}", name);
-        }
+    if !semantic {
+        return Ok(Spec { obj, sem: None });
     }
-    Ok(Spec { obj })
+    let outcome = driver::analyze_spec(&obj, out, level_check, true);
+    if outcome.error_level != 0 {
+        return Err(FrontEndError { exit: exit_from_code(outcome.error_level), text: String::new(), not_ported: false });
+    }
+    Ok(Spec { obj, sem: outcome.spec })
 }
 
 /// `java tla2sany.SANY -error-codes FILE` (the CLI passes the other SANY flags through `args`).
@@ -114,7 +120,9 @@ pub fn sany_main(file: &Path, args: &[String], resolver: &Resolver, out: &mut dy
     match frontend_opts(file, resolver, out, semantic, level) {
         Ok(_) => SanyExitCode::Ok as i32,
         Err(e) => {
-            let _ = writeln!(out, "{}", e.text);
+            if !e.text.is_empty() {
+                let _ = writeln!(out, "{}", e.text);
+            }
             if e.not_ported {
                 NOT_PORTED_EXIT
             } else {
