@@ -86,8 +86,8 @@ impl Ev {
     }
 
     /// the state variable a (possibly substituted) variable declaration stands for
-    fn decl_target(&self, id: usize, is_var: bool, var_index: u32, substs: &[SubstEntry]) -> Option<u32> {
-        for ent in substs.iter().rev() {
+    fn decl_target(&self, id: usize, is_var: bool, var_index: u32, substs: &Substs) -> Option<u32> {
+        for ent in substs.iter() {
             if ent.decl == id {
                 return match &ent.slot {
                     Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
@@ -102,7 +102,7 @@ impl Ev {
         }
     }
 
-    fn code_target(&self, code: &Ex, substs: &[SubstEntry]) -> Option<u32> {
+    fn code_target(&self, code: &Ex, substs: &Substs) -> Option<u32> {
         match &**code {
             Node::Var(i) => Some(*i),
             Node::Decl(dr) => self.decl_target(dr.id, dr.is_var, dr.var_index, substs),
@@ -375,7 +375,7 @@ impl Ev {
                 let found = {
                     let ss = self.substs.borrow();
                     let mut r = None;
-                    for ent in ss.iter().rev() {
+                    for ent in ss.iter() {
                         if ent.decl == dr.id {
                             if let Slot::Op(c) = &ent.slot {
                                 r = Some(c.clone());
@@ -397,7 +397,7 @@ impl Ev {
                 }
             }
             Node::SubstIn(subs, body) => {
-                let n0 = self.substs.borrow().len();
+                let outer = self.substs.borrow().clone();
                 for (decl, a) in subs {
                     let s = {
                         let b = buf.borrow();
@@ -406,20 +406,25 @@ impl Ev {
                             Mode::Init => (&b, &empty),
                             Mode::Next => (s0, &b),
                         };
-                        self.eval_arg_pub(a, z0, z1)?
+                        match self.eval_arg_pub(a, z0, z1) {
+                            Ok(sl) => sl,
+                            Err(e) => {
+                                *self.substs.borrow_mut() = outer;
+                                return Err(e);
+                            }
+                        }
                     };
-                    self.substs.borrow_mut().push(SubstEntry { decl: *decl, slot: s });
+                    let next = self.substs.borrow().push(SubstEntry { decl: *decl, slot: s });
+                    *self.substs.borrow_mut() = next;
                 }
-                let n1 = self.substs.borrow().len();
                 let r = self.enum_action(body, mode, s0, buf, &mut || {
                     // continuation: without the substitutions of this scope
-                    let held: Vec<SubstEntry> = self.substs.borrow_mut().drain(n0..n1).collect();
+                    let held = std::mem::replace(&mut *self.substs.borrow_mut(), outer.clone());
                     let r = k();
-                    self.substs.borrow_mut().truncate(n0);
-                    self.substs.borrow_mut().extend(held);
+                    *self.substs.borrow_mut() = held;
                     r
                 });
-                self.substs.borrow_mut().truncate(n0);
+                *self.substs.borrow_mut() = outer;
                 r
             }
             Node::LetRec(defs, body) => {
@@ -486,7 +491,7 @@ to argument {}, which is not in the domain of the function.",
                             }
                         }
                         self.base.set(nb);
-                        let caller_substs = std::mem::replace(&mut *self.substs.borrow_mut(), (*lir.cap.substs).clone());
+                        let caller_substs = std::mem::replace(&mut *self.substs.borrow_mut(), lir.cap.substs.clone());
                         self.depth.set(self.depth.get() + 1);
                         let r = if self.depth.get() > 3000 {
                             fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
@@ -658,7 +663,7 @@ to argument {}, which is not in the domain of the function.",
     fn enum_in_frame(
         &self,
         frame: &Rc<Vec<Slot>>,
-        substs: &Rc<Vec<SubstEntry>>,
+        substs: &Substs,
         assigns: &[(u32, Slot)],
         body: &Ex,
         mode: Mode,
@@ -680,7 +685,7 @@ to argument {}, which is not in the domain of the function.",
             }
         }
         self.base.set(nb);
-        let caller_substs = std::mem::replace(&mut *self.substs.borrow_mut(), (**substs).clone());
+        let caller_substs = std::mem::replace(&mut *self.substs.borrow_mut(), substs.clone());
         self.depth.set(self.depth.get() + 1);
         let r = if self.depth.get() > 3000 {
             fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
@@ -850,14 +855,14 @@ to argument {}, which is not in the domain of the function.",
         self.unchanged_vars_in(ex, &ss, out)
     }
 
-    fn unchanged_vars_in(&self, ex: &Ex, substs: &[SubstEntry], out: &mut Vec<u32>) -> bool {
+    fn unchanged_vars_in(&self, ex: &Ex, substs: &Substs, out: &mut Vec<u32>) -> bool {
         match &**ex {
             Node::Var(i) => {
                 out.push(*i);
                 true
             }
             Node::Decl(dr) if dr.is_var => {
-                for ent in substs.iter().rev() {
+                for ent in substs.iter() {
                     if ent.decl == dr.id {
                         return match &ent.slot {
                             Slot::Lazy(l) => self.unchanged_vars_in(&l.code, &l.substs, out),

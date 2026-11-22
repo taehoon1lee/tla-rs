@@ -48,13 +48,16 @@ struct FrameCtx {
     at_slots: Vec<u32>,
     /// recursive LET operators compiled as closures: def id -> slot holding the closure
     rec_lets: HashMap<usize, u32>,
+    /// number of slot allocations / slot references so far: an expression compiled without any is closed w.r.t. the frame
+    events: u64,
 }
 
 impl FrameCtx {
     fn new() -> FrameCtx {
-        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], rec_lets: HashMap::new() }
+        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], rec_lets: HashMap::new(), events: 0 }
     }
     fn alloc(&mut self) -> u32 {
+        self.events += 1;
         let s = self.next_slot;
         self.next_slot += 1;
         if self.next_slot as usize > self.max_slot.get() {
@@ -220,13 +223,24 @@ impl Compiler {
         BoundIr { slot: first, nvars: bv.params.len() as u32, tuple: bv.tuple, set }
     }
 
+    /// an expression argument; a call-by-name argument that never touches the frame needs no frame copy
+    fn val_arg(c: Ex, by_name: bool, closed: bool) -> Arg {
+        if by_name && closed {
+            Arg::ValClosed(c)
+        } else {
+            Arg::Val(c, by_name)
+        }
+    }
+
     fn arg(&mut self, a: &SArg) -> Arg {
         match a {
             SArg::Expr(e) => {
+                let ev0 = self.fc().events;
                 let c = self.expr(e);
+                let closed = self.fc().events == ev0;
                 // a bare state variable stands for the variable itself (it may be assigned: `XInit(x)` with `XInit(v) == v = 0`)
                 let by_name = e.level >= sem::Level::Action || matches!(&*c, Node::Var(_)) || matches!(&*c, Node::Decl(dr) if dr.is_var);
-                Arg::Val(c, by_name)
+                Self::val_arg(c, by_name, closed)
             }
             SArg::Op(oa) => Arg::Op(self.opref(oa)),
         }
@@ -244,8 +258,11 @@ impl Compiler {
                         OpRef::Def(self.compile_def(d))
                     }
                 }
-                Callee::Param(p) => match self.fc().locals.get(&p.id) {
-                    Some(s) => OpRef::Local(*s),
+                Callee::Param(p) => match self.fc().locals.get(&p.id).copied() {
+                    Some(s) => {
+                        self.fc().events += 1;
+                        OpRef::Local(s)
+                    }
                     None => OpRef::Lambda(self.lambda_unsupported()),
                 },
                 Callee::Decl(d) => {
@@ -368,12 +385,14 @@ impl Compiler {
         for (i, a) in args.iter().enumerate() {
             out.push(match a {
                 SArg::Expr(e) => {
+                    let ev0 = self.fc().events;
                     let c = self.expr(e);
+                    let closed = self.fc().events == ev0;
                     let by_name = e.level >= sem::Level::Action
                         || (e.level >= sem::Level::State && self.param_primed(d, i))
                         || matches!(&*c, Node::Var(_))
                         || matches!(&*c, Node::Decl(dr) if dr.is_var);
-                    Arg::Val(c, by_name)
+                    Self::val_arg(c, by_name, closed)
                 }
                 SArg::Op(oa) => Arg::Op(self.opref(oa)),
             });
@@ -441,7 +460,10 @@ impl Compiler {
             EKind::Dec(a, b) => Rc::new(Node::Unsupported(format!("decimal literal {}.{}", a, b))),
             EKind::Str(s) => self.konst(Value::Str(intern::intern(s))),
             EKind::At => match self.fc().at_slots.last().copied() {
-                Some(s) => Rc::new(Node::Local(s)),
+                Some(s) => {
+                    self.fc().events += 1;
+                    Rc::new(Node::Local(s))
+                }
                 None => self.unsupported("@ outside EXCEPT"),
             },
             EKind::Unsupported(s) => self.unsupported(format!("selector {}", s)),
@@ -596,8 +618,18 @@ impl Compiler {
                 let mut v = vec![];
                 for s in subs.iter() {
                     let a = match &s.value {
-                        SArg::Expr(e) if e.level == sem::Level::State => Arg::State(self.expr(e)),
-                        SArg::Expr(e) => Arg::Val(self.expr(e), e.level >= sem::Level::State),
+                        SArg::Expr(e) if e.level == sem::Level::State => {
+                            let ev0 = self.fc().events;
+                            let c = self.expr(e);
+                            let closed = self.fc().events == ev0;
+                            Arg::State(c, closed)
+                        }
+                        SArg::Expr(e) => {
+                            let ev0 = self.fc().events;
+                            let c = self.expr(e);
+                            let closed = self.fc().events == ev0;
+                            Self::val_arg(c, e.level >= sem::Level::State, closed)
+                        }
                         other => self.arg(other),
                     };
                     v.push((s.target.id, a));
@@ -704,10 +736,11 @@ impl Compiler {
     fn apply(&mut self, c: &Callee, args: &[SArg], loc: Loc) -> Ex {
         match c {
             Callee::Param(p) => {
-                let slot = match self.fc().locals.get(&p.id) {
-                    Some(s) => *s,
+                let slot = match self.fc().locals.get(&p.id).copied() {
+                    Some(s) => s,
                     None => return self.unsupported(format!("unbound parameter {}", p.name)),
                 };
+                self.fc().events += 1;
                 if args.is_empty() && p.arity == 0 {
                     Rc::new(Node::Local(slot))
                 } else {
@@ -746,6 +779,7 @@ impl Compiler {
             }
             Callee::Def(d) => {
                 if let Some(&slot) = self.fc().rec_lets.get(&d.id) {
+                    self.fc().events += 1;
                     let a = self.args_of(args);
                     return Rc::new(Node::CallLocal(slot, a));
                 }

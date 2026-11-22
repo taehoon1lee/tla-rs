@@ -60,7 +60,7 @@ pub fn node_kind(n: &Node) -> String {
 #[derive(Clone)]
 pub struct Captured {
     pub frame: Rc<Vec<Slot>>,
-    pub substs: Rc<Vec<SubstEntry>>,
+    pub substs: Substs,
     pub s0: Rc<Vec<Value>>,
     pub s1: Rc<Vec<Value>>,
 }
@@ -129,7 +129,7 @@ pub struct Ev {
     me: Weak<Ev>,
     pub stack: Stack,
     pub base: Cell<usize>,
-    pub substs: RefCell<Vec<SubstEntry>>,
+    pub substs: RefCell<Substs>,
     pub consts: RefCell<HashMap<usize, Value>>,
     pub const_ops: RefCell<HashMap<usize, Rc<CompiledDef>>>,
     pub depth: Cell<u32>,
@@ -159,7 +159,6 @@ pub struct Ev {
     /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
     pub counters: Cell<[i64; 6]>,
     pub no_frame: Rc<Vec<Slot>>,
-    pub no_substs: Rc<Vec<SubstEntry>>,
     pub no_state: Rc<Vec<Value>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
     pub warn: Cell<bool>,
@@ -177,7 +176,7 @@ impl Ev {
             me: me.clone(),
             stack: Stack::new(Vec::with_capacity(4096)),
             base: Cell::new(0),
-            substs: RefCell::new(vec![]),
+            substs: RefCell::new(Substs::default()),
             consts: RefCell::new(HashMap::new()),
             const_ops: RefCell::new(HashMap::new()),
             depth: Cell::new(0),
@@ -197,7 +196,6 @@ impl Ev {
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
             no_frame: Rc::new(Vec::new()),
-            no_substs: Rc::new(Vec::new()),
             no_state: Rc::new(Vec::new()),
             warn: Cell::new(true),
         })
@@ -251,7 +249,7 @@ impl Ev {
         let st = self.stack.borrow();
         let b = self.base.get();
         let frame = Rc::new(st[b..].to_vec());
-        let substs = Rc::new(self.substs.borrow().clone());
+        let substs = self.substs.borrow().clone();
         Captured { frame, substs, s0: Rc::new(s0.to_vec()), s1: Rc::new(s1.to_vec()) }
     }
 
@@ -270,8 +268,7 @@ impl Ev {
             nb
         };
         self.base.set(nb);
-        let skip_substs = cap.substs.is_empty() && self.substs.borrow().is_empty();
-        let saved_substs = if skip_substs { Vec::new() } else { std::mem::replace(&mut *self.substs.borrow_mut(), (*cap.substs).clone()) };
+        let saved_substs = std::mem::replace(&mut *self.substs.borrow_mut(), cap.substs.clone());
         for (i, sl) in assigns {
             let mut st = self.stack.borrow_mut();
             let idx = nb + *i as usize;
@@ -287,9 +284,7 @@ impl Ev {
             self.eval(code, s0, s1)
         };
         self.depth.set(self.depth.get() - 1);
-        if !skip_substs {
-            *self.substs.borrow_mut() = saved_substs;
-        }
+        *self.substs.borrow_mut() = saved_substs;
         self.stack.borrow_mut().truncate(nb);
         self.base.set(old_base);
         r
@@ -303,25 +298,31 @@ impl Ev {
 
     fn eval_arg(&self, a: &Arg, s0: &[Value], s1: &[Value]) -> R<Slot> {
         match a {
-            Arg::State(e) => {
-                let frame = {
+            Arg::State(e, closed) => {
+                let frame = if *closed {
+                    self.no_frame.clone()
+                } else {
                     let st = self.stack.borrow();
                     Rc::new(st[self.base.get()..].to_vec())
                 };
-                let substs = Rc::new(self.substs.borrow().clone());
+                let substs = self.substs.borrow().clone();
                 Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame, substs, cacheable: true, cache: RefCell::new(Vec::new()) })))
+            }
+            Arg::ValClosed(e) => {
+                let substs = self.substs.borrow().clone();
+                Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs, cacheable: false, cache: RefCell::new(Vec::new()) })))
             }
             Arg::Val(e, by_name) => {
                 if *by_name {
                     if matches!(&**e, Node::Var(_) | Node::PrimedVar(_)) {
                         // a plain state variable does not depend on the frame or on substitutions
-                        return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs: self.no_substs.clone(), cacheable: false, cache: RefCell::new(Vec::new()) })));
+                        return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs: Substs::default(), cacheable: false, cache: RefCell::new(Vec::new()) })));
                     }
                     let frame = {
                         let st = self.stack.borrow();
                         Rc::new(st[self.base.get()..].to_vec())
                     };
-                    let substs = Rc::new(self.substs.borrow().clone());
+                    let substs = self.substs.borrow().clone();
                     return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame, substs, cacheable: false, cache: RefCell::new(Vec::new()) })));
                 }
                 match self.eval(e, s0, s1) {
@@ -347,7 +348,7 @@ impl Ev {
                 // a declared operator that an enclosing INSTANCE substitutes stands for the substituted operator
                 let sub = {
                     let ss = self.substs.borrow();
-                    ss.iter().rev().find(|e| e.decl == *id).map(|e| e.slot.clone())
+                    ss.find(*id).map(|e| e.slot.clone())
                 };
                 match sub {
                     Some(Slot::Op(c)) => c,
@@ -402,7 +403,7 @@ impl Ev {
                     if cc.len() >= 2 {
                         cc.remove(0);
                     }
-                    cc.push(LazyCache { s0_ptr: p, s0_len: n, epoch: ep, val: v.clone() });
+                    cc.push(LazyCache { s0_ptr: p, s0_len: n, epoch: ep, val: v.clone(), substs: Substs::default() });
                     return Ok(v);
                 }
                 self.run_captured_in(&cap, &[], &l.code, s0, s1)
@@ -436,10 +437,12 @@ impl Ev {
                     return Ok(v.clone());
                 }
             }
-            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State && self.substs.borrow().is_empty();
+            // a state-level definition without parameters: its value depends only on the state and on the INSTANCE
+            // substitutions in scope (the same substitution list object = the same scope)
+            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State;
             if state_cacheable {
                 if let Some(c) = &*d.state_cache.borrow() {
-                    if c.s0_ptr == s0.as_ptr() as usize && c.s0_len == s0.len() && c.epoch == self.epoch.get() {
+                    if c.s0_ptr == s0.as_ptr() as usize && c.s0_len == s0.len() && c.epoch == self.epoch.get() && c.substs.same(&self.substs.borrow()) {
                         return Ok(c.val.clone());
                     }
                 }
@@ -477,7 +480,7 @@ impl Ev {
                 *d.cache.borrow_mut() = Some(v.clone());
             }
             if state_cacheable {
-                *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone() });
+                *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone(), substs: self.substs.borrow().clone() });
             }
             return Ok(v);
         }
@@ -555,7 +558,7 @@ impl Ev {
             }
             OpClosure::Lambda { def, frame, self_slot } => {
                 // runs right now in the current state: no need to copy the states into a `Captured`
-                let substs = if self.substs.borrow().is_empty() { self.no_substs.clone() } else { Rc::new(self.substs.borrow().clone()) };
+                let substs = self.substs.borrow().clone();
                 let cap = Captured { frame: frame.clone(), substs, s0: self.no_state.clone(), s1: self.no_state.clone() };
                 // parameters occupy consecutive slots starting at `def.nslots`
                 let mut assigns: Vec<(u32, Slot)> = slots.into_iter().enumerate().map(|(i, s)| ((def.nslots + i) as u32, s)).collect();
@@ -694,7 +697,7 @@ impl Ev {
             Node::Decl(dr) => {
                 {
                     let ss = self.substs.borrow();
-                    for ent in ss.iter().rev() {
+                    for ent in ss.iter() {
                         if ent.decl == dr.id {
                             let slot = ent.slot.clone();
                             drop(ss);
@@ -721,28 +724,6 @@ impl Ev {
                     }
                 }
             }
-            Node::CallDecl(dr, args) => {
-                {
-                    let ss = self.substs.borrow();
-                    for ent in ss.iter().rev() {
-                        if ent.decl == dr.id {
-                            if let Slot::Op(c) = ent.slot.clone() {
-                                drop(ss);
-                                return self.apply_closure(&c, args, s0, s1);
-                            }
-                            break;
-                        }
-                    }
-                }
-                let d = self.const_ops.borrow().get(&dr.id).cloned();
-                match d {
-                    Some(d) => self.call_def(&d, args, s0, s1),
-                    None => fail_code(
-                        crate::ec::TLC_CONFIG_VALUE_NOT_ASSIGNED_TO_CONSTANT_PARAM,
-                        format!("The constant parameter {} is not assigned a value by the configuration file.", dr.name),
-                    ),
-                }
-            }
             Node::Prime(inner) => {
                 let empty = self.empty();
                 self.eval(inner, s1, &empty)
@@ -752,17 +733,6 @@ impl Ev {
                 let empty = self.empty();
                 let nxt = self.eval(inner, s1, &empty)?;
                 Ok(Value::Bool(cur.eq_val(&nxt)?))
-            }
-            Node::LetRec(defs, body) => {
-                for (slot, l) in defs {
-                    let frame = {
-                        let st = self.stack.borrow();
-                        Rc::new(st[self.base.get()..].to_vec())
-                    };
-                    let clo = Rc::new(OpClosure::Lambda { def: l.clone(), frame, self_slot: Some(*slot) });
-                    self.set_slot(*slot, Slot::Op(clo));
-                }
-                self.eval(body, s0, s1)
             }
             Node::Fold(inner, cache) => {
                 if let Some(v) = &*cache.borrow() {
@@ -877,17 +847,6 @@ impl Ev {
                 }
                 Value::set_from(v)
             }
-            Node::Times(es) => {
-                let mut v = Vec::with_capacity(es.len());
-                for x in es {
-                    let s = self.eval(x, s0, s1)?;
-                    if !s.is_set_like() {
-                        return fail(format!("Attempted to compute the Cartesian product of the non-set value\n{}", s.to_tla()));
-                    }
-                    v.push(s);
-                }
-                Ok(Value::SetOfTuples(Rc::new(v)))
-            }
             Node::FcnApply(f, a) => {
                 let fv = self.eval(f, s0, s1)?;
                 let av = self.eval(a, s0, s1)?;
@@ -909,6 +868,98 @@ impl Ev {
                     Value::FcnLam(_) => rv.apply(&Value::Str(*field)),
                     _ => fail(format!("Attempted to access field '{}' of the non-record value\n{}", intern::name_of(*field), rv.to_tla())),
                 }
+            }
+            Node::If(c, t, f) => {
+                if self.eval(c, s0, s1)?.as_bool()? {
+                    self.eval(t, s0, s1)
+                } else {
+                    self.eval(f, s0, s1)
+                }
+            }
+            Node::Case(arms, other) => {
+                for (c, v) in arms {
+                    if self.eval(c, s0, s1)?.as_bool()? {
+                        return self.eval(v, s0, s1);
+                    }
+                }
+                match other {
+                    Some(o) => self.eval(o, s0, s1),
+                    None => fail("Attempted to evaluate a CASE expression, but none of the arms' conditions was true."),
+                }
+            }
+            Node::Exists(bounds, body) => {
+                let mut result = false;
+                self.for_each_binding(bounds, 0, s0, s1, &mut |ev| {
+                    if ev.eval(body, s0, s1)?.as_bool()? {
+                        result = true;
+                        return Ok(false);
+                    }
+                    Ok(true)
+                })?;
+                Ok(Value::Bool(result))
+            }
+            Node::Forall(bounds, body) => {
+                let mut result = true;
+                self.for_each_binding(bounds, 0, s0, s1, &mut |ev| {
+                    if !ev.eval(body, s0, s1)?.as_bool()? {
+                        result = false;
+                        return Ok(false);
+                    }
+                    Ok(true)
+                })?;
+                Ok(Value::Bool(result))
+            }
+            // large arms live in `eval_heavy` so that this hot, recursive function keeps a small stack frame
+            Node::CallDecl(..) | Node::LetRec(..) | Node::Times(..) | Node::SubsetOf{ .. } | Node::SetOfAll(..) | Node::FcnCons(..) | Node::SetOfFcns(..) | Node::RcdCons(..) | Node::SetOfRcds(..) | Node::Except(..) | Node::ActionSub { .. } | Node::Choose(..) | Node::SubstIn(..) | Node::Temporal(..) | Node::Unsupported(..) | Node::Fail(..) => self.eval_heavy(e, s0, s1),
+        }
+    }
+
+    #[inline(never)]
+    fn eval_heavy(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
+        match &**e {
+            Node::CallDecl(dr, args) => {
+                {
+                    let ss = self.substs.borrow();
+                    for ent in ss.iter() {
+                        if ent.decl == dr.id {
+                            if let Slot::Op(c) = ent.slot.clone() {
+                                drop(ss);
+                                return self.apply_closure(&c, args, s0, s1);
+                            }
+                            break;
+                        }
+                    }
+                }
+                let d = self.const_ops.borrow().get(&dr.id).cloned();
+                match d {
+                    Some(d) => self.call_def(&d, args, s0, s1),
+                    None => fail_code(
+                        crate::ec::TLC_CONFIG_VALUE_NOT_ASSIGNED_TO_CONSTANT_PARAM,
+                        format!("The constant parameter {} is not assigned a value by the configuration file.", dr.name),
+                    ),
+                }
+            }
+            Node::LetRec(defs, body) => {
+                for (slot, l) in defs {
+                    let frame = {
+                        let st = self.stack.borrow();
+                        Rc::new(st[self.base.get()..].to_vec())
+                    };
+                    let clo = Rc::new(OpClosure::Lambda { def: l.clone(), frame, self_slot: Some(*slot) });
+                    self.set_slot(*slot, Slot::Op(clo));
+                }
+                self.eval(body, s0, s1)
+            }
+            Node::Times(es) => {
+                let mut v = Vec::with_capacity(es.len());
+                for x in es {
+                    let s = self.eval(x, s0, s1)?;
+                    if !s.is_set_like() {
+                        return fail(format!("Attempted to compute the Cartesian product of the non-set value\n{}", s.to_tla()));
+                    }
+                    v.push(s);
+                }
+                Ok(Value::SetOfTuples(Rc::new(v)))
             }
             Node::SubsetOf { bound, pred, .. } => {
                 let base = self.eval(&bound.set, s0, s1)?;
@@ -1100,46 +1151,6 @@ impl Ev {
                     Ok(Value::Bool(a && !unchanged))
                 }
             }
-            Node::If(c, t, f) => {
-                if self.eval(c, s0, s1)?.as_bool()? {
-                    self.eval(t, s0, s1)
-                } else {
-                    self.eval(f, s0, s1)
-                }
-            }
-            Node::Case(arms, other) => {
-                for (c, v) in arms {
-                    if self.eval(c, s0, s1)?.as_bool()? {
-                        return self.eval(v, s0, s1);
-                    }
-                }
-                match other {
-                    Some(o) => self.eval(o, s0, s1),
-                    None => fail("Attempted to evaluate a CASE expression, but none of the arms' conditions was true."),
-                }
-            }
-            Node::Exists(bounds, body) => {
-                let mut result = false;
-                self.for_each_binding(bounds, 0, s0, s1, &mut |ev| {
-                    if ev.eval(body, s0, s1)?.as_bool()? {
-                        result = true;
-                        return Ok(false);
-                    }
-                    Ok(true)
-                })?;
-                Ok(Value::Bool(result))
-            }
-            Node::Forall(bounds, body) => {
-                let mut result = true;
-                self.for_each_binding(bounds, 0, s0, s1, &mut |ev| {
-                    if !ev.eval(body, s0, s1)?.as_bool()? {
-                        result = false;
-                        return Ok(false);
-                    }
-                    Ok(true)
-                })?;
-                Ok(Value::Bool(result))
-            }
             Node::Choose(bound, body) => {
                 let set = self.eval(&bound.set, s0, s1)?;
                 if !set.is_set_like() {
@@ -1157,20 +1168,26 @@ impl Ev {
                 ))
             }
             Node::SubstIn(subs, body) => {
-                let n0 = self.substs.borrow().len();
+                let saved = self.substs.borrow().clone();
                 for (decl, a) in subs {
-                    let slot = self.eval_arg(a, s0, s1)?;
-                    // a substitution value is evaluated in the scope of the instantiating module: it must not see
-                    // the substitutions it is about to establish
-                    self.substs.borrow_mut().push(SubstEntry { decl: *decl, slot });
+                    let slot = match self.eval_arg(a, s0, s1) {
+                        Ok(sl) => sl,
+                        Err(e) => {
+                            *self.substs.borrow_mut() = saved;
+                            return Err(e);
+                        }
+                    };
+                    let next = self.substs.borrow().push(SubstEntry { decl: *decl, slot });
+                    *self.substs.borrow_mut() = next;
                 }
                 let r = self.eval(body, s0, s1);
-                self.substs.borrow_mut().truncate(n0);
+                *self.substs.borrow_mut() = saved;
                 r
             }
             Node::Temporal(_) => fail("Attempted to evaluate a temporal formula in a context where only state predicates are allowed."),
             Node::Unsupported(what) => not_ported(format!("tlc-rs: unsupported construct: {}", what)),
             Node::Fail(msg) => fail(msg.clone()),
+            _ => unreachable!("eval_heavy: not a heavy node"),
         }
     }
 

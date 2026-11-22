@@ -22,3 +22,8 @@ open: liveness (43 tt/ models + 3 ex/), CCT/ALIAS/POSTCONDITION, perf of heavy m
 allocator TLS via TEB (alloc 16->3.6 ns), eval inline leaf fast path, ASSUME location = expression loc, tools/ profiler.
 ex/ slow models now 0.95-1.3x of Java (SlidingPuzzles 1.69->1.29, MCBakery 1.38->1.04). Corpus unchanged otherwise: verdict 258, trace 214.
 next: more perf (sparse frame capture), liveness port (M6), SpanTreeRandom RNG, ALIAS/IOExec.
+
+## 2026-11-22 M9 perf pass 3 (Sonnet 5.5)
+Substs persistent list, closed by-name args, eval_heavy split, borrowed membership, dense symmetry tables.
+ex/: perf 133/150 at -j8 (sequential: MultiPaxos 1.14, PCal 1.33, LamportMutex 1.24, SlidingPuzzles 1.27, SimpleRegular 1.19). Corpus: verdict 258, trace 214 (unchanged).
+next: remaining perf (PCal/LamportMutex/SimpleRegular), liveness port (M6), SpanTreeRandom.

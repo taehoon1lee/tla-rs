@@ -84,3 +84,9 @@
 - Assumption error locations (2104/2105) are the location of the assumption EXPRESSION, not of `ASSUME Name ==`.
 - Remaining perf ideas: frames are copied for every closure/by-name argument/function constructor capture (`capture`,
   `eval_arg`, `run_captured_in`); capture only the slots the code reads (free-variable analysis at compile time).
+- INSTANCE substitutions are a persistent list (`ir::Substs`, newest first): capture/restore is O(1); a state-level nullary
+  definition is cached per (state ptr, epoch, substitution-list identity). Call-by-name arguments that read no frame slot
+  (`Arg::ValClosed`, `Arg::State(_, true)`) need no frame copy (compiler counts slot events: `FrameCtx::events`).
+- `eval_inner` keeps only hot arms (frame 984 -> 408 bytes); big arms live in `eval_heavy` (#[inline(never)]).
+- Look for whole-vector copies in value ops (`fcn_parts`, `fcn_values`, `.to_vec()`): `member` on record/function sets copied
+  both vectors on every call (MultiPaxos invariant: 10%).  `abs_hash`/symmetry used SipHash maps per model value.

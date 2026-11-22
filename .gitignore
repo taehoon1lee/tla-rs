@@ -11,3 +11,4 @@
 __pycache__/
 *.pyc
 /target-prof
+/target-fat

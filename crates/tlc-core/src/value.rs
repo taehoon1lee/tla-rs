@@ -591,7 +591,14 @@ impl Value {
                 if !dom.eq_val(&p.0)? {
                     return Ok(false);
                 }
-                for v in f.fcn_values()?.iter() {
+                // the values are borrowed: this is called for every membership test of a (nested) record/function set
+                let vals: &[Value] = match &f {
+                    Value::Tuple(t) => t,
+                    Value::Fcn(fc) => &fc.vals,
+                    v => return fail(format!("Attempted to get the range of the non-function
+{}", v.to_tla())),
+                };
+                for v in vals.iter() {
                     if !p.1.member(v)? {
                         return Ok(false);
                     }
@@ -600,27 +607,30 @@ impl Value {
             }
             Value::SetOfRcds(fs) => {
                 let f = e.force_fcn()?;
-                let (dom, vals) = match f.fcn_parts() {
-                    Some(x) => x,
-                    None => return Ok(false),
-                };
-                if dom.len() != fs.len() {
-                    return Ok(false);
-                }
-                for (i, d) in dom.iter().enumerate() {
-                    match d {
-                        Value::Str(id) => match fs.iter().find(|(n, _)| n == id) {
-                            Some((_, s)) => {
-                                if !s.member(&vals[i])? {
-                                    return Ok(false);
-                                }
+                match &f {
+                    Value::Fcn(fc) => {
+                        if fc.dom.len() != fs.len() {
+                            return Ok(false);
+                        }
+                        for (d, v) in fc.dom.iter().zip(fc.vals.iter()) {
+                            match d {
+                                Value::Str(id) => match fs.iter().find(|(n, _)| n == id) {
+                                    Some((_, s)) => {
+                                        if !s.member(v)? {
+                                            return Ok(false);
+                                        }
+                                    }
+                                    None => return Ok(false),
+                                },
+                                _ => return Ok(false),
                             }
-                            None => return Ok(false),
-                        },
-                        _ => return Ok(false),
+                        }
+                        Ok(true)
                     }
+                    // a tuple has the integer domain 1..n: only the empty tuple can be a record (of no fields)
+                    Value::Tuple(t) => Ok(t.is_empty() && fs.is_empty()),
+                    _ => Ok(false),
                 }
-                Ok(true)
             }
             Value::SetOfTuples(ss) => match e {
                 Value::Tuple(t) => {

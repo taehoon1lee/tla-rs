@@ -27,7 +27,7 @@ pub enum Slot {
 pub struct LazyArg {
     pub code: Ex,
     pub frame: Rc<Vec<Slot>>,
-    pub substs: Rc<Vec<SubstEntry>>,
+    pub substs: Substs,
     /// a state-level expression (no primes): its value can be cached per (state, evaluation epoch)
     pub cacheable: bool,
     pub cache: RefCell<Vec<LazyCache>>,
@@ -39,12 +39,70 @@ pub struct LazyCache {
     pub s0_len: usize,
     pub epoch: u64,
     pub val: Value,
+    /// INSTANCE substitutions in scope when the value was computed (kept alive so that identity comparison is sound)
+    pub substs: Substs,
 }
 
 #[derive(Clone)]
 pub struct SubstEntry {
     pub decl: usize,
     pub slot: Slot,
+}
+
+/// INSTANCE substitutions in scope: a persistent list (newest first) so that capturing / restoring is O(1)
+/// (closures, call-by-name arguments and function constructors capture the substitutions of their creation).
+pub struct SubstNode {
+    pub entry: SubstEntry,
+    pub parent: Substs,
+    pub len: usize,
+}
+
+#[derive(Clone, Default)]
+pub struct Substs(Option<Rc<SubstNode>>);
+
+impl Substs {
+    /// same list object (or both empty)
+    #[inline]
+    pub fn same(&self, o: &Substs) -> bool {
+        match (&self.0, &o.0) {
+            (None, None) => true,
+            (Some(a), Some(b)) => Rc::ptr_eq(a, b),
+            _ => false,
+        }
+    }
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_none()
+    }
+    pub fn len(&self) -> usize {
+        self.0.as_ref().map_or(0, |n| n.len)
+    }
+    /// a new list with `entry` as its newest element
+    pub fn push(&self, entry: SubstEntry) -> Substs {
+        Substs(Some(Rc::new(SubstNode { len: self.len() + 1, entry, parent: self.clone() })))
+    }
+    /// newest first
+    #[inline]
+    pub fn iter(&self) -> SubstIter<'_> {
+        SubstIter(self.0.as_deref())
+    }
+    /// the newest entry substituting declaration `decl`
+    #[inline]
+    pub fn find(&self, decl: usize) -> Option<&SubstEntry> {
+        self.iter().find(|e| e.decl == decl)
+    }
+}
+
+pub struct SubstIter<'a>(Option<&'a SubstNode>);
+
+impl<'a> Iterator for SubstIter<'a> {
+    type Item = &'a SubstEntry;
+    #[inline]
+    fn next(&mut self) -> Option<&'a SubstEntry> {
+        let n = self.0?;
+        self.0 = n.parent.0.as_deref();
+        Some(&n.entry)
+    }
 }
 
 pub struct LambdaDef {
@@ -100,8 +158,11 @@ pub enum OpRef {
 pub enum Arg {
     /// expression argument; `true` = evaluated by name when used (action-level expressions)
     Val(Ex, bool),
-    /// call-by-name, state-level (INSTANCE substitutions): evaluated lazily and cached like Java's LazyValue
-    State(Ex),
+    /// call-by-name, state-level (INSTANCE substitutions): evaluated lazily and cached like Java's LazyValue;
+    /// the flag says that the expression reads no frame slot (no frame copy needed)
+    State(Ex, bool),
+    /// call-by-name expression argument that reads no frame slot
+    ValClosed(Ex),
     Op(OpRef),
 }
 

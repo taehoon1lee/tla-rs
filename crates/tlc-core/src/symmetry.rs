@@ -250,6 +250,9 @@ pub struct SymGroup {
     /// sorted model value ids of every orbit with at least two values
     orbits: Vec<Vec<u32>>,
     orbit_of: HashMap<u32, usize>,
+    /// `orbit_of` as a dense table indexed by model value id (`u32::MAX` = not in an orbit): this is queried for every
+    /// model value node while hashing a state
+    orbit_dense: Vec<u32>,
     /// the group is the full product of the symmetric groups of the orbits
     fast: bool,
 }
@@ -308,7 +311,12 @@ impl SymGroup {
             }
         }
         let fast = prod == perms.len() as u128 + 1;
-        SymGroup { perms, orbits, orbit_of, fast }
+        let max_id = orbit_of.keys().copied().max().unwrap_or(0) as usize;
+        let mut orbit_dense = vec![u32::MAX; max_id + 1];
+        for (&m, &o) in orbit_of.iter() {
+            orbit_dense[m as usize] = o as u32;
+        }
+        SymGroup { perms, orbits, orbit_of, orbit_dense, fast }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -325,9 +333,9 @@ impl SymGroup {
                 if *id == mark {
                     mix(4, 0)
                 } else {
-                    match self.orbit_of.get(id) {
-                        Some(o) => mix(5, *o as u64),
-                        None => mix(6, *id as u64),
+                    match self.orbit_dense.get(*id as usize) {
+                        Some(&o) if o != u32::MAX => mix(5, o as u64),
+                        _ => mix(6, *id as u64),
                     }
                 }
             }
@@ -368,10 +376,12 @@ impl SymGroup {
         })
     }
 
-    fn collect_models(v: &Value, out: &mut HashSet<u32>) {
+    fn collect_models(v: &Value, out: &mut Vec<u32>) {
         match v {
             Value::Model(id) => {
-                out.insert(*id);
+                if !out.contains(id) {
+                    out.push(*id);
+                }
             }
             Value::Set(s) => s.iter().for_each(|e| Self::collect_models(e, out)),
             Value::Tuple(t) => t.iter().for_each(|e| Self::collect_models(e, out)),
@@ -387,16 +397,19 @@ impl SymGroup {
     pub fn canonical_fast(&self, vals: &[Value]) -> R<Vec<Value>> {
         let has: Vec<bool> = vals.iter().map(contains_model).collect();
         // present symmetric values
-        let mut present: HashSet<u32> = HashSet::new();
+        let mut present_v: Vec<u32> = Vec::new();
         for (v, h) in vals.iter().zip(has.iter()) {
             if *h {
-                Self::collect_models(v, &mut present);
+                Self::collect_models(v, &mut present_v);
             }
         }
+        present_v.sort_unstable();
+        present_v.dedup();
+        let present = present_v;
         // signatures
-        let mut sig: HashMap<u32, u64> = HashMap::new();
+        let mut sig: Vec<(u32, u64)> = Vec::with_capacity(present.len());
         for &m in &present {
-            if !self.orbit_of.contains_key(&m) {
+            if !matches!(self.orbit_dense.get(m as usize), Some(&o) if o != u32::MAX) {
                 continue;
             }
             let mut h = 0u64;
@@ -405,15 +418,16 @@ impl SymGroup {
                     h = h.wrapping_add(mix(i as u64 + 100, self.abs_hash(v, m)?));
                 }
             }
-            sig.insert(m, h);
+            sig.push((m, h));
         }
         // blocks per orbit: present values sorted by signature, then the absent ones (fixed)
         let mut classes: Vec<(Vec<u32>, Vec<u32>)> = vec![]; // (tied members, the positions they can take)
         let mut fixed: Vec<(u32, u32)> = vec![];
         for orbit in &self.orbits {
-            let mut pres: Vec<(u64, u32)> = orbit.iter().filter_map(|m| sig.get(m).map(|s| (*s, *m))).collect();
+            let sig_of = |m: &u32| sig.iter().find(|(k, _)| k == m).map(|(_, h)| *h);
+            let mut pres: Vec<(u64, u32)> = orbit.iter().filter_map(|m| sig_of(m).map(|s| (s, *m))).collect();
             pres.sort_unstable();
-            let absent: Vec<u32> = orbit.iter().copied().filter(|m| !sig.contains_key(m)).collect();
+            let absent: Vec<u32> = orbit.iter().copied().filter(|m| sig_of(m).is_none()).collect();
             let mut pos = 0usize;
             let mut i = 0usize;
             while i < pres.len() {
