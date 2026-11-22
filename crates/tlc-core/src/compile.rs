@@ -115,6 +115,7 @@ impl Compiler {
             cache: RefCell::new(None),
             is_fcn: d.is_fcn_def.get(),
             src: d.clone(),
+            state_cache: RefCell::new(None),
             label_cache: std::cell::OnceCell::new(),
             label_base: std::cell::OnceCell::new(),
         });

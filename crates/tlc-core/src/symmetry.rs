@@ -1,9 +1,10 @@
 //! Port of `tlc2.value.impl.MVPerm(s)` and `Value.permute` + the canonicalization loop of
 //! `TLCStateMut.fingerPrint` (symmetry reduction by model-value permutations).
 
-use crate::value::{fail, Value, R};
+use crate::value::{fail, Fcn, Value, R};
 use std::cmp::Ordering;
 use std::collections::HashSet;
+use std::rc::Rc;
 
 /// A permutation of model values; only moved values are stored (sorted by source).
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -96,40 +97,106 @@ pub fn permutation_subgroup_members(fcns: &Value) -> R<(Vec<MvPerm>, HashSet<u32
     Ok((all, members))
 }
 
+/// does `v` mention any model value?
+pub fn contains_model(v: &Value) -> bool {
+    match v {
+        Value::Model(_) => true,
+        Value::Set(s) => s.iter().any(contains_model),
+        Value::Tuple(t) => t.iter().any(contains_model),
+        Value::Fcn(f) => f.dom.iter().any(contains_model) || f.vals.iter().any(contains_model),
+        Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Interval(..) | Value::Undef => false,
+        // lazily evaluated values: be conservative
+        _ => true,
+    }
+}
+
 /// Java: `Value.permute(IMVPerm)`
 pub fn permute(v: &Value, p: &MvPerm) -> R<Value> {
+    Ok(permute_opt(v, p)?.unwrap_or_else(|| v.clone()))
+}
+
+/// `None` when the permutation leaves `v` unchanged (no copy, no re-sorting)
+fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
     Ok(match v {
-        Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Interval(..) | Value::Undef => v.clone(),
-        Value::Model(id) => Value::Model(p.apply(*id)),
-        Value::Set(s) => {
-            let mut out = Vec::with_capacity(s.len());
-            for e in s.iter() {
-                out.push(permute(e, p)?);
+        Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Interval(..) | Value::Undef => None,
+        Value::Model(id) => {
+            let n = p.apply(*id);
+            if n == *id {
+                None
+            } else {
+                Some(Value::Model(n))
             }
-            Value::set_from(out)?
+        }
+        Value::Set(s) => {
+            let mut out: Option<Vec<Value>> = None;
+            for (i, e) in s.iter().enumerate() {
+                if let Some(ne) = permute_opt(e, p)? {
+                    let o = out.get_or_insert_with(|| s[..i].to_vec());
+                    o.push(ne);
+                } else if let Some(o) = out.as_mut() {
+                    o.push(e.clone());
+                }
+            }
+            match out {
+                None => None,
+                Some(o) => Some(Value::set_from(o)?),
+            }
         }
         Value::Tuple(t) => {
-            let mut out = Vec::with_capacity(t.len());
-            for e in t.iter() {
-                out.push(permute(e, p)?);
+            let mut out: Option<Vec<Value>> = None;
+            for (i, e) in t.iter().enumerate() {
+                if let Some(ne) = permute_opt(e, p)? {
+                    let o = out.get_or_insert_with(|| t[..i].to_vec());
+                    o.push(ne);
+                } else if let Some(o) = out.as_mut() {
+                    o.push(e.clone());
+                }
             }
-            Value::tuple(out)
+            out.map(Value::tuple)
         }
         Value::Fcn(f) => {
-            let mut pairs = Vec::with_capacity(f.dom.len());
-            for (d, x) in f.dom.iter().zip(f.vals.iter()) {
-                pairs.push((permute(d, p)?, permute(x, p)?));
+            let mut dom_changed = false;
+            let mut ndom: Vec<Value> = vec![];
+            // record fields and integer domains never change: avoid touching them
+            if !f.dom.iter().all(|d| matches!(d, Value::Str(_) | Value::Int(_))) {
+                ndom.reserve(f.dom.len());
+                for d in f.dom.iter() {
+                    match permute_opt(d, p)? {
+                        Some(nd) => {
+                            dom_changed = true;
+                            ndom.push(nd);
+                        }
+                        None => ndom.push(d.clone()),
+                    }
+                }
             }
-            Value::fcn_from(pairs)?
+            let mut vals_changed = false;
+            let mut nvals: Vec<Value> = Vec::with_capacity(f.vals.len());
+            for x in f.vals.iter() {
+                match permute_opt(x, p)? {
+                    Some(nx) => {
+                        vals_changed = true;
+                        nvals.push(nx);
+                    }
+                    None => nvals.push(x.clone()),
+                }
+            }
+            if !dom_changed && !vals_changed {
+                None
+            } else if !dom_changed {
+                Some(Value::Fcn(Rc::new(Fcn { dom: f.dom.clone(), vals: nvals })))
+            } else {
+                Some(Value::fcn_from(ndom.into_iter().zip(nvals.into_iter()).collect())?)
+            }
         }
-        Value::FcnLam(_) => permute(&v.force_fcn()?, p)?,
+        Value::FcnLam(_) => permute_opt(&v.force_fcn()?, p)?,
         v if v.is_set_like() => {
             let e = v.enumerate()?;
             let mut out = Vec::with_capacity(e.len());
             for x in e.iter() {
                 out.push(permute(x, p)?);
             }
-            Value::set_from(out)?
+            Some(Value::set_from(out)?)
         }
         v => return fail(format!("Attempted to permute the unsupported value {}", v.to_tla())),
     })
@@ -139,13 +206,14 @@ pub fn permute(v: &Value, p: &MvPerm) -> R<Value> {
 /// Java: the NEXT_PERM loop in `TLCStateMut.fingerPrint`.
 pub fn canonical(vals: &[Value], perms: &[MvPerm]) -> R<Option<Vec<Value>>> {
     let sz = vals.len();
+    let has: Vec<bool> = vals.iter().map(contains_model).collect();
     let mut min: Option<Vec<Value>> = None;
     let mut buf: Vec<Value> = Vec::with_capacity(sz);
     'next_perm: for p in perms {
         buf.clear();
         let mut cmp = Ordering::Equal;
         for j in 0..sz {
-            let pv = permute(&vals[j], p)?;
+            let pv = if has[j] { permute(&vals[j], p)? } else { vals[j].clone() };
             if cmp == Ordering::Equal {
                 let cur = match &min {
                     Some(m) => &m[j],

@@ -425,6 +425,14 @@ impl Ev {
                     return Ok(v.clone());
                 }
             }
+            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State && self.substs.borrow().is_empty();
+            if state_cacheable {
+                if let Some(c) = &*d.state_cache.borrow() {
+                    if c.s0_ptr == s0.as_ptr() as usize && c.s0_len == s0.len() && c.epoch == self.epoch.get() {
+                        return Ok(c.val.clone());
+                    }
+                }
+            }
             let body = match &*d.body.borrow() {
                 Some(b) => b.clone(),
                 None => return fail(format!("The definition of {} has no body.", d.name)),
@@ -456,6 +464,9 @@ impl Ev {
             let v = r?;
             if cacheable {
                 *d.cache.borrow_mut() = Some(v.clone());
+            }
+            if state_cacheable {
+                *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone() });
             }
             return Ok(v);
         }

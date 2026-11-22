@@ -82,6 +82,8 @@ pub struct CompiledDef {
     pub is_fcn: bool,
     pub src: Rc<sem::OpDef>,
     /// `<Name line .., col .. to line .., col .. of module M>` (computed on first use)
+    /// value of a state-level definition without parameters for one state (Java: the LazyValue of an operator definition)
+    pub state_cache: RefCell<Option<LazyCache>>,
     pub label_cache: std::cell::OnceCell<Option<Rc<str>>>,
     /// label base (name without parameters) shared by every call of this definition without arguments
     pub label_base: std::cell::OnceCell<Rc<crate::eval::LabelBase>>,

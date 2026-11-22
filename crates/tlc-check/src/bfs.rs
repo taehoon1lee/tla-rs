@@ -420,6 +420,7 @@ impl<'a> Checker<'a> {
             let buf = RefCell::new(vec![Value::Undef; nvars]);
             let mut produced: Vec<Vec<Value>> = vec![];
             let r = ev.with_frame(top.nslots.get(), |ev| {
+                ev.epoch.set(ev.epoch.get() + 1);
                 ev.enum_action(&top.ex, Mode::Init, &ev.empty(), &buf, &mut || {
                     let st = buf.borrow().clone();
                     produced.push(st);
@@ -536,6 +537,7 @@ impl<'a> Checker<'a> {
         let mut head = 0usize;
         while head < self.states.len() {
             let cur = self.states[head].vals.clone();
+            ev.epoch.set(ev.epoch.get() + 1);
             let cur_level = self.states[head].level;
             let mut succs: Vec<(Vec<Value>, Option<LabelSpec>)> = vec![];
             let mut incomplete: Option<Vec<Value>> = None;
