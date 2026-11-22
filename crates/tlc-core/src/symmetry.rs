@@ -233,3 +233,289 @@ pub fn canonical(vals: &[Value], perms: &[MvPerm]) -> R<Option<Vec<Value>>> {
     }
     Ok(min)
 }
+
+// ------------------------------------------------------------------------------------------------------------------
+// Fast canonical forms.  TLC (`TLCStateMut.fingerPrint`) tries every permutation of the group.  When the group is the full
+// product of symmetric groups on disjoint sets of model values (the usual `Permutations(S1) \cup Permutations(S2)`), an
+// equivalent canonical form is cheaper: every model value gets a signature that is invariant under the group (the hash of
+// the state with that value marked and all other symmetric values abstracted to their orbit); values with different
+// signatures are ordered by signature, only tied values are permuted.  Two states have the same canonical form iff they are
+// in the same orbit, so the number of distinct states is the same as with TLC's exhaustive search.
+
+use std::collections::HashMap;
+
+pub struct SymGroup {
+    /// the whole group without the identity (generic search, used with a VIEW and for non-product groups)
+    pub perms: Vec<MvPerm>,
+    /// sorted model value ids of every orbit with at least two values
+    orbits: Vec<Vec<u32>>,
+    orbit_of: HashMap<u32, usize>,
+    /// the group is the full product of the symmetric groups of the orbits
+    fast: bool,
+}
+
+fn mix(h: u64, x: u64) -> u64 {
+    let mut z = (h ^ x).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    z ^= z >> 32;
+    z = z.wrapping_mul(0xD6E8_FEB8_6659_FD93);
+    z ^ (z >> 29)
+}
+
+fn uf_find(parent: &mut HashMap<u32, u32>, x: u32) -> u32 {
+    let p = *parent.entry(x).or_insert(x);
+    if p == x {
+        return x;
+    }
+    let r = uf_find(parent, p);
+    parent.insert(x, r);
+    r
+}
+
+impl SymGroup {
+    pub fn new(perms: Vec<MvPerm>) -> SymGroup {
+        // orbits by union-find over the moved values
+        let mut parent: HashMap<u32, u32> = HashMap::new();
+        for p in &perms {
+            for &(a, b) in &p.map {
+                let (ra, rb) = (uf_find(&mut parent, a), uf_find(&mut parent, b));
+                if ra != rb {
+                    parent.insert(ra, rb);
+                }
+            }
+        }
+        let keys: Vec<u32> = parent.keys().copied().collect();
+        let mut groups: HashMap<u32, Vec<u32>> = HashMap::new();
+        for k in keys {
+            let r = uf_find(&mut parent, k);
+            groups.entry(r).or_default().push(k);
+        }
+        let mut orbits: Vec<Vec<u32>> = groups.into_values().filter(|g| g.len() >= 2).collect();
+        for o in orbits.iter_mut() {
+            o.sort_unstable();
+        }
+        orbits.sort();
+        let mut orbit_of = HashMap::new();
+        for (i, o) in orbits.iter().enumerate() {
+            for &m in o {
+                orbit_of.insert(m, i);
+            }
+        }
+        // |G| = prod |orbit|! ?
+        let mut prod: u128 = 1;
+        for o in &orbits {
+            for k in 2..=o.len() as u128 {
+                prod = prod.saturating_mul(k);
+            }
+        }
+        let fast = prod == perms.len() as u128 + 1;
+        SymGroup { perms, orbits, orbit_of, fast }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.perms.is_empty()
+    }
+
+    /// hash of `v` with the model value `mark` marked and every other symmetric value replaced by its orbit
+    fn abs_hash(&self, v: &Value, mark: u32) -> R<u64> {
+        Ok(match v {
+            Value::Bool(b) => mix(1, *b as u64),
+            Value::Int(i) => mix(2, *i as i64 as u64),
+            Value::Str(id) => mix(3, *id as u64),
+            Value::Model(id) => {
+                if *id == mark {
+                    mix(4, 0)
+                } else {
+                    match self.orbit_of.get(id) {
+                        Some(o) => mix(5, *o as u64),
+                        None => mix(6, *id as u64),
+                    }
+                }
+            }
+            Value::Set(s) => {
+                // order-insensitive: the sorted order of a set changes under permutations
+                let mut acc: u64 = 0;
+                for e in s.iter() {
+                    acc = acc.wrapping_add(mix(7, self.abs_hash(e, mark)?));
+                }
+                mix(acc, s.len() as u64)
+            }
+            Value::Tuple(t) => {
+                let mut h = mix(8, t.len() as u64);
+                for e in t.iter() {
+                    h = mix(h, self.abs_hash(e, mark)?);
+                }
+                h
+            }
+            Value::Fcn(f) => {
+                let mut acc: u64 = 0;
+                for (d, x) in f.dom.iter().zip(f.vals.iter()) {
+                    acc = acc.wrapping_add(mix(self.abs_hash(d, mark)?, self.abs_hash(x, mark)?));
+                }
+                mix(mix(9, f.dom.len() as u64), acc)
+            }
+            Value::Interval(lo, hi) => mix(mix(10, *lo as i64 as u64), *hi as i64 as u64),
+            Value::Undef => 11,
+            Value::FcnLam(_) => self.abs_hash(&v.force_fcn()?, mark)?,
+            v if v.is_set_like() => {
+                let e = v.enumerate()?;
+                let mut acc: u64 = 0;
+                for x in e.iter() {
+                    acc = acc.wrapping_add(mix(7, self.abs_hash(x, mark)?));
+                }
+                mix(acc, e.len() as u64)
+            }
+            v => return fail(format!("Attempted to permute the unsupported value {}", v.to_tla())),
+        })
+    }
+
+    fn collect_models(v: &Value, out: &mut HashSet<u32>) {
+        match v {
+            Value::Model(id) => {
+                out.insert(*id);
+            }
+            Value::Set(s) => s.iter().for_each(|e| Self::collect_models(e, out)),
+            Value::Tuple(t) => t.iter().for_each(|e| Self::collect_models(e, out)),
+            Value::Fcn(f) => {
+                f.dom.iter().for_each(|e| Self::collect_models(e, out));
+                f.vals.iter().for_each(|e| Self::collect_models(e, out));
+            }
+            _ => {}
+        }
+    }
+
+    /// The canonical form of `vals` (always a vector, possibly equal to `vals`).
+    pub fn canonical_fast(&self, vals: &[Value]) -> R<Vec<Value>> {
+        let has: Vec<bool> = vals.iter().map(contains_model).collect();
+        // present symmetric values
+        let mut present: HashSet<u32> = HashSet::new();
+        for (v, h) in vals.iter().zip(has.iter()) {
+            if *h {
+                Self::collect_models(v, &mut present);
+            }
+        }
+        // signatures
+        let mut sig: HashMap<u32, u64> = HashMap::new();
+        for &m in &present {
+            if !self.orbit_of.contains_key(&m) {
+                continue;
+            }
+            let mut h = 0u64;
+            for (i, v) in vals.iter().enumerate() {
+                if has[i] {
+                    h = h.wrapping_add(mix(i as u64 + 100, self.abs_hash(v, m)?));
+                }
+            }
+            sig.insert(m, h);
+        }
+        // blocks per orbit: present values sorted by signature, then the absent ones (fixed)
+        let mut classes: Vec<(Vec<u32>, Vec<u32>)> = vec![]; // (tied members, the positions they can take)
+        let mut fixed: Vec<(u32, u32)> = vec![];
+        for orbit in &self.orbits {
+            let mut pres: Vec<(u64, u32)> = orbit.iter().filter_map(|m| sig.get(m).map(|s| (*s, *m))).collect();
+            pres.sort_unstable();
+            let absent: Vec<u32> = orbit.iter().copied().filter(|m| !sig.contains_key(m)).collect();
+            let mut pos = 0usize;
+            let mut i = 0usize;
+            while i < pres.len() {
+                let mut j = i;
+                while j < pres.len() && pres[j].0 == pres[i].0 {
+                    j += 1;
+                }
+                let members: Vec<u32> = pres[i..j].iter().map(|x| x.1).collect();
+                let targets: Vec<u32> = orbit[pos..pos + members.len()].to_vec();
+                pos += members.len();
+                if members.len() == 1 {
+                    fixed.push((members[0], targets[0]));
+                } else {
+                    classes.push((members, targets));
+                }
+                i = j;
+            }
+            // the absent values take the remaining positions in order: they do not occur in the state
+            for (k, m) in absent.iter().enumerate() {
+                fixed.push((*m, orbit[pos + k]));
+            }
+        }
+        let mut best: Option<Vec<Value>> = None;
+        let mut assign: Vec<(u32, u32)> = fixed;
+        self.search(vals, &has, &classes, 0, &mut assign, &mut best)?;
+        Ok(best.unwrap_or_else(|| vals.to_vec()))
+    }
+
+    /// try every bijection inside every tied class and keep the lexicographically smallest image
+    fn search(
+        &self,
+        vals: &[Value],
+        has: &[bool],
+        classes: &[(Vec<u32>, Vec<u32>)],
+        k: usize,
+        assign: &mut Vec<(u32, u32)>,
+        best: &mut Option<Vec<Value>>,
+    ) -> R<()> {
+        if k == classes.len() {
+            let p = MvPerm::from_pairs(assign.clone());
+            let mut img: Vec<Value> = Vec::with_capacity(vals.len());
+            let mut cmp = Ordering::Equal;
+            for j in 0..vals.len() {
+                let pv = if has[j] { permute(&vals[j], &p)? } else { vals[j].clone() };
+                if cmp == Ordering::Equal {
+                    if let Some(b) = best {
+                        cmp = pv.cmp_val(&b[j])?;
+                        if cmp == Ordering::Greater {
+                            return Ok(());
+                        }
+                    }
+                }
+                img.push(pv);
+            }
+            if best.is_none() || cmp == Ordering::Less {
+                *best = Some(img);
+            }
+            return Ok(());
+        }
+        let (members, targets) = &classes[k];
+        let n = members.len();
+        let base = assign.len();
+        let mut idx: Vec<usize> = (0..n).collect();
+        // all permutations of `targets` over `members` (Heap's algorithm)
+        let mut c = vec![0usize; n];
+        let apply = |idx: &Vec<usize>, assign: &mut Vec<(u32, u32)>| {
+            assign.truncate(base);
+            for (mi, m) in members.iter().enumerate() {
+                assign.push((*m, targets[idx[mi]]));
+            }
+        };
+        apply(&idx, assign);
+        self.search(vals, has, classes, k + 1, assign, best)?;
+        let mut i = 0;
+        while i < n {
+            if c[i] < i {
+                if i % 2 == 0 {
+                    idx.swap(0, i);
+                } else {
+                    idx.swap(c[i], i);
+                }
+                apply(&idx, assign);
+                self.search(vals, has, classes, k + 1, assign, best)?;
+                c[i] += 1;
+                i = 0;
+            } else {
+                c[i] = 0;
+                i += 1;
+            }
+        }
+        assign.truncate(base);
+        Ok(())
+    }
+
+    /// canonical form used for fingerprinting (`None` = no symmetry or the state is its own canonical form)
+    pub fn canonical_state(&self, vals: &[Value], exact: bool) -> R<Option<Vec<Value>>> {
+        if self.perms.is_empty() {
+            return Ok(None);
+        }
+        if self.fast && !exact {
+            return Ok(Some(self.canonical_fast(vals)?));
+        }
+        canonical(vals, &self.perms)
+    }
+}

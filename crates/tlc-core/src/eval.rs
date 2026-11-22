@@ -883,8 +883,8 @@ impl Ev {
                 }
                 // Java: SetPredValue is always lazy; small materialized bases are filtered eagerly (cheaper than a capture)
                 let small = match &base {
-                    Value::Set(v) => v.len() <= 64,
-                    Value::Interval(lo, hi) => hi.saturating_sub(*lo) < 64,
+                    Value::Set(_) => true,
+                    Value::Interval(lo, hi) => hi.saturating_sub(*lo) < 100_000,
                     _ => false,
                 };
                 if small {

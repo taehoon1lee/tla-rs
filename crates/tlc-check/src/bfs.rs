@@ -8,7 +8,7 @@ use tlc_core::ec;
 use tlc_core::mp::{self, Reporter};
 use tlc_core::eval::LabelSpec;
 use tlc_core::spec::{Setup, Top};
-use tlc_core::symmetry::{self, MvPerm};
+use tlc_core::symmetry::{self, SymGroup};
 use tlc_core::value::*;
 use tlc_core::TlcOptions;
 
@@ -117,7 +117,7 @@ struct Checker<'a> {
     /// per-state out-degrees (for the 2268 statistics)
     outdeg: Vec<u32>,
     /// symmetry group (Java: `Tool.getSymmetryPerms`); empty when there is no SYMMETRY
-    perms: Vec<MvPerm>,
+    perms: SymGroup,
 }
 
 enum Stop {
@@ -159,7 +159,7 @@ impl<'a> Checker<'a> {
 
     fn fp(&self, vals: &[Value]) -> R<u64> {
         // Java: TLCStateMut.fingerPrint: fingerprint the lexicographically smallest image under the symmetry group
-        let canon = if self.perms.is_empty() { None } else { symmetry::canonical(vals, &self.perms)? };
+        let canon = if self.perms.is_empty() { None } else { self.perms.canonical_state(vals, self.setup.view.is_some())? };
         let vals: &[Value] = match &canon {
             Some(c) => c,
             None => vals,
@@ -379,7 +379,7 @@ impl<'a> Checker<'a> {
                     if let Ok(Some(w)) = setup.symmetry_warning(nf, &members) {
                         self.rep.warning(ec::TLC_SYMMETRY_SET_TOO_SMALL, &w);
                     }
-                    self.perms = p;
+                    self.perms = SymGroup::new(p);
                 }
                 Err(e) => {
                     let code = self.report_err(&e, ec::exit_status::ERROR);
@@ -800,7 +800,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         opts,
         max_level: 0,
         outdeg: Vec::new(),
-        perms: Vec::new(),
+        perms: SymGroup::new(Vec::new()),
     };
     #[cfg(feature = "prof")]
     let sampler = start_sampler();
