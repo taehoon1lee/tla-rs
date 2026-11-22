@@ -2,6 +2,7 @@
 
 use crate::{finish, now_str};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use tlc_core::actions::Mode;
 use tlc_core::ec;
@@ -118,6 +119,26 @@ struct Checker<'a> {
     outdeg: Vec<u32>,
     /// symmetry group (Java: `Tool.getSymmetryPerms`); empty when there is no SYMMETRY
     perms: SymGroup,
+    /// temporal properties are checked: the behavior graph is recorded (Java: `checkLiveness`)
+    live: bool,
+    /// per state: the (distinct, in-model) successors in generation order, the stuttering step last
+    live_succ: Vec<Vec<u32>>,
+    /// with a VIEW: the successor state actually produced by each recorded transition (parallel to `live_succ`)
+    live_edge: Vec<Vec<Rc<Vec<Value>>>>,
+    live_inits: Vec<u32>,
+    /// fingerprint -> state index (only with liveness)
+    fp_index: HashMap<u64, u32>,
+}
+
+struct StateTable<'a>(&'a [Rec], &'a [Vec<Rc<Vec<Value>>>]);
+
+impl crate::live::States for StateTable<'_> {
+    fn vals(&self, i: u32) -> &[Value] {
+        &self.0[i as usize].vals
+    }
+    fn edge_vals(&self, s: u32, i: usize) -> Option<&[Value]> {
+        self.1.get(s as usize).and_then(|v| v.get(i)).map(|r| r.as_slice())
+    }
 }
 
 enum Stop {
@@ -486,6 +507,13 @@ impl<'a> Checker<'a> {
             if self.fps.insert(fp) {
                 distinct_init += 1;
                 self.states.push(Rec { vals: st, parent: NONE, label: None, level: 1 });
+                if self.live {
+                    let idx = self.states.len() as u32 - 1;
+                    self.fp_index.insert(fp, idx);
+                    self.live_succ.push(Vec::new());
+                    self.live_edge.push(Vec::new());
+                    self.live_inits.push(idx);
+                }
                 if first_violation.is_none() {
                     let idx = self.states.len() - 1;
                     let vals = self.states[idx].vals.clone();
@@ -661,6 +689,20 @@ impl<'a> Checker<'a> {
                     let t_s = prof_now();
                     let is_new = self.fps.insert(fp);
                     prof_add(3, t_s);
+                    if self.live {
+                        let target = if is_new { self.states.len() as u32 } else { self.fp_index.get(&fp).copied().unwrap_or(u32::MAX) };
+                        if target != u32::MAX && !self.live_succ[head].contains(&target) {
+                            self.live_succ[head].push(target);
+                            if self.setup.view.is_some() {
+                                self.live_edge[head].push(Rc::new(st.clone()));
+                            }
+                        }
+                        if is_new {
+                            self.fp_index.insert(fp, target);
+                            self.live_succ.push(Vec::new());
+                            self.live_edge.push(Vec::new());
+                        }
+                    }
                     if is_new {
                         unseen_count += 1;
                         let level = cur_level + 1;
@@ -724,10 +766,174 @@ impl<'a> Checker<'a> {
             }
             let _ = any_in_model;
             self.outdeg.push(unseen_count);
+            if self.live {
+                // Java: `Worker.doNextCheckLiveness` adds the stuttering step to the successors
+                let h = head as u32;
+                if !self.live_succ[head].contains(&h) {
+                    self.live_succ[head].push(h);
+                    if self.setup.view.is_some() {
+                        self.live_edge[head].push(Rc::new(self.states[head].vals.clone()));
+                    }
+                }
+            }
             head += 1;
         }
         self.flush_output();
+        if self.live {
+            self.final_liveness_check()?;
+        }
         Ok(())
+    }
+
+    /// Java: `Tool.getState(fp, predecessor)`: the first successor of `pred` (in the order the actions yield them) whose
+    /// fingerprint is `target_fp`, with the label of the action that yields it
+    fn step(&mut self, pred: &[Value], target_fp: u64) -> Option<(Vec<Value>, Option<LabelSpec>)> {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        let nx = setup.next.first()?;
+        let cur = pred.to_vec();
+        let nvars = setup.vars.len();
+        let mut found: Option<(Vec<Value>, Option<LabelSpec>)> = None;
+        let buf = RefCell::new(vec![Value::Undef; nvars]);
+        ev.epoch.set(ev.epoch.get() + 1);
+        *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+        ev.splitting.set(true);
+        let _ = ev.with_frame(nx.nslots.get(), |ev| {
+            ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
+                if found.is_some() {
+                    return Ok(());
+                }
+                let st = buf.borrow().clone();
+                if st.iter().any(|v| matches!(v, Value::Undef)) {
+                    return Ok(());
+                }
+                if let Ok(fp) = self.fp(&st) {
+                    if fp == target_fp {
+                        found = Some((st, ev.cur_label.borrow().clone()));
+                    }
+                }
+                Ok(())
+            })
+        });
+        ev.splitting.set(false);
+        self.flush_output();
+        found
+    }
+
+    /// Java: `ModelChecker`: the final liveness check (`LiveCheck.finalCheck` -> `LiveWorker`)
+    fn final_liveness_check(&mut self) -> SR<()> {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        let left = 0usize;
+        self.rep.info(
+            ec::TLC_PROGRESS_STATS,
+            &format!(
+                "Progress({}) at {}: {} states generated, {} distinct states found, {} states left on queue.",
+                self.max_level,
+                now_str(),
+                self.generated,
+                self.states.len(),
+                left
+            ),
+        );
+        let oss = &setup.live.oss;
+        let t0 = std::time::Instant::now();
+        let table = StateTable(&self.states, &self.live_edge);
+        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, &self.live_inits, oss) {
+            Ok(g) => g,
+            Err(e) => {
+                let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
+                return Err(Stop::Exit(code));
+            }
+        };
+        let total: usize = graphs.iter().map(|g| g.size()).sum();
+        self.rep.info(
+            ec::TLC_CHECKING_TEMPORAL_PROPS,
+            &format!(
+                "Checking {}temporal properties for the complete state space with {} total distinct states at ({})",
+                if oss.len() == 1 { String::new() } else { format!("{} branches of ", oss.len()) },
+                total,
+                now_str()
+            ),
+        );
+        let found = match crate::live::find_counterexample(&ev, &table, &graphs, oss) {
+            Ok(f) => f,
+            Err(e) => {
+                self.flush_output();
+                let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
+                return Err(Stop::Exit(code));
+            }
+        };
+        self.flush_output();
+        let dur = t0.elapsed();
+        let human = format!("{:02}s", dur.as_secs());
+        match found {
+            None => {
+                self.rep.info(ec::TLC_CHECKING_TEMPORAL_PROPS_END, &format!("Finished checking temporal properties in {} at {}", human, now_str()));
+                Ok(())
+            }
+            Some((oi, lasso)) => {
+                self.print_lasso(&lasso, &oss[oi]);
+                self.rep.info(ec::TLC_CHECKING_TEMPORAL_PROPS_END, &format!("Finished checking temporal properties in {} at {}", human, now_str()));
+                self.stats(0);
+                Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_TEMPORAL_PROPERTY_VIOLATED)))
+            }
+        }
+    }
+
+    /// Java: `LiveWorker.printTrace`
+    fn print_lasso(&mut self, lasso: &crate::live::Lasso, oos: &tlc_core::liveness::oos::Oos) {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        // the real behavior: every state is the successor of the previous printed state with the fingerprint of the node
+        // (with a VIEW a node stands for several states)
+        let fps: Vec<u64> = lasso.states.iter().map(|&i| self.fp(&self.states[i as usize].vals).unwrap_or(0)).collect();
+        let mut actual: Vec<(Vec<Value>, Option<LabelSpec>)> = vec![(self.states[lasso.states[0] as usize].vals.clone(), None)];
+        for i in 1..lasso.states.len() {
+            let prev = actual[i - 1].0.clone();
+            let next = match self.step(&prev, fps[i]) {
+                Some(x) => x,
+                None => (self.states[lasso.states[i] as usize].vals.clone(), None),
+            };
+            actual.push(next);
+        }
+        // the properties violated by the lasso (Java: `Liveness.findViolatedProperties`)
+        let vals: Vec<Vec<Value>> = actual.iter().map(|(v, _)| v.clone()).collect();
+        let mut violated: Vec<String> = vec![];
+        for (name, ln) in &setup.live.props {
+            if let Ok(false) = ln.eval_on_lasso(&ev, &vals, lasso.cycle_pos, 0) {
+                violated.push(name.clone());
+            }
+        }
+        let text = match violated.len() {
+            0 => "Temporal properties were violated.\n".to_string(),
+            1 => format!("Temporal property {} was violated.\n", violated[0]),
+            2 => format!("Temporal properties {} and {} were violated.\n", violated[0], violated[1]),
+            n => format!("Temporal properties {}, and {} were violated.\n", violated[..n - 1].join(", "), violated[n - 1]),
+        };
+        self.rep.error(ec::TLC_TEMPORAL_PROPERTY_VIOLATED, &text);
+        self.rep.error(ec::TLC_COUNTER_EXAMPLE, "The following behavior constitutes a counter-example:\n");
+        for (n, (v, l)) in actual.iter().enumerate() {
+            let label = match l {
+                _ if n == 0 => "<Initial predicate>".to_string(),
+                Some(l) => ev.format_label(l),
+                None => "<Next>".to_string(),
+            };
+            let text = format!("{}: {}\n{}", n + 1, label, self.state_text(v));
+            self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
+        }
+        let cycle_num = lasso.cycle_pos + 1;
+        if lasso.stuttering {
+            self.rep.message(ec::TLC_STATE_PRINT3, mp::class::STATE, &format!("{}: Stuttering", cycle_num + 1));
+            let _ = oos;
+        } else {
+            let last = actual.last().unwrap().0.clone();
+            let label = match self.step(&last, fps[lasso.cycle_pos]) {
+                Some((_, Some(l))) => ev.format_label(&l),
+                _ => "<Next>".to_string(),
+            };
+            self.rep.message(ec::TLC_BACK_TO_STATE, mp::class::STATE, &format!("{}: Back to state: {}", cycle_num, label));
+        }
     }
 }
 
@@ -801,6 +1007,11 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         max_level: 0,
         outdeg: Vec::new(),
         perms: SymGroup::new(Vec::new()),
+        live: !setup.live.oss.is_empty(),
+        live_succ: Vec::new(),
+        live_edge: Vec::new(),
+        live_inits: Vec::new(),
+        fp_index: HashMap::new(),
     };
     #[cfg(feature = "prof")]
     let sampler = start_sampler();

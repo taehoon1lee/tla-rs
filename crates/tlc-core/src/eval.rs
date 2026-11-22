@@ -162,6 +162,13 @@ pub struct Ev {
     pub no_state: Rc<Vec<Value>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
     pub warn: Cell<bool>,
+    /// > 0 while `ENABLED` is being evaluated
+    pub enabled_depth: Cell<u32>,
+    /// inside `ENABLED`: `v' = e` where `v` is an INSTANCE-substituted declaration (not a state variable) binds `v` by
+    /// name in the successor state (Java: `TLCStateFun.bind`); (declaration id, value)
+    pub virt: RefCell<Vec<(usize, Value)>>,
+    /// address of the successor-state buffer the virtual bindings belong to
+    pub virt_ptr: Cell<usize>,
 }
 
 const MAX_DEPTH: u32 = 3000;
@@ -198,6 +205,9 @@ impl Ev {
             no_frame: Rc::new(Vec::new()),
             no_state: Rc::new(Vec::new()),
             warn: Cell::new(true),
+            enabled_depth: Cell::new(0),
+            virt: RefCell::new(Vec::new()),
+            virt_ptr: Cell::new(0),
         })
     }
 
@@ -695,6 +705,11 @@ impl Ev {
                 Some(v) => Ok(v.clone()),
             },
             Node::Decl(dr) => {
+                if self.enabled_depth.get() > 0 && s0.as_ptr() as usize == self.virt_ptr.get() {
+                    if let Some((_, v)) = self.virt.borrow().iter().find(|(id, _)| *id == dr.id) {
+                        return Ok(v.clone());
+                    }
+                }
                 {
                     let ss = self.substs.borrow();
                     for ent in ss.iter() {

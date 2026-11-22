@@ -171,6 +171,28 @@ impl Compiler {
         (ex, cell)
     }
 
+    /// compile a top-level expression whose free bound variables `params` live in the first slots of the frame
+    /// (used by the liveness translation: a leaf of a temporal formula under bounded quantifiers)
+    pub fn compile_top_bound(&mut self, e: &sem::Expr, params: &[Rc<sem::Param>]) -> (Ex, Rc<Cell<usize>>) {
+        let (a, _, cell) = self.compile_top_bound2(e, None, params);
+        (a, cell)
+    }
+
+    /// like `compile_top_bound` for two expressions sharing a frame (`ENABLED <<A>>_v`: the action and its subscript)
+    pub fn compile_top_bound2(&mut self, a: &sem::Expr, b: Option<&sem::Expr>, params: &[Rc<sem::Param>]) -> (Ex, Option<Ex>, Rc<Cell<usize>>) {
+        let mut fc = FrameCtx::new();
+        let cell = fc.max_slot.clone();
+        for p in params {
+            let s = fc.alloc();
+            fc.locals.insert(p.id, s);
+        }
+        self.ctx.push(fc);
+        let ea = self.expr(a);
+        let eb = b.map(|x| self.expr(x));
+        self.ctx.pop();
+        (ea, eb, cell)
+    }
+
     // ------------------------------------------------------------------ helpers
 
     fn fc(&mut self) -> &mut FrameCtx {

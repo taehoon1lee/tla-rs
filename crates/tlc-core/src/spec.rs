@@ -31,6 +31,8 @@ pub struct Top {
     pub nslots: Rc<Cell<usize>>,
     pub loc: tla_sany::ast::Loc,
     pub module: String,
+    /// values of the bound variables the expression was compiled with (they occupy the first slots)
+    pub bound: Vec<Value>,
 }
 
 pub struct Setup {
@@ -52,12 +54,16 @@ pub struct Setup {
     /// temporal formulas to be checked (PROPERTY) and fairness of the spec (liveness)
     /// temporal properties (checked by the liveness checker)
     pub properties: Vec<(String, sem::Expr)>,
+    /// the bound variables (constant arguments of operators, unrolled `\A`) each temporal property was reached with
+    pub properties_bound: Vec<Vec<(Rc<sem::Param>, Value)>>,
     /// state-level properties `P` (checked in the initial states) / action properties `[][A]_v` (checked on every step)
     pub implied_inits: Vec<Top>,
     pub implied_actions: Vec<Top>,
     /// POSTCONDITION definitions (constant level), checked after the state space has been explored
     pub postconditions: Vec<(Top, String)>,
     pub spec_temporal: Vec<sem::Expr>,
+    /// orders of solution of the temporal properties (`Liveness.processLiveness`), filled by the driver
+    pub live: crate::liveness::oos::LiveSpec,
     /// names and locations of the "actions" (top-level disjuncts of Next) for trace labels
     pub root: Rc<sem::ModuleNode>,
 }
@@ -79,7 +85,12 @@ fn lookup_def(root: &Rc<sem::ModuleNode>, name: &str) -> Option<Rc<sem::OpDef>> 
 impl Setup {
     pub fn run_top(&self, t: &Top, s0: &[Value], s1: &[Value]) -> R<Value> {
         self.ev.epoch.set(self.ev.epoch.get() + 1);
-        self.ev.with_frame(t.nslots.get(), |ev| ev.eval(&t.ex, s0, s1))
+        self.ev.with_frame(t.nslots.get().max(t.bound.len()), |ev| {
+            for (i, v) in t.bound.iter().enumerate() {
+                ev.set_slot(i as u32, Slot::V(v.clone()));
+            }
+            ev.eval(&t.ex, s0, s1)
+        })
     }
 }
 
@@ -236,10 +247,12 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         override_rev: cfg.overrides.iter().map(|(l, r)| (r.clone(), l.clone())).collect(),
         check_deadlock: cfg.check_deadlock.unwrap_or(true),
         properties: vec![],
+        properties_bound: vec![],
         implied_inits: vec![],
         implied_actions: vec![],
         postconditions: vec![],
         spec_temporal: vec![],
+        live: Default::default(),
         root: root.clone(),
     };
 
@@ -276,14 +289,14 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
                 sem::Expr::new(EKind::Conj(inits), loc, lvl)
             };
             let (ex, n) = setup.comp.compile_top(&e);
-            setup.init.push(Top { name: "Init".into(), ex, nslots: n, loc: e.loc, module: def.module.to_string() });
+            setup.init.push(Top { name: "Init".into(), ex, nslots: n, loc: e.loc, module: def.module.to_string(), bound: vec![] });
         }
         if nexts.len() > 1 {
             return serr(ec::TLC_CANT_HANDLE_TOO_MANY_NEXT_STATE_RELS, "TLC cannot handle the specification: it has more than one next-state relation.");
         }
         for (e, name) in nexts {
             let (ex, n) = setup.comp.compile_top(&e);
-            setup.next.push(Top { name, ex, nslots: n, loc: e.loc, module: def.module.to_string() });
+            setup.next.push(Top { name, ex, nslots: n, loc: e.loc, module: def.module.to_string(), bound: vec![] });
         }
         setup.spec_temporal = temporals;
     } else {
@@ -321,7 +334,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
             }
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
-            let top = Top { name: name.clone(), ex, nslots: n, loc: sem_body_loc(&def), module: def.module.to_string() };
+            let top = Top { name: name.clone(), ex, nslots: n, loc: sem_body_loc(&def), module: def.module.to_string(), bound: vec![] };
             if is_init {
                 setup.init.push(top);
             } else {
@@ -352,7 +365,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         }
         let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
         let (ex, n) = setup.comp.compile_top(&e);
-        setup.invariants.push(Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() });
+        setup.invariants.push(Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] });
     }
     for src in [&cfg.constraints, &cfg.action_constraints] {
         let is_action = std::ptr::eq(src, &cfg.action_constraints);
@@ -372,7 +385,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
             }
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
-            let top = Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() };
+            let top = Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
             if is_action {
                 setup.action_constraints.push(top);
             } else {
@@ -384,7 +397,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         if let Some(def) = lookup_def(&root, &cfg.view) {
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
-            setup.view = Some(Top { name: cfg.view.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() });
+            setup.view = Some(Top { name: cfg.view.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] });
         } else {
             return serr(
                 ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
@@ -397,7 +410,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
             setup.symmetry_def = Some(def.clone());
-            setup.symmetry = Some(Top { name: cfg.symmetry.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() });
+            setup.symmetry = Some(Top { name: cfg.symmetry.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] });
         } else {
             return serr(
                 ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
@@ -421,7 +434,8 @@ is not defined in the specification.", name),
         }
         if let Some(b) = def.body() {
             let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
-            classify_property(&mut setup, name, &b, &def, &mut wraps, 0)?;
+            let mut bound: Vec<(Rc<sem::Param>, Value)> = vec![];
+            classify_property(&mut setup, name, &b, &def, &mut wraps, &mut bound, 0)?;
         }
     }
     // ---- postconditions
@@ -440,7 +454,7 @@ is not defined in the specification.", name),
         let (ex, n) = setup.comp.compile_top(&e);
         let loc = sem_body_loc(&def);
         let text = format!("line {}, col {} to line {}, col {} of module {}", loc.bl, loc.bc, loc.el, loc.ec, def.original().module);
-        setup.postconditions.push((Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() }, text));
+        setup.postconditions.push((Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] }, text));
     }
     // ---- assumptions
     let assumes: Vec<Rc<sem::AssumeNode>> = root.assumes.borrow().clone();
@@ -449,7 +463,7 @@ is not defined in the specification.", name),
         // Java: `assumps[i].toString()` is the location of the assumption EXPRESSION (without `ASSUME [Name ==]`).
         let l = a.expr.loc;
         let desc = format!("line {}, col {} to line {}, col {} of module {}", l.bl, l.bc, l.el, l.ec, a.module);
-        setup.assumes.push((Top { name: desc.clone(), ex, nslots: n, loc: l, module: a.module.to_string() }, desc));
+        setup.assumes.push((Top { name: desc.clone(), ex, nslots: n, loc: l, module: a.module.to_string(), bound: vec![] }, desc));
     }
     // constant operators: resolve the definitions given by `<-` for constant parameters with arguments
     for (id, def) in setup.comp.const_ops.clone() {
@@ -462,42 +476,109 @@ is not defined in the specification.", name),
 }
 
 /// Port of `SpecProcessor.processConfigProps`: split a PROPERTY into invariants (`[]P`), implied actions
-/// (`[][A]_v`), implied initial predicates and temporal formulas.
+/// (`[][A]_v`), implied initial predicates and temporal formulas.  `bound` is the Java `Context`: the constant arguments
+/// operators were called with and the elements of unrolled `\A` quantifiers.
+#[allow(clippy::too_many_arguments)]
 fn classify_property(
     setup: &mut Setup,
     name: &str,
     e: &sem::Expr,
     owner: &Rc<sem::OpDef>,
     wraps: &mut Vec<Rc<Vec<sem::Subst>>>,
+    bound: &mut Vec<(Rc<sem::Param>, Value)>,
     depth: usize,
 ) -> Result<(), SetupErr> {
     if depth > 100 {
         return Ok(());
     }
-    let mk_top = |setup: &mut Setup, nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>]| -> Top {
+    let mk_top = |setup: &mut Setup, nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>], bound: &[(Rc<sem::Param>, Value)]| -> Top {
         let w = wrap_all(x, wraps);
-        let (ex, n) = setup.comp.compile_top(&w);
-        Top { name: nm.to_string(), ex, nslots: n, loc: x.loc, module: owner.module.to_string() }
+        let params: Vec<Rc<sem::Param>> = bound.iter().map(|(p, _)| p.clone()).collect();
+        let (ex, n) = setup.comp.compile_top_bound(&w, &params);
+        Top { name: nm.to_string(), ex, nslots: n, loc: x.loc, module: owner.module.to_string(), bound: bound.iter().map(|(_, v)| v.clone()).collect() }
+    };
+    let push_prop = |setup: &mut Setup, nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>], bound: &[(Rc<sem::Param>, Value)]| {
+        setup.properties.push((nm.to_string(), wrap_all(x, wraps)));
+        setup.properties_bound.push(bound.to_vec());
     };
     match &e.kind {
         EKind::SubstIn(subs, b) => {
             wraps.push(subs.clone());
-            let r = classify_property(setup, name, b, owner, wraps, depth + 1);
+            let r = classify_property(setup, name, b, owner, wraps, bound, depth + 1);
             wraps.pop();
             return r;
         }
-        EKind::Label(_, _, b) => return classify_property(setup, name, b, owner, wraps, depth + 1),
+        EKind::Label(_, _, b) => return classify_property(setup, name, b, owner, wraps, bound, depth + 1),
         EKind::Apply(Callee::Def(d), args) if args.is_empty() && d.kind != sem::DefKind::ModuleInstance => {
             if let Some(b) = d.body() {
                 // a definition: recurse with its name
-                return classify_property(setup, &d.name.to_string(), &b, d, wraps, depth + 1);
+                return classify_property(setup, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
+            }
+        }
+        // Java: a call of a non-recursive operator with constant arguments is replaced by its body (`getOpContext`)
+        EKind::Apply(Callee::Def(d), args) if !args.is_empty() && wraps.is_empty() && !d.in_recursive.get() && d.arity() == args.len() => {
+            if let Some(b) = d.body() {
+                let params = d.params.borrow().clone();
+                let mut vals: Vec<(Rc<sem::Param>, Value)> = vec![];
+                let mut ok = true;
+                for (p, a) in params.iter().zip(args.iter()) {
+                    match a {
+                        sem::Arg::Expr(x) if x.level == sem::Level::Const => {
+                            let r = {
+                                let mut tr = crate::liveness::translate::Translator::new(setup);
+                                tr.set_bound(bound.clone());
+                                tr.eval_const(x)
+                            };
+                            match r {
+                                Ok(v) => vals.push((p.clone(), v)),
+                                Err(_) => {
+                                    ok = false;
+                                    break;
+                                }
+                            }
+                        }
+                        _ => {
+                            ok = false;
+                            break;
+                        }
+                    }
+                }
+                if ok {
+                    let n0 = bound.len();
+                    bound.extend(vals);
+                    let r = classify_property(setup, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
+                    bound.truncate(n0);
+                    return r;
+                }
+            }
+        }
+        // Java: OPCODE_bf: a bounded `\A` over constant sets is unrolled into one property per context
+        EKind::BQuant { forall: true, bounds, body } => {
+            let ctxs = {
+                let mut tr = crate::liveness::translate::Translator::new(setup);
+                tr.set_bound(bound.clone());
+                tr.contexts(bounds)
+            };
+            if let Ok(ctxs) = ctxs {
+                if ctxs.is_empty() {
+                    return serr(ec::TLC_LIVE_FORMULA_TAUTOLOGY, "Temporal formula is a tautology (its negation is unsatisfiable).");
+                }
+                let nm = format!("line {}, col {} to line {}, col {} of module {}", body.loc.bl, body.loc.bc, body.loc.el, body.loc.ec, owner.original().module);
+                for ctx in ctxs {
+                    let n0 = bound.len();
+                    bound.extend(ctx);
+                    let r = classify_property(setup, &nm, body, owner, wraps, bound, depth + 1);
+                    bound.truncate(n0);
+                    r?;
+                }
+                return Ok(());
             }
         }
         EKind::Conj(items) | EKind::Bi(B::And, items) => {
             for x in items {
                 // Java: `conj.toString()` is the source location of the conjunct
                 let nm = format!("line {}, col {} to line {}, col {} of module {}", x.loc.bl, x.loc.bc, x.loc.el, x.loc.ec, owner.original().module);
-                classify_property(setup, &nm, x, owner, wraps, depth + 1)?;
+                classify_property(setup, &nm, x, owner, wraps, bound, depth + 1)?;
             }
             return Ok(());
         }
@@ -505,7 +586,7 @@ fn classify_property(
             let x = &args[0];
             match &x.kind {
                 EKind::ActionSub { boxed: true, .. } => {
-                    let t = mk_top(setup, name, x, wraps);
+                    let t = mk_top(setup, name, x, wraps, bound);
                     setup.implied_actions.push(t);
                     return Ok(());
                 }
@@ -514,12 +595,12 @@ fn classify_property(
                         EKind::Apply(Callee::Def(d), a) if a.is_empty() => d.name.to_string(),
                         _ => name.to_string(),
                     };
-                    let t = mk_top(setup, &nm, x, wraps);
+                    let t = mk_top(setup, &nm, x, wraps, bound);
                     setup.invariants.push(t);
                     return Ok(());
                 }
                 _ => {
-                    setup.properties.push((name.to_string(), wrap_all(e, wraps)));
+                    push_prop(setup, name, e, wraps, bound);
                     return Ok(());
                 }
             }
@@ -528,10 +609,10 @@ fn classify_property(
     }
     match e.level {
         sem::Level::Const | sem::Level::State => {
-            let t = mk_top(setup, name, e, wraps);
+            let t = mk_top(setup, name, e, wraps, bound);
             setup.implied_inits.push(t);
         }
-        sem::Level::Temporal => setup.properties.push((name.to_string(), wrap_all(e, wraps))),
+        sem::Level::Temporal => push_prop(setup, name, e, wraps, bound),
         _ => {
             let (code, kind) = match &e.kind {
                 EKind::ActionSub { boxed: true, .. } => (ec::TLC_CONFIG_PROPERTY_ACTION_LEVEL_SQUARE_A_SUB_V, 1),

@@ -226,6 +226,32 @@ impl Ev {
                         return self.assign_and_continue(i, v, mode, buf, k);
                     }
                 }
+                // inside ENABLED: `v' = e` with `v` an INSTANCE-substituted declaration binds `v` by name
+                if self.enabled_depth.get() > 0 && mode == Mode::Next {
+                    if let Node::Prime(inner) = &**l {
+                        if let Node::Decl(dr) = &**inner {
+                            if self.substs.borrow().find(dr.id).is_some() {
+                                let v = self.eval_expr(r, mode, s0, buf)?;
+                                let existing = self.virt.borrow().iter().find(|(id, _)| *id == dr.id).map(|(_, x)| x.clone());
+                                return match existing {
+                                    Some(old) => {
+                                        if old.eq_val(&v)? {
+                                            k()
+                                        } else {
+                                            Ok(())
+                                        }
+                                    }
+                                    None => {
+                                        self.virt.borrow_mut().push((dr.id, v));
+                                        let res = k();
+                                        self.virt.borrow_mut().pop();
+                                        res
+                                    }
+                                };
+                            }
+                        }
+                    }
+                }
                 if self.guard(ex, mode, s0, buf)?.as_bool()? {
                     k()
                 } else {
@@ -273,6 +299,13 @@ impl Ev {
                 let mut vars = vec![];
                 if self.unchanged_vars(inner, &mut vars) {
                     return self.assign_unchanged(&vars, 0, s0, buf, k);
+                }
+                // inside ENABLED: INSTANCE-substituted declarations are bound by name (Java: `enabledUnchanged`)
+                if self.enabled_depth.get() > 0 {
+                    let mut elems: Vec<Ex> = vec![];
+                    if self.unchanged_elems_of(inner, &mut elems, 0) {
+                        return self.unchanged_elems(&elems, 0, s0, buf, k);
+                    }
                 }
                 // Java: processUnchangedImplTuple: tuple elements are processed one by one; the elements that are
                 // not variables are only verified (their value must be the same in both states)
@@ -893,6 +926,70 @@ to argument {}, which is not in the domain of the function.",
         }
     }
 
+    /// the components of an UNCHANGED argument: tuples (also behind nullary definitions) are split up
+    fn unchanged_elems_of(&self, ex: &Ex, out: &mut Vec<Ex>, depth: u32) -> bool {
+        if depth > 20 {
+            return false;
+        }
+        match &**ex {
+            Node::Tuple(es) => es.iter().all(|e| self.unchanged_elems_of(e, out, depth + 1)),
+            Node::Call(d, args, _) if args.is_empty() && d.native.get().is_none() => match d.body.borrow().clone() {
+                Some(b) => self.unchanged_elems_of(&b, out, depth + 1),
+                None => false,
+            },
+            _ => {
+                out.push(ex.clone());
+                true
+            }
+        }
+    }
+
+    /// UNCHANGED inside ENABLED: variables keep their value; a substituted declaration is bound to its current value
+    fn unchanged_elems(&self, es: &[Ex], idx: usize, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        if idx == es.len() {
+            return k();
+        }
+        let e = &es[idx];
+        let mut vars = vec![];
+        if self.unchanged_vars(e, &mut vars) {
+            return self.assign_unchanged(&vars, 0, s0, buf, &mut || self.unchanged_elems(es, idx + 1, s0, buf, k));
+        }
+        if let Node::Decl(dr) = &**e {
+            if self.substs.borrow().find(dr.id).is_some() {
+                let empty = self.empty();
+                let v = self.eval(e, s0, &empty)?;
+                let existing = self.virt.borrow().iter().find(|(id, _)| *id == dr.id).map(|(_, x)| x.clone());
+                return match existing {
+                    Some(old) => {
+                        if old.eq_val(&v)? {
+                            self.unchanged_elems(es, idx + 1, s0, buf, k)
+                        } else {
+                            Ok(())
+                        }
+                    }
+                    None => {
+                        self.virt.borrow_mut().push((dr.id, v));
+                        let res = self.unchanged_elems(es, idx + 1, s0, buf, k);
+                        self.virt.borrow_mut().pop();
+                        res
+                    }
+                };
+            }
+        }
+        let same = {
+            let b = buf.borrow();
+            let before = self.eval(e, s0, &b)?;
+            let empty = self.empty();
+            let after = self.eval(e, &b, &empty)?;
+            before.eq_val(&after)?
+        };
+        if same {
+            self.unchanged_elems(es, idx + 1, s0, buf, k)
+        } else {
+            Ok(())
+        }
+    }
+
     fn unchanged_tuple(&self, es: &[Ex], idx: usize, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
         if idx == es.len() {
             return k();
@@ -936,16 +1033,69 @@ to argument {}, which is not in the domain of the function.",
 }
 
 impl Ev {
+    /// `ENABLED <<A>>_v` when `sub` is given (the successor must change `v`), else `ENABLED A`
+    /// Java: `Tool.enabled(pred, c, s0, s1, subscript, IActionItemList.CHANGED)`
+    pub fn enabled_changed(&self, ex: &Ex, sub: Option<&Ex>, s0: &[Value]) -> R<bool> {
+        let sub = match sub {
+            None => return self.enabled(ex, s0),
+            Some(x) => x,
+        };
+        let buf: Buf = RefCell::new(vec![Value::Undef; self.nvars.get()]);
+        let was = self.splitting.replace(false);
+        let saved_label = self.cur_label.borrow().clone();
+        let saved_virt = (self.enabled_depth.get(), self.virt_ptr.get(), std::mem::take(&mut *self.virt.borrow_mut()));
+        self.enabled_depth.set(saved_virt.0 + 1);
+        self.virt_ptr.set(buf.borrow().as_ptr() as usize);
+        let r = self.enum_action(ex, Mode::Next, s0, &buf, &mut || {
+            // the successor is complete: does the subscript change?
+            let empty = self.empty();
+            let cur = self.eval(sub, s0, &empty)?;
+            let nxt = {
+                let b = buf.borrow();
+                self.eval(sub, &b, &empty)?
+            };
+            if cur.eq_val(&nxt)? {
+                Ok(())
+            } else {
+                Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![] }))
+            }
+        });
+        *self.cur_label.borrow_mut() = saved_label;
+        self.splitting.set(was);
+        self.enabled_depth.set(saved_virt.0);
+        self.virt_ptr.set(saved_virt.1);
+        *self.virt.borrow_mut() = saved_virt.2;
+        match r {
+            Ok(()) => Ok(false),
+            Err(e) if e.code == -777 => Ok(true),
+            // Java binds an INSTANCE-substituted variable `v <- expr` by name when it meets `v' = e`; a successor that does
+            // not (yet) determine the variables of `expr` therefore does not fail: the step is possible
+            Err(e) if e.msg.contains("is not assigned a value") || e.msg.contains("which is not yet assigned a value") => {
+                if std::env::var("TLCRS_LIVE_DEBUG").is_ok() {
+                    eprintln!("ENABLED: treating as enabled after: {}", e.msg);
+                }
+                Ok(true)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     /// `ENABLED A` in the state `s0`: does the action have a successor?
     pub fn enabled(&self, ex: &Ex, s0: &[Value]) -> R<bool> {
         let buf: Buf = RefCell::new(vec![Value::Undef; self.nvars.get()]);
         let was = self.splitting.replace(false);
         let saved_label = self.cur_label.borrow().clone();
+        let saved_virt = (self.enabled_depth.get(), self.virt_ptr.get(), std::mem::take(&mut *self.virt.borrow_mut()));
+        self.enabled_depth.set(saved_virt.0 + 1);
+        self.virt_ptr.set(buf.borrow().as_ptr() as usize);
         let r = self.enum_action(ex, Mode::Next, s0, &buf, &mut || {
             Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![] }))
         });
         *self.cur_label.borrow_mut() = saved_label;
         self.splitting.set(was);
+        self.enabled_depth.set(saved_virt.0);
+        self.virt_ptr.set(saved_virt.1);
+        *self.virt.borrow_mut() = saved_virt.2;
         match r {
             Ok(()) => Ok(false),
             Err(e) if e.code == -777 => Ok(true),

@@ -7,6 +7,7 @@
 //!   tlc2.tool.TLCTrace                      -> trace reconstruction from parent pointers
 
 mod bfs;
+mod live;
 
 use std::rc::Rc;
 use tla_sany::Resolver;
@@ -106,13 +107,41 @@ pub fn run(opts: &TlcOptions, resolver: &Resolver, rep: &mut Reporter) -> i32 {
         }
     };
     // ---- spec processing
-    let setup = match spec::setup(sem, &cfg, opts.max_set_size) {
+    let mut setup = match spec::setup(sem, &cfg, opts.max_set_size) {
         Ok(s) => s,
         Err(e) => {
             rep.error(e.code, &e.text);
             return finish(rep, start, ec::error_constant_to_exit_status(e.code));
         }
     };
+    // ---- temporal properties (Java: `new LiveCheck(...)` -> `Liveness.processLiveness`)
+    if !setup.properties.is_empty() {
+        match tlc_core::liveness::oos::process_liveness(&mut setup) {
+            Ok(live) => {
+                if live.oss.is_empty() {
+                    // Java: `ModelChecker.modelCheckImpl`: no order of solution = the property is a tautology
+                    rep.error(ec::TLC_LIVE_FORMULA_TAUTOLOGY, "Temporal formula is a tautology (its negation is unsatisfiable).");
+                    return finish(rep, start, ec::error_constant_to_exit_status(ec::TLC_LIVE_FORMULA_TAUTOLOGY));
+                }
+                rep.info(ec::TLC_LIVE_IMPLIED, &format!("Implied-temporal checking--satisfiability problem has {} branches.", live.oss.len()));
+                setup.live = live;
+            }
+            Err(e) => {
+                use tlc_core::liveness::translate::TrErr;
+                let (code, text) = match e {
+                    TrErr::Handle(t) => (ec::TLC_LIVE_CANNOT_HANDLE_FORMULA, format!("TLC cannot handle the temporal formula {}", t)),
+                    TrErr::Code(c, m) => (c, m),
+                    TrErr::Eval(e) => (e.code, e.msg.clone()),
+                    // a formula shape not translated by this port: the temporal properties are not checked
+                    TrErr::Unsupported(_) => (0, String::new()),
+                };
+                if code != 0 {
+                    rep.error(code, &text);
+                    return finish(rep, start, ec::error_constant_to_exit_status(code));
+                }
+            }
+        }
+    }
     let setup = Rc::new(setup);
     let code = bfs::model_check(&setup, opts, rep, start);
     rep.flush();

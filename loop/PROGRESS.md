@@ -27,3 +27,8 @@ next: more perf (sparse frame capture), liveness port (M6), SpanTreeRandom RNG, 
 Substs persistent list, closed by-name args, eval_heavy split, borrowed membership, dense symmetry tables.
 ex/: perf 133/150 at -j8 (sequential: MultiPaxos 1.14, PCal 1.33, LamportMutex 1.24, SlidingPuzzles 1.27, SimpleRegular 1.19). Corpus: verdict 258, trace 214 (unchanged).
 next: remaining perf (PCal/LamportMutex/SimpleRegular), liveness port (M6), SpanTreeRandom.
+
+## 2026-11-22 M6 liveness port (Sonnet 5.5)
+LN formulas + tableau + processLiveness + behavior graph + SCC/lasso. Corpus: front 347, init 325, verdict 296 (was 258), trace 224, perf 283.
+ex/: MCRealTimeHourClock, MCDistributedReplicatedLog now pass verdict. Not yet: operator-argument formulas (Github1161/817/LetDef*), exact lasso order (FP64).
+next: remaining ex/ items (SpanTreeRandom RNG, ALIAS/IOExec, Json), perf (PCal 1.33, LamportMutex 1.24), TLCSailfish1 timeout.

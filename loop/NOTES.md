@@ -90,3 +90,18 @@
 - `eval_inner` keeps only hot arms (frame 984 -> 408 bytes); big arms live in `eval_heavy` (#[inline(never)]).
 - Look for whole-vector copies in value ops (`fcn_parts`, `fcn_values`, `.to_vec()`): `member` on record/function sets copied
   both vectors on every call (MultiPaxos invariant: 10%).  `abs_hash`/symmetry used SipHash maps per model value.
+
+## Liveness (M6) — ported 2026-11-22
+- `tlc-core/src/liveness/{ln,tableau,translate,oos}.rs` = `LiveExprNode`+`LN*`, `TBPar/TBGraph`, `Liveness.astToLive`, `processLiveness`;
+  `tlc-check/src/live.rs` = behavior graph (state graph x tableau, built after the BFS) + `LiveWorker` (Tarjan SCC, `checkComponent`,
+  lasso construction); `bfs.rs::final_liveness_check/print_lasso` print the counterexample like `LiveWorker.printTrace`.
+- Verdict level needs only exit code + first error (13, 2116): `BFS_TRACE_EXITS` does not include 13. Exact lassos need Java's `SetOfStates`
+  hash order (FP64 fingerprints; our `tok`/intern ids differ from Java's) -> not reproduced yet; successors are in generation order, self loop last.
+- `Setup.live` (oss + positive property formulas) is filled in `tlc-check/src/lib.rs` before the BFS; 2212 is printed there, 2253 (tautology) when
+  there is no order of solution.  `TrErr::Unsupported` = formula shape this port cannot translate (operator arguments that are not constants,
+  incomparable set elements): liveness is skipped (as before this port) instead of failing.
+- `classify_property` unrolls calls with constant arguments and constant `\A` like `SpecProcessor.processConfigProps`; the bound values travel in
+  `Top.bound` / `Setup.properties_bound` (first slots of the frame).
+- ENABLED: a substituted declaration `v <- expr` met as `v' = e` or `UNCHANGED v` is bound by name (`Ev::virt`), as Java binds it in the TLCStateFun.
+- With a VIEW a graph node stands for several states: action/consistency checks use the successor actually produced by the edge (`live_edge`),
+  the printed trace is rebuilt state by state with `Checker::step` (Java: `Tool.getState(fp, predecessor)`).

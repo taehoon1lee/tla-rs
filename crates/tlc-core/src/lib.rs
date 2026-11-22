@@ -18,6 +18,7 @@ pub mod compile;
 pub mod config;
 pub mod ec;
 pub mod eval;
+pub mod liveness;
 pub mod ir;
 pub mod natives;
 pub mod mp;
