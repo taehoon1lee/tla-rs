@@ -553,7 +553,47 @@ fn classify_property(
 /// next-state relation and the remaining (fairness) conjuncts. INSTANCE substitutions met on the way wrap the parts.
 fn analyze_spec_formula(e: &sem::Expr, inits: &mut Vec<sem::Expr>, nexts: &mut Vec<(sem::Expr, String)>, temporals: &mut Vec<sem::Expr>, depth: usize) {
     let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
-    analyze_rec(e, inits, nexts, temporals, depth, &mut wraps);
+    let mut env: Vec<(usize, EnvVal)> = vec![];
+    analyze_rec(e, inits, nexts, temporals, depth, &mut wraps, &mut env);
+}
+
+
+#[derive(Clone)]
+enum EnvVal {
+    Expr(sem::Expr),
+    Op(Rc<sem::OpDef>),
+}
+
+#[allow(clippy::too_many_arguments)]
+fn analyze_apply(
+    d: &Rc<sem::OpDef>,
+    args: &[sem::Arg],
+    inits: &mut Vec<sem::Expr>,
+    nexts: &mut Vec<(sem::Expr, String)>,
+    temporals: &mut Vec<sem::Expr>,
+    depth: usize,
+    wraps: &mut Vec<Rc<Vec<sem::Subst>>>,
+    env: &mut Vec<(usize, EnvVal)>,
+) {
+    let params = d.params.borrow().clone();
+    let n0 = env.len();
+    for (p, a) in params.iter().zip(args.iter()) {
+        match a {
+            sem::Arg::Expr(x) => env.push((p.id, EnvVal::Expr(x.clone()))),
+            sem::Arg::Op(sem::OpArg::Callee(Callee::Def(od), _)) => env.push((p.id, EnvVal::Op(od.clone()))),
+            sem::Arg::Op(sem::OpArg::Callee(Callee::Param(q), _)) => {
+                // pass an operator parameter on
+                if let Some(v) = env.iter().rev().find(|(id, _)| *id == q.id).map(|(_, v)| v.clone()) {
+                    env.push((p.id, v));
+                }
+            }
+            _ => {}
+        }
+    }
+    if let Some(b) = d.body() {
+        analyze_rec(&b, inits, nexts, temporals, depth + 1, wraps, env);
+    }
+    env.truncate(n0);
 }
 
 fn wrap_all(e: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>]) -> sem::Expr {
@@ -572,6 +612,7 @@ fn analyze_rec(
     temporals: &mut Vec<sem::Expr>,
     depth: usize,
     wraps: &mut Vec<Rc<Vec<sem::Subst>>>,
+    env: &mut Vec<(usize, EnvVal)>,
 ) {
     if depth > 50 {
         return;
@@ -579,20 +620,34 @@ fn analyze_rec(
     match &e.kind {
         EKind::Conj(items) | EKind::Bi(B::And, items) => {
             for x in items {
-                analyze_rec(x, inits, nexts, temporals, depth + 1, wraps);
+                analyze_rec(x, inits, nexts, temporals, depth + 1, wraps, env);
             }
         }
+        // a parameter standing for a formula (`id(Init /\ [][Next]_vars)`): continue with the argument
+        EKind::Apply(Callee::Param(p), args) if args.is_empty() => match env.iter().rev().find(|(id, _)| *id == p.id).map(|(_, v)| v.clone()) {
+            Some(EnvVal::Expr(a)) => analyze_rec(&a, inits, nexts, temporals, depth + 1, wraps, env),
+            _ => temporals.push(wrap_all(e, wraps)),
+        },
+        // an operator parameter applied to arguments: continue with the operator bound to it
+        EKind::Apply(Callee::Param(p), args) if !args.is_empty() => match env.iter().rev().find(|(id, _)| *id == p.id).map(|(_, v)| v.clone()) {
+            Some(EnvVal::Op(d)) => analyze_apply(&d, args, inits, nexts, temporals, depth, wraps, env),
+            _ => temporals.push(wrap_all(e, wraps)),
+        },
         EKind::Apply(Callee::Def(d), args) if args.is_empty() && e.level >= sem::Level::Temporal => {
             if let Some(b) = d.body() {
-                analyze_rec(&b, inits, nexts, temporals, depth + 1, wraps);
+                analyze_rec(&b, inits, nexts, temporals, depth + 1, wraps, env);
             }
         }
+        EKind::Apply(Callee::Def(d), args) if !args.is_empty() && e.level >= sem::Level::Temporal => {
+            analyze_apply(d, args, inits, nexts, temporals, depth, wraps, env);
+        }
+        EKind::LetIn(_, b) => analyze_rec(b, inits, nexts, temporals, depth + 1, wraps, env),
         EKind::SubstIn(subs, b) => {
             wraps.push(subs.clone());
-            analyze_rec(b, inits, nexts, temporals, depth + 1, wraps);
+            analyze_rec(b, inits, nexts, temporals, depth + 1, wraps, env);
             wraps.pop();
         }
-        EKind::Label(_, _, b) => analyze_rec(b, inits, nexts, temporals, depth + 1, wraps),
+        EKind::Label(_, _, b) => analyze_rec(b, inits, nexts, temporals, depth + 1, wraps, env),
         EKind::Bi(B::Always, args) => match &args[0].kind {
             EKind::ActionSub { boxed: true, act, .. } => {
                 let name = match &act.kind {

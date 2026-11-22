@@ -154,6 +154,8 @@ pub struct Ev {
     pub eval_only: Cell<bool>,
     /// bumped whenever the state data a cached lazy value may depend on changes (see `LazyArg::cache`)
     pub epoch: Cell<u64>,
+    /// reusable argument vectors for native operator calls (saves an allocation per call)
+    pub slot_pool: RefCell<Vec<Vec<Slot>>>,
     /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
     pub counters: Cell<[i64; 6]>,
     pub no_frame: Rc<Vec<Slot>>,
@@ -192,6 +194,7 @@ impl Ev {
             simple_memo: RefCell::new(HashMap::new()),
             eval_only: Cell::new(false),
             epoch: Cell::new(1),
+            slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
             no_frame: Rc::new(Vec::new()),
             no_substs: Rc::new(Vec::new()),
@@ -477,6 +480,23 @@ impl Ev {
                 *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone() });
             }
             return Ok(v);
+        }
+        if let Some(f) = d.native.get() {
+            let mut slots: Vec<Slot> = self.slot_pool.borrow_mut().pop().unwrap_or_default();
+            for a in args {
+                match self.eval_arg(a, s0, s1) {
+                    Ok(sl) => slots.push(sl),
+                    Err(e) => {
+                        slots.clear();
+                        self.slot_pool.borrow_mut().push(slots);
+                        return Err(e);
+                    }
+                }
+            }
+            let r = f(self, &mut slots, s0, s1);
+            slots.clear();
+            self.slot_pool.borrow_mut().push(slots);
+            return r;
         }
         let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
         for a in args {

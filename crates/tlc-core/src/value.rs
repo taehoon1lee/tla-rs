@@ -793,6 +793,10 @@ impl Value {
     pub fn cmp_val(&self, o: &Value) -> R<Ordering> {
         use Value::*;
         match (self, o) {
+            // shared structure: identical values compare equal without looking inside
+            (Set(a), Set(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
+            (Tuple(a), Tuple(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
+            (Fcn(a), Fcn(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
             (Int(a), Int(b)) => Ok(a.cmp(b)),
             (Str(a), Str(b)) => Ok(a.cmp(b)),
             (Bool(a), Bool(b)) => Ok(a.cmp(b)),
@@ -906,6 +910,9 @@ impl Value {
     pub fn eq_val(&self, o: &Value) -> R<bool> {
         use Value::*;
         match (self, o) {
+            (Set(a), Set(b)) if Rc::ptr_eq(a, b) => Ok(true),
+            (Tuple(a), Tuple(b)) if Rc::ptr_eq(a, b) => Ok(true),
+            (Fcn(a), Fcn(b)) if Rc::ptr_eq(a, b) => Ok(true),
             (Int(a), Int(b)) => Ok(a == b),
             (Str(a), Str(b)) => Ok(a == b),
             (Bool(a), Bool(b)) => Ok(a == b),
