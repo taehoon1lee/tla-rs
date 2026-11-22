@@ -552,7 +552,11 @@ impl Value {
                 let (mut lo, mut hi) = (0usize, v.len());
                 while lo < hi {
                     let mid = (lo + hi) / 2;
-                    match v[mid].cmp_val(e)? {
+                    let ord = match (&v[mid], e) {
+                        (Value::Int(a), Value::Int(b)) => a.cmp(b),
+                        (a, _) => a.cmp_val(e)?,
+                    };
+                    match ord {
                         Ordering::Less => lo = mid + 1,
                         Ordering::Greater => hi = mid,
                         Ordering::Equal => return Ok(true),
@@ -778,6 +782,52 @@ impl Value {
     }
 
     fn search(dom: &[Value], x: &Value) -> R<Option<usize>> {
+        // integer and string keys (array indexes, record fields) are compared inline; dense integer domains are indexed
+        match x {
+            Value::Int(k) => {
+                if let Some(Value::Int(d0)) = dom.first() {
+                    let idx = (*k as i64) - (*d0 as i64);
+                    if idx >= 0 && (idx as usize) < dom.len() {
+                        if let Value::Int(d) = &dom[idx as usize] {
+                            if d == k {
+                                return Ok(Some(idx as usize));
+                            }
+                        }
+                    }
+                }
+                let (mut lo, mut hi) = (0usize, dom.len());
+                while lo < hi {
+                    let mid = (lo + hi) / 2;
+                    let ord = match &dom[mid] {
+                        Value::Int(d) => d.cmp(k),
+                        other => other.cmp_val(x)?,
+                    };
+                    match ord {
+                        Ordering::Less => lo = mid + 1,
+                        Ordering::Greater => hi = mid,
+                        Ordering::Equal => return Ok(Some(mid)),
+                    }
+                }
+                return Ok(None);
+            }
+            Value::Str(k) => {
+                let (mut lo, mut hi) = (0usize, dom.len());
+                while lo < hi {
+                    let mid = (lo + hi) / 2;
+                    let ord = match &dom[mid] {
+                        Value::Str(d) => d.cmp(k),
+                        other => other.cmp_val(x)?,
+                    };
+                    match ord {
+                        Ordering::Less => lo = mid + 1,
+                        Ordering::Greater => hi = mid,
+                        Ordering::Equal => return Ok(Some(mid)),
+                    }
+                }
+                return Ok(None);
+            }
+            _ => {}
+        }
         let (mut lo, mut hi) = (0usize, dom.len());
         while lo < hi {
             let mid = (lo + hi) / 2;

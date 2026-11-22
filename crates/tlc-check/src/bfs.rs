@@ -73,6 +73,12 @@ fn java_round(x: f64) -> i64 {
     (x + 0.5).floor() as i64
 }
 
+/// `TLCRS_NOSPLIT` (diagnostics) disables the per-disjunct action labels; read once (a getenv is a system call)
+fn splitting_enabled() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("TLCRS_NOSPLIT").is_err())
+}
+
 #[cfg(feature = "prof")]
 thread_local! {
     static PROF: std::cell::RefCell<[u128; 8]> = std::cell::RefCell::new([0; 8]);
@@ -679,7 +685,7 @@ impl<'a> Checker<'a> {
             if let Some(nx) = next {
                 let buf = RefCell::new(vec![Value::Undef; nvars]);
                 *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
-                ev.splitting.set(std::env::var("TLCRS_NOSPLIT").is_err());
+                ev.splitting.set(splitting_enabled());
                 let r = ev.with_frame(nx.nslots.get(), |ev| {
                     ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
                         let st = buf.borrow().clone();

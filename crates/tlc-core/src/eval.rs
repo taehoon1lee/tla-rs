@@ -427,7 +427,7 @@ impl Ev {
                 self.run_captured_in(&cap, &[], &l.code, s0, s1)
             }
             Slot::Op(_) => fail("An operator was used where a value was expected."),
-            Slot::Memo(v, ..) => Ok(v),
+            Slot::Memo(m) => Ok(m.v.clone()),
             Slot::Unset => fail("Internal error: use of an unassigned local variable."),
         }
     }
@@ -820,13 +820,13 @@ impl Ev {
             }
             Node::LetUse(slot, def) => {
                 let (p, n, ep) = (s0.as_ptr() as usize, s0.len(), self.epoch.get());
-                if let Slot::Memo(v, mp, mn, me) = &self.stack.borrow()[self.base.get() + *slot as usize] {
-                    if *mp == p && *mn == n && *me == ep {
-                        return Ok(v.clone());
+                if let Slot::Memo(m) = &self.stack.borrow()[self.base.get() + *slot as usize] {
+                    if m.ptr == p && m.len == n && m.epoch == ep {
+                        return Ok(m.v.clone());
                     }
                 }
                 let v = self.eval(def, s0, s1)?;
-                self.set_slot(*slot, Slot::Memo(v.clone(), p, n, self.epoch.get()));
+                self.set_slot(*slot, Slot::Memo(Rc::new(MemoVal { v: v.clone(), ptr: p, len: n, epoch: self.epoch.get() })));
                 Ok(v)
             }
             Node::Bi(b, es) => self.eval_bi(*b, es, s0, s1),

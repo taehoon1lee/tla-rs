@@ -24,7 +24,15 @@ pub enum Slot {
     Lazy(Rc<LazyArg>),
     /// memoized value of a nullary LET definition: (value, address and length of the current state, evaluation epoch);
     /// valid while the same state is evaluated and nothing was assigned (Java: `LazyValue`)
-    Memo(Value, usize, usize, u64),
+    Memo(Rc<MemoVal>),
+}
+
+/// the payload of `Slot::Memo` (boxed to keep `Slot` small)
+pub struct MemoVal {
+    pub v: Value,
+    pub ptr: usize,
+    pub len: usize,
+    pub epoch: u64,
 }
 
 pub struct LazyArg {
