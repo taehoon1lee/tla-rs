@@ -119,3 +119,20 @@ Reference: `S/tlc2/tool/liveness/{Liveness,LiveCheck,LiveWorker,OrderOfSolution,
       hashing, interning, avoid re-evaluating constant expressions (Java precomputes constant definitions).
 - [ ] M9.2 `--heavy` models (Java > 60 s) pass verdict and perf.
 - [ ] M9.3 Acceptance: **perf == verdict**.
+
+## STATUS (2026-11-22, end of the /goal session)
+Corpus: front 345/364, init 323, verdict 258, trace 214, perf 242 (ex/: verdict 146/150, trace 143/150, perf ~130/150).
+Done: M3 values, M4 config/spec processing, M5 BFS (+SYMMETRY, VIEW, constraints, action properties), M7 partial (natives:
+Naturals, Integers, Sequences, FiniteSets, TLC, Bags, Functions, FiniteSetsExt, IOUtils env, Graphs, UndirectedGraphs,
+DyadicRationals.Reduce), M8 trace parity for safety models (Java action labels, pretty printer), M9 first pass.
+TODO (ordered by value):
+1. M6 liveness (PROPERTY with temporal operators, fairness): 37+ tt/ models + MCRealTimeHourClock, MCDistributedReplicatedLog.
+   Needs a faithful port of tlc2.tool.liveness (Liveness.processLiveness -> tableau -> LiveWorker SCC/lasso) because the
+   verdict compares the counterexample length. Messages 2212 / 2192 / 2267 are printed for passing temporal properties too.
+2. Error-location framing of evaluation errors (2102 "While working on the initial state", 2103 positions, nested 2154/2178 messages):
+   ~15 tt/ models.
+3. `_POSSIBLE` + POSTCONDITION (TLCGet("all:named")), ALIAS (+ IOExec), RandomElement with Java's FP64 / TLCStateRandom seeding
+   (SpanTreeRandom), unicode string fingerprints.
+4. Perf: remaining ex/ models 1.2-2.2x slower than Java (EWD998PCal action-property evaluation, SlidingPuzzles LAMBDA calls,
+   lamport_mutex, MisraReachability, MultiPaxos): the evaluator is a tree walker with per-call frame copies; next step would be
+   persistent environments for closures and cached constant sub-expressions.

@@ -47,3 +47,14 @@ takes). Update the Rust column as you go.
 | `S/tlc2/tool/TLCTrace.java` | 573 | `trace.rs` | counterexample reconstruction |
 | `S/tlc2/tool/liveness/*` | 12403 | `liveness/*.rs` | Liveness (formula processing), LiveCheck/LiveWorker (SCC), TBGraph/Tableau |
 | `S/tlc2/tool/impl/SymmetryTable`, `TLCStateMut` (symmetry), `S/tlc2/tool/coverage` | | | symmetry; coverage is not needed |
+
+## TLC side (added in the /goal session)
+| Java | Rust |
+|---|---|
+| tlc2.tool.impl.Tool.getNextStates*/getInitStates*/getActions | crates/tlc-core/src/actions.rs (`enum_action`, `enum_def_call`, label splitting) |
+| tlc2.tool.impl.Tool.eval*, tlc2.value.impl.* | crates/tlc-core/src/{eval,value,natives}.rs |
+| tlc2.tool.impl.SpecProcessor (processConfigSpec/Props) | crates/tlc-core/src/spec.rs |
+| tlc2.tool.ModelChecker/Worker | crates/tlc-check/src/bfs.rs |
+| tlc2.value.impl.MVPerms + TLCStateMut.fingerPrint | crates/tlc-core/src/symmetry.rs (exact search + signature canonical form) |
+| tlc2.pprint.* (Values.ppr) | crates/tlc-core/src/pprint.rs |
+| tlc2.module.{Bags,TLC,...}, tlc2.overrides.* | crates/tlc-core/src/natives.rs |
