@@ -140,3 +140,9 @@
   no IOUtils/Json/SVG, no operator-valued parameters) and builds sets/functions (SUBSET, {x \in S : P}, {e : x \in S}, [S -> T]).
   Skipped inside INSTANCE substitutions. 20000 entries per operator, the table is cleared when full.
 - MCQuicksort: 5.9 s -> 0.5 s (`PermsOf(seq0)` was recomputed for every state).
+
+## \A chain must restore the whole frame (PaxosCommit generated-count bug)
+- `forall_chain` runs the same `body` node once per instance of an action-level `\A`; the instances share the body's frame slots
+  (operator parameters, `\E` witnesses). The frame `[base, end)` is saved when `body` yields and restored after the next instance
+  returns, so the remaining alternatives of the earlier instance see their own values (Java: immutable `Context`s).
+- Reproduction: `\A rm \in RM : Decided(rm)` with `Decided(rm) == \E MS \in Majority : ...` (more than one witness per rm).

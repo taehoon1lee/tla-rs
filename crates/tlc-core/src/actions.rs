@@ -635,7 +635,8 @@ to argument {}, which is not in the domain of the function.",
                 if ctxs.is_empty() {
                     return k();
                 }
-                self.forall_chain(&ctxs, 0, body, mode, s0, buf, k)
+                let end = self.stack.borrow().len();
+                self.forall_chain(&ctxs, 0, body, mode, s0, buf, end, k)
             }
             Node::Bi(B::Enabled, _) | Node::Not(_) | Node::Equiv(..) | Node::Forall(..) | Node::Neq(..) | Node::NotIn(..) => {
                 if self.guard(ex, mode, s0, buf)?.as_bool()? {
@@ -658,7 +659,10 @@ to argument {}, which is not in the domain of the function.",
         }
     }
 
-    fn forall_chain(&self, ctxs: &[Vec<(u32, Slot)>], i: usize, body: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+    /// `\A` chain (Java: the remaining instances are pushed on the `ActionItemList`): every instance runs the same `body`
+    /// node, hence the same frame slots (operator parameters, `\E` witnesses, ...).  The frame `[base, end)` as `body` left
+    /// it when it yielded is restored after the next instance returns, for the remaining alternatives of `body`.
+    fn forall_chain(&self, ctxs: &[Vec<(u32, Slot)>], i: usize, body: &Ex, mode: Mode, s0: &[Value], buf: &Buf, end: usize, k: &mut Cont) -> R<()> {
         for (slot, s) in &ctxs[i] {
             self.set_slot(*slot, s.clone());
         }
@@ -666,8 +670,18 @@ to argument {}, which is not in the domain of the function.",
             return self.enum_action(body, mode, s0, buf, k);
         }
         self.enum_action(body, mode, s0, buf, &mut || {
-            let r = self.forall_chain(ctxs, i + 1, body, mode, s0, buf, k);
-            // the next context reused the bound slots: restore this context for the remaining alternatives of `body`
+            let base = self.base.get();
+            let snap: Vec<Slot> = {
+                let st = self.stack.borrow();
+                st[base..end.min(st.len())].to_vec()
+            };
+            let r = self.forall_chain(ctxs, i + 1, body, mode, s0, buf, end, k);
+            {
+                let mut st = self.stack.borrow_mut();
+                for (j, s) in snap.into_iter().enumerate() {
+                    st[base + j] = s;
+                }
+            }
             for (slot, s) in &ctxs[i] {
                 self.set_slot(*slot, s.clone());
             }
