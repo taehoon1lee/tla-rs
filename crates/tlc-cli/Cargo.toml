@@ -12,3 +12,7 @@ path = "src/main.rs"
 tla-sany = { workspace = true }
 tlc-core = { workspace = true }
 tlc-check = { workspace = true }
+
+[features]
+# sampling profiler (diagnostics only, see src/sprof.rs)
+sprof = []

@@ -73,3 +73,14 @@
 - Successors outside the model (CONSTRAINT false) are NOT stored, but TLC still checks their invariants (`unseen` stays true).
 - State-level nullary definitions are cached per (state pointer, `Ev::epoch`); the epoch must be bumped whenever a state buffer
   is mutated or a new evaluation starts (`run_top`, `assign_and_continue`, BFS expansion).
+
+## Performance tooling / findings (2026-11-22, /goal session 2)
+- Profiler: `tools/README.md` (sampling profiler `sprof` feature + COFF/DWARF symbolizer; no nm/addr2line/gdb on this box).
+  Build into `target-prof` so the normal `target/` build (used by the gate) is never replaced during a gate run.
+- `std::thread_local!` on windows-gnu costs ~10 ns per access (lock-prefixed guard `enable()` on every access): the global
+  allocator reads its per-thread state straight from the TEB TLS slot (`gs:[0x1480+8*idx]`) -> alloc+free 16 ns -> 3.6 ns.
+  Do not put `thread_local!` on hot paths.
+- `eval_inner` has a ~1 KB stack frame and an 8-register prologue: `Ev::eval` handles `Const`/`Var`/`Local(V)` inline.
+- Assumption error locations (2104/2105) are the location of the assumption EXPRESSION, not of `ASSUME Name ==`.
+- Remaining perf ideas: frames are copied for every closure/by-name argument/function constructor capture (`capture`,
+  `eval_arg`, `run_captured_in`); capture only the slots the code reads (free-variable analysis at compile time).

@@ -653,6 +653,23 @@ impl Ev {
                 return r;
             }
         }
+        // leaves are handled inline: `eval_inner` has a large stack frame and a long prologue
+        match &**e {
+            Node::Const(v) => return Ok(v.clone()),
+            Node::Var(i) => {
+                if let Some(v) = s0.get(*i as usize) {
+                    if !matches!(v, Value::Undef) {
+                        return Ok(v.clone());
+                    }
+                }
+            }
+            Node::Local(i) => {
+                if let Slot::V(v) = &self.stack.borrow()[self.base.get() + *i as usize] {
+                    return Ok(v.clone());
+                }
+            }
+            _ => {}
+        }
         self.eval_inner(e, s0, s1)
     }
 
@@ -661,10 +678,7 @@ impl Ev {
             Node::Const(v) => Ok(v.clone()),
             Node::Local(i) => {
                 let s = self.get_slot(*i);
-                match s {
-                    Slot::V(v) => Ok(v),
-                    other => self.force_slot(other, s0, s1),
-                }
+                self.force_slot(s, s0, s1)
             }
             Node::Var(i) => match &s0[*i as usize] {
                 Value::Undef => fail(format!("The variable {} is not assigned a value in the current state.", self.var_name(*i))),
@@ -730,12 +744,12 @@ impl Ev {
                 }
             }
             Node::Prime(inner) => {
-                let empty = self.empty_state();
+                let empty = self.empty();
                 self.eval(inner, s1, &empty)
             }
             Node::Unchanged(inner) => {
                 let cur = self.eval(inner, s0, s1)?;
-                let empty = self.empty_state();
+                let empty = self.empty();
                 let nxt = self.eval(inner, s1, &empty)?;
                 Ok(Value::Bool(cur.eq_val(&nxt)?))
             }
@@ -1076,7 +1090,7 @@ impl Ev {
                 let a = self.eval(act, s0, s1)?.as_bool()?;
                 let unchanged = {
                     let cur = self.eval(sub, s0, s1)?;
-                    let empty = self.empty_state();
+                    let empty = self.empty();
                     let nxt = self.eval(sub, s1, &empty)?;
                     cur.eq_val(&nxt)?
                 };

@@ -8,6 +8,8 @@
 //! This file is infrastructure: keep the protocol stable. Put semantics in the library crates.
 
 mod alloc;
+#[cfg(feature = "sprof")]
+mod sprof;
 
 #[global_allocator]
 static GLOBAL: alloc::FastAlloc = alloc::FastAlloc;
@@ -73,6 +75,17 @@ fn parse_tlc_args(args: &[String]) -> TlcOptions {
 }
 
 fn run(args: Vec<String>) -> i32 {
+    #[cfg(feature = "sprof")]
+    let sampler = sprof::start();
+    let rc = run_inner(args);
+    #[cfg(feature = "sprof")]
+    if let Some(s) = sampler {
+        s.finish();
+    }
+    rc
+}
+
+fn run_inner(args: Vec<String>) -> i32 {
     let mut libs = Vec::new();
     let mut i = 0;
     while i < args.len() && args[i] == "--lib" {

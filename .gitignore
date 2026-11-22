@@ -10,3 +10,4 @@
 /harness/*.log
 __pycache__/
 *.pyc
+/target-prof

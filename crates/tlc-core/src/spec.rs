@@ -446,8 +446,10 @@ is not defined in the specification.", name),
     let assumes: Vec<Rc<sem::AssumeNode>> = root.assumes.borrow().clone();
     for a in assumes {
         let (ex, n) = setup.comp.compile_top(&a.expr);
-        let desc = format!("line {}, col {} to line {}, col {} of module {}", a.loc.bl, a.loc.bc, a.loc.el, a.loc.ec, a.module);
-        setup.assumes.push((Top { name: desc.clone(), ex, nslots: n, loc: a.loc, module: a.module.to_string() }, desc));
+        // Java: `assumps[i].toString()` is the location of the assumption EXPRESSION (without `ASSUME [Name ==]`).
+        let l = a.expr.loc;
+        let desc = format!("line {}, col {} to line {}, col {} of module {}", l.bl, l.bc, l.el, l.ec, a.module);
+        setup.assumes.push((Top { name: desc.clone(), ex, nslots: n, loc: l, module: a.module.to_string() }, desc));
     }
     // constant operators: resolve the definitions given by `<-` for constant parameters with arguments
     for (id, def) in setup.comp.const_ops.clone() {

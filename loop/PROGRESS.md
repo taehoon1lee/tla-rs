@@ -17,3 +17,8 @@ classification (`[]P` invariants, implied init/action), TLC pretty printer (`ppr
 community natives (Functions, FiniteSetsExt fold/quantify, IOUtils env, Graphs/UndirectedGraphs), recursive LET ops,
 INSTANCE substitution fixes, perf (Arith nodes, fast allocator in tlc-cli, Fcn dom sharing, no per-call allocs).
 open: liveness (43 tt/ models + 3 ex/), CCT/ALIAS/POSTCONDITION, perf of heavy models (Sailfish1, MultiPaxos, FastPaxos).
+
+## 2026-11-22 M9 perf pass 2 (Sonnet 5.5, /goal session 2)
+allocator TLS via TEB (alloc 16->3.6 ns), eval inline leaf fast path, ASSUME location = expression loc, tools/ profiler.
+ex/ slow models now 0.95-1.3x of Java (SlidingPuzzles 1.69->1.29, MCBakery 1.38->1.04). Corpus unchanged otherwise: verdict 258, trace 214.
+next: more perf (sparse frame capture), liveness port (M6), SpanTreeRandom RNG, ALIAS/IOExec.
