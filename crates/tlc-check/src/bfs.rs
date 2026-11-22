@@ -7,6 +7,7 @@ use tlc_core::actions::Mode;
 use tlc_core::ec;
 use tlc_core::mp::{self, Reporter};
 use tlc_core::spec::{Setup, Top};
+use tlc_core::symmetry::{self, MvPerm};
 use tlc_core::value::*;
 use tlc_core::TlcOptions;
 
@@ -63,6 +64,10 @@ struct Rec {
 
 const NONE: u32 = u32::MAX;
 
+fn java_round(x: f64) -> i64 {
+    (x + 0.5).floor() as i64
+}
+
 struct Checker<'a> {
     setup: &'a Setup,
     rep: &'a mut Reporter,
@@ -74,6 +79,8 @@ struct Checker<'a> {
     max_level: u32,
     /// per-state out-degrees (for the 2268 statistics)
     outdeg: Vec<u32>,
+    /// symmetry group (Java: `Tool.getSymmetryPerms`); empty when there is no SYMMETRY
+    perms: Vec<MvPerm>,
 }
 
 enum Stop {
@@ -100,6 +107,12 @@ impl<'a> Checker<'a> {
     }
 
     fn fp(&self, vals: &[Value]) -> R<u64> {
+        // Java: TLCStateMut.fingerPrint: fingerprint the lexicographically smallest image under the symmetry group
+        let canon = if self.perms.is_empty() { None } else { symmetry::canonical(vals, &self.perms)? };
+        let vals: &[Value] = match &canon {
+            Some(c) => c,
+            None => vals,
+        };
         let mut h = Hasher::new();
         if let Some(view) = &self.setup.view {
             let v = self.setup.run_top(view, vals, &self.setup.ev.empty())?;
@@ -211,17 +224,19 @@ impl<'a> Checker<'a> {
         if self.outdeg.is_empty() {
             return;
         }
-        let mut v = self.outdeg.clone();
+        // Java: FixedSizedBucketStatistics(32): samples above 31 go to the overflow bucket
+        let mut v: Vec<u32> = self.outdeg.iter().map(|&x| x.min(31)).collect();
         v.sort_unstable();
         let n = v.len();
         let sum: u64 = v.iter().map(|&x| x as u64).sum();
-        let avg = (sum as f64 / n as f64).round() as u64;
-        let p95 = v[((n as f64) * 0.95).ceil() as usize - 1usize.min(n)].max(v[(n - 1) * 95 / 100]);
+        let mean = sum as f64 / n as f64;
+        let pos = ((n as f64) * 0.95) as usize;
+        let p95 = v[pos.min(n - 1)];
         self.rep.info(
             ec::TLC_STATE_GRAPH_OUTDEGREE,
             &format!(
                 "The average outdegree of the complete state graph is {} (minimum is {}, the maximum {} and the 95th percentile is {}).",
-                avg,
+                java_round(mean),
                 v[0],
                 v[n - 1],
                 p95
@@ -246,6 +261,26 @@ impl<'a> Checker<'a> {
                     (tla_sany::intern::intern("install"), Value::str("tlc-rs")),
                 ]),
             );
+        }
+        // ---- symmetry (Java: Tool.getSymmetryPerms, called when the first state is created)
+        if let Some(top) = &setup.symmetry {
+            let r = setup.run_top(top, &ev.empty(), &ev.empty()).and_then(|v| match &v {
+                Value::Set(_) => symmetry::permutation_subgroup(&v),
+                _ => {
+                    if v.is_set_like() {
+                        symmetry::permutation_subgroup(&v)
+                    } else {
+                        fail("The symmetry operator must specify a set of functions.")
+                    }
+                }
+            });
+            match r {
+                Ok(p) => self.perms = p,
+                Err(e) => {
+                    let code = self.report_err(&e, ec::exit_status::ERROR);
+                    return Err(Stop::Exit(code));
+                }
+            }
         }
         // ---- assumptions
         for (top, desc) in &setup.assumes {
@@ -436,7 +471,7 @@ impl<'a> Checker<'a> {
                 return Err(Stop::Exit(ec::exit_status::FAILURE_SPEC_EVAL));
             }
             let nsucc = succs.len();
-            self.outdeg.push(nsucc as u32);
+            let mut unseen_count: u32 = 0;
             let mut any_in_model = false;
             if nsucc == 0 && self.opts.check_deadlock && setup.check_deadlock {
                 self.rep.error(ec::TLC_DEADLOCK_REACHED, "Deadlock reached.");
@@ -467,6 +502,7 @@ impl<'a> Checker<'a> {
                     }
                 };
                 if self.fps.insert(fp) {
+                    unseen_count += 1;
                     let level = cur_level + 1;
                     self.states.push(Rec { vals: st, parent: head as u32, label, level });
                     if level > self.max_level {
@@ -498,6 +534,7 @@ impl<'a> Checker<'a> {
                 }
             }
             let _ = any_in_model;
+            self.outdeg.push(unseen_count);
             head += 1;
         }
         self.flush_output();
@@ -516,6 +553,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         opts,
         max_level: 0,
         outdeg: Vec::new(),
+        perms: Vec::new(),
     };
     let r = ck.run();
     match r {

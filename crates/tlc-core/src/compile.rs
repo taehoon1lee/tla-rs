@@ -32,6 +32,7 @@ pub struct Compiler {
     let_depth: u32,
     /// slot of the function being defined (recursive function definitions)
     pending_self_slot: Option<u32>,
+    primed_memo: HashMap<(usize, usize), bool>,
 }
 
 struct FrameCtx {
@@ -75,6 +76,7 @@ impl Compiler {
             ctx: vec![],
             let_depth: 0,
             pending_self_slot: None,
+            primed_memo: HashMap::new(),
         }
     }
 
@@ -270,6 +272,89 @@ impl Compiler {
         let first = pslots.first().copied().unwrap_or(0);
         let _ = first;
         Rc::new(LambdaDef { nparams: params.len(), nslots: first as usize, body })
+    }
+
+    /// does `e` mention the parameter `p`?
+    fn mentions_param(e: &sem::Expr, p: &Rc<sem::Param>) -> bool {
+        match &e.kind {
+            EKind::Apply(Callee::Param(q), args) => {
+                if Rc::ptr_eq(q, p) {
+                    return true;
+                }
+                for a in args {
+                    if let SArg::Expr(x) = a {
+                        if Self::mentions_param(x, p) {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+            _ => e.children().iter().any(|c| Self::mentions_param(c, p)),
+        }
+    }
+
+    /// is some occurrence of parameter `p` primed (`p'`, `UNCHANGED p`, or passed to a primed parameter)?
+    fn primes_param(&mut self, e: &sem::Expr, p: &Rc<sem::Param>, depth: u32) -> bool {
+        if depth > 200 {
+            return false;
+        }
+        match &e.kind {
+            EKind::Bi(B::Prime, a) | EKind::Bi(B::Unchanged, a) => {
+                if Self::mentions_param(&a[0], p) {
+                    return true;
+                }
+            }
+            EKind::Apply(Callee::Def(d2), args) => {
+                for (j, a) in args.iter().enumerate() {
+                    if let SArg::Expr(x) = a {
+                        if Self::mentions_param(x, p) && self.param_primed(d2, j) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        for c in e.children() {
+            if self.primes_param(&c, p, depth + 1) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// is parameter `i` of `d` primed somewhere in the body of `d`?  (such arguments are passed by name)
+    fn param_primed(&mut self, d: &Rc<sem::OpDef>, i: usize) -> bool {
+        let key = (d.id, i);
+        if let Some(&b) = self.primed_memo.get(&key) {
+            return b;
+        }
+        self.primed_memo.insert(key, false);
+        let params = d.params.borrow().clone();
+        let r = match (params.get(i), d.body()) {
+            (Some(p), Some(b)) => {
+                let p = p.clone();
+                self.primes_param(&b, &p, 0)
+            }
+            _ => false,
+        };
+        self.primed_memo.insert(key, r);
+        r
+    }
+
+    fn args_for(&mut self, d: &Rc<sem::OpDef>, args: &[SArg]) -> Vec<Arg> {
+        let mut out = Vec::with_capacity(args.len());
+        for (i, a) in args.iter().enumerate() {
+            out.push(match a {
+                SArg::Expr(e) => {
+                    let by_name = e.level >= sem::Level::Action || (e.level >= sem::Level::State && self.param_primed(d, i));
+                    Arg::Val(self.expr(e), by_name)
+                }
+                SArg::Op(oa) => Arg::Op(self.opref(oa)),
+            });
+        }
+        out
     }
 
     fn args_of(&mut self, args: &[SArg]) -> Vec<Arg> {
@@ -562,7 +647,7 @@ impl Compiler {
                     // constant operator with arguments
                     if let Some(def) = self.const_ops.get(&d.id).cloned() {
                         let cd = self.compile_def(&def);
-                        let a = self.args_of(args);
+                        let a = self.args_for(&def, args);
                         return Rc::new(Node::Call(cd, a, loc));
                     }
                     let a = self.args_of(args);
@@ -574,7 +659,7 @@ impl Compiler {
                     return self.inline_let(d, args);
                 }
                 let cd = self.compile_def(d);
-                let a = self.args_of(args);
+                let a = self.args_for(d, args);
                 Rc::new(Node::Call(cd, a, loc))
             }
         }
@@ -616,7 +701,7 @@ impl Compiler {
             return b;
         }
         // fresh slots for the parameters at this call site
-        let compiled_args = self.args_of(args);
+        let compiled_args = self.args_for(d, args);
         let mut saved: Vec<(usize, Option<u32>)> = vec![];
         let mut assigns = vec![];
         for (p, a) in params.iter().zip(compiled_args.into_iter()) {

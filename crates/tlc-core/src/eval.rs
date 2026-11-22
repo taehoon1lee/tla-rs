@@ -552,7 +552,13 @@ impl Ev {
                 if !base.is_set_like() {
                     return fail(format!("Attempted to construct a set of the form {{x \\in S : P}} where S is not a set:\n{}", base.to_tla()));
                 }
-                if base.is_finite() {
+                // Java: SetPredValue is always lazy; small materialized bases are filtered eagerly (cheaper than a capture)
+                let small = match &base {
+                    Value::Set(v) => v.len() <= 64,
+                    Value::Interval(lo, hi) => hi.saturating_sub(*lo) < 64,
+                    _ => false,
+                };
+                if small {
                     let elems = base.enumerate()?;
                     let mut out = Vec::new();
                     for el in elems.iter() {
