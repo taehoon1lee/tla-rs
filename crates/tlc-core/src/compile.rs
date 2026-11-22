@@ -116,6 +116,7 @@ impl Compiler {
             is_fcn: d.is_fcn_def.get(),
             src: d.clone(),
             label_cache: std::cell::OnceCell::new(),
+            label_base: std::cell::OnceCell::new(),
         });
         self.defs.insert(d.id, cd.clone());
         if let Some(v) = self.def_values.get(&d.id).or_else(|| self.def_values.get(&orig_id)).cloned() {
@@ -594,6 +595,7 @@ impl Compiler {
                 let mut v = vec![];
                 for s in subs.iter() {
                     let a = match &s.value {
+                        SArg::Expr(e) if e.level == sem::Level::State => Arg::State(self.expr(e)),
                         SArg::Expr(e) => Arg::Val(self.expr(e), e.level >= sem::Level::State),
                         other => self.arg(other),
                     };

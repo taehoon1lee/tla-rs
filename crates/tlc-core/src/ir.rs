@@ -28,6 +28,17 @@ pub struct LazyArg {
     pub code: Ex,
     pub frame: Rc<Vec<Slot>>,
     pub substs: Rc<Vec<SubstEntry>>,
+    /// a state-level expression (no primes): its value can be cached per (state, evaluation epoch)
+    pub cacheable: bool,
+    pub cache: RefCell<Vec<LazyCache>>,
+}
+
+/// Java: `LazyValue.Cache`: the value computed for one state and evaluation
+pub struct LazyCache {
+    pub s0_ptr: usize,
+    pub s0_len: usize,
+    pub epoch: u64,
+    pub val: Value,
 }
 
 #[derive(Clone)]
@@ -72,6 +83,8 @@ pub struct CompiledDef {
     pub src: Rc<sem::OpDef>,
     /// `<Name line .., col .. to line .., col .. of module M>` (computed on first use)
     pub label_cache: std::cell::OnceCell<Option<Rc<str>>>,
+    /// label base (name without parameters) shared by every call of this definition without arguments
+    pub label_base: std::cell::OnceCell<Rc<crate::eval::LabelBase>>,
 }
 
 pub enum OpRef {
@@ -85,6 +98,8 @@ pub enum OpRef {
 pub enum Arg {
     /// expression argument; `true` = evaluated by name when used (action-level expressions)
     Val(Ex, bool),
+    /// call-by-name, state-level (INSTANCE substitutions): evaluated lazily and cached like Java's LazyValue
+    State(Ex),
     Op(OpRef),
 }
 

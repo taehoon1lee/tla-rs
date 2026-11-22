@@ -9,7 +9,7 @@ use crate::ir::*;
 use crate::natives;
 use crate::value::*;
 use std::cell::Cell;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 use tla_sany::analyze::SemSpec;
 use tla_sany::sem::{self, Callee, EKind, B};
@@ -45,6 +45,9 @@ pub struct Setup {
     pub assumes: Vec<(Top, String)>,
     pub view: Option<Top>,
     pub symmetry: Option<Top>,
+    /// the SYMMETRY definition and the configuration's `Spec <- Replacement` names (for warning 2300)
+    pub symmetry_def: Option<Rc<sem::OpDef>>,
+    pub override_rev: HashMap<String, String>,
     pub check_deadlock: bool,
     /// temporal formulas to be checked (PROPERTY) and fairness of the spec (liveness)
     /// temporal properties (checked by the liveness checker)
@@ -73,6 +76,7 @@ fn lookup_def(root: &Rc<sem::ModuleNode>, name: &str) -> Option<Rc<sem::OpDef>> 
 
 impl Setup {
     pub fn run_top(&self, t: &Top, s0: &[Value], s1: &[Value]) -> R<Value> {
+        self.ev.epoch.set(self.ev.epoch.get() + 1);
         self.ev.with_frame(t.nslots.get(), |ev| ev.eval(&t.ex, s0, s1))
     }
 }
@@ -226,6 +230,8 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         assumes: vec![],
         view: None,
         symmetry: None,
+        symmetry_def: None,
+        override_rev: cfg.overrides.iter().map(|(l, r)| (r.clone(), l.clone())).collect(),
         check_deadlock: cfg.check_deadlock.unwrap_or(true),
         properties: vec![],
         implied_inits: vec![],
@@ -387,6 +393,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         if let Some(def) = lookup_def(&root, &cfg.symmetry) {
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
+            setup.symmetry_def = Some(def.clone());
             setup.symmetry = Some(Top { name: cfg.symmetry.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string() });
         } else {
             return serr(
@@ -427,7 +434,7 @@ is not defined in the specification.", name),
         ev.const_ops.borrow_mut().insert(id, cd);
     }
     // source info for action labels
-    *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info);
+    *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info).into_iter().collect();
     Ok(setup)
 }
 
@@ -465,7 +472,9 @@ fn classify_property(
         }
         EKind::Conj(items) | EKind::Bi(B::And, items) => {
             for x in items {
-                classify_property(setup, name, x, owner, wraps, depth + 1)?;
+                // Java: `conj.toString()` is the source location of the conjunct
+                let nm = format!("line {}, col {} to line {}, col {} of module {}", x.loc.bl, x.loc.bc, x.loc.el, x.loc.ec, owner.original().module);
+                classify_property(setup, &nm, x, owner, wraps, depth + 1)?;
             }
             return Ok(());
         }
@@ -580,5 +589,76 @@ fn analyze_rec(
                 temporals.push(wrap_all(e, wraps));
             }
         }
+    }
+}
+
+/// short source image of a simple expression (`Foo`, `Permutations(Foo)`), as `getHumanReadableImage` would print it
+fn expr_image(e: &sem::Expr) -> String {
+    match &e.kind {
+        EKind::Apply(Callee::Def(d), args) if args.is_empty() => d.name.to_string(),
+        EKind::Apply(Callee::Decl(d), args) if args.is_empty() => d.name.to_string(),
+        EKind::Apply(Callee::Def(d), args) => {
+            let a: Vec<String> = args
+                .iter()
+                .map(|x| match x {
+                    sem::Arg::Expr(x) => expr_image(x),
+                    _ => "_".to_string(),
+                })
+                .collect();
+            format!("{}({})", d.name, a.join(", "))
+        }
+        _ => format!("line {}, col {}", e.loc.bl, e.loc.bc),
+    }
+}
+
+impl Setup {
+    /// Java: `Tool.getSymmetryPerms` warning (EC.TLC_SYMMETRY_SET_TOO_SMALL): symmetry sets with fewer than two elements
+    pub fn symmetry_warning(&self, nfuncs: usize, members: &HashSet<u32>) -> R<Option<String>> {
+        let def = match &self.symmetry_def {
+            Some(d) => d,
+            None => return Ok(None),
+        };
+        let body = match def.body() {
+            Some(b) => b,
+            None => return Ok(None),
+        };
+        let argnodes: Vec<sem::Expr> = match &body.kind {
+            EKind::Bi(_, args) => args.clone(),
+            EKind::Apply(_, args) => args
+                .iter()
+                .filter_map(|a| match a {
+                    sem::Arg::Expr(x) => Some(x.clone()),
+                    _ => None,
+                })
+                .collect(),
+            _ => vec![],
+        };
+        let mut offenders: Vec<String> = vec![];
+        let name_of = |node: &sem::Expr| -> String {
+            let image = expr_image(node);
+            let alias = match image.strip_prefix("Permutations(") {
+                Some(r) => r.trim_end_matches(')').to_string(),
+                None => image.clone(),
+            };
+            self.override_rev.get(&alias).cloned().unwrap_or(alias)
+        };
+        if argnodes.len() >= nfuncs {
+            for n in &argnodes {
+                offenders.push(name_of(n));
+            }
+        }
+        let _ = members;
+        if offenders.is_empty() {
+            return Ok(None);
+        }
+        let k = offenders.len();
+        let (pl, have, anti) = if k > 1 { ("s", "have", "") } else { ("", "has", "s") };
+        Ok(Some(format!(
+            "The set{} {} {} been defined to be a symmetry set but contain{} less than two elements.",
+            pl,
+            offenders.join(", and "),
+            have,
+            anti
+        )))
     }
 }

@@ -49,6 +49,10 @@ impl Reporter {
         self.message(code, class::ERROR, text);
     }
 
+    pub fn warning(&mut self, code: i32, text: &str) {
+        self.message(code, class::WARNING, text);
+    }
+
     pub fn info(&mut self, code: i32, text: &str) {
         self.message(code, class::NONE, text);
     }

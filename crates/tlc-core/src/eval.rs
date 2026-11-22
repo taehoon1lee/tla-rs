@@ -66,11 +66,16 @@ pub struct Captured {
 }
 
 /// Java: `Action.getLocation`: the name, parameter values and source position of the action a state came from
+#[derive(Clone)]
 pub struct LabelSpec {
-    pub name: sem::Name,
-    pub params: Vec<Value>,
+    pub base: Rc<LabelBase>,
     /// address of the `Node` the action was split down to (its location is printed)
     pub stop: usize,
+}
+
+pub struct LabelBase {
+    pub name: sem::Name,
+    pub params: Vec<Value>,
 }
 
 /// Java: FcnLambdaValue.body / params / context, kept so `getNextStates` can expand a function application
@@ -83,9 +88,46 @@ pub struct LamIr {
     pub me: Rc<RefCell<Option<Value>>>,
 }
 
+/// The evaluation stack of local slots. A plain `UnsafeCell` instead of a `RefCell`: the borrow flag checks showed up in
+/// profiles and every access is short-lived (no reference is kept across a call into the evaluator).
+/// multiplicative hash for pointer-sized keys (the default SipHash dominated the label lookups)
+#[derive(Default)]
+pub struct PtrHasher(u64);
+
+impl std::hash::Hasher for PtrHasher {
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.0 = (self.0.rotate_left(8) ^ *b as u64).wrapping_mul(0x9E3779B97F4A7C15);
+        }
+    }
+    fn write_usize(&mut self, i: usize) {
+        self.0 = (i as u64).wrapping_mul(0x9E3779B97F4A7C15);
+    }
+}
+
+pub struct Stack(std::cell::UnsafeCell<Vec<Slot>>);
+
+impl Stack {
+    pub fn new(v: Vec<Slot>) -> Stack {
+        Stack(std::cell::UnsafeCell::new(v))
+    }
+    #[inline(always)]
+    pub fn borrow(&self) -> &Vec<Slot> {
+        unsafe { &*self.0.get() }
+    }
+    #[allow(clippy::mut_from_ref)]
+    #[inline(always)]
+    pub fn borrow_mut(&self) -> &mut Vec<Slot> {
+        unsafe { &mut *self.0.get() }
+    }
+}
+
 pub struct Ev {
     me: Weak<Ev>,
-    pub stack: RefCell<Vec<Slot>>,
+    pub stack: Stack,
     pub base: Cell<usize>,
     pub substs: RefCell<Vec<SubstEntry>>,
     pub consts: RefCell<HashMap<usize, Value>>,
@@ -101,15 +143,17 @@ pub struct Ev {
     pub stats: RefCell<HashMap<String, Value>>,
     pub empty_cache: RefCell<Rc<Vec<Value>>>,
     /// label of the action being enumerated (`<Name line .. of module M>`)
-    pub cur_label: RefCell<Option<Rc<LabelSpec>>>,
+    pub cur_label: RefCell<Option<LabelSpec>>,
     /// source info for action labels (filled when the specification is compiled)
-    pub node_info: RefCell<HashMap<usize, NodeInfo>>,
+    pub node_info: RefCell<HashMap<usize, NodeInfo, std::hash::BuildHasherDefault<PtrHasher>>>,
     /// true while the enumerator may still split disjunctions into named actions
     pub splitting: Cell<bool>,
     /// memo for `Ev::action_simple`: (node address, mode) -> may the action enumerator produce at most one continuation
     pub simple_memo: RefCell<HashMap<(usize, bool), bool>>,
     /// Java: Tool.getNextStatesAllAssigned: once every variable is assigned the remaining conjuncts are only evaluated
     pub eval_only: Cell<bool>,
+    /// bumped whenever the state data a cached lazy value may depend on changes (see `LazyArg::cache`)
+    pub epoch: Cell<u64>,
     pub no_frame: Rc<Vec<Slot>>,
     pub no_substs: Rc<Vec<SubstEntry>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
@@ -126,7 +170,7 @@ impl Ev {
     pub fn new(nvars: usize) -> Rc<Ev> {
         Rc::new_cyclic(|me| Ev {
             me: me.clone(),
-            stack: RefCell::new(Vec::with_capacity(4096)),
+            stack: Stack::new(Vec::with_capacity(4096)),
             base: Cell::new(0),
             substs: RefCell::new(vec![]),
             consts: RefCell::new(HashMap::new()),
@@ -140,10 +184,11 @@ impl Ev {
             stats: RefCell::new(HashMap::new()),
             empty_cache: RefCell::new(Rc::new(vec![Value::Undef; nvars])),
             cur_label: RefCell::new(None),
-            node_info: RefCell::new(HashMap::new()),
+            node_info: RefCell::new(HashMap::default()),
             splitting: Cell::new(false),
             simple_memo: RefCell::new(HashMap::new()),
             eval_only: Cell::new(false),
+            epoch: Cell::new(1),
             no_frame: Rc::new(Vec::new()),
             no_substs: Rc::new(Vec::new()),
             warn: Cell::new(true),
@@ -247,18 +292,26 @@ impl Ev {
 
     fn eval_arg(&self, a: &Arg, s0: &[Value], s1: &[Value]) -> R<Slot> {
         match a {
+            Arg::State(e) => {
+                let frame = {
+                    let st = self.stack.borrow();
+                    Rc::new(st[self.base.get()..].to_vec())
+                };
+                let substs = Rc::new(self.substs.borrow().clone());
+                Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame, substs, cacheable: true, cache: RefCell::new(Vec::new()) })))
+            }
             Arg::Val(e, by_name) => {
                 if *by_name {
                     if matches!(&**e, Node::Var(_) | Node::PrimedVar(_)) {
                         // a plain state variable does not depend on the frame or on substitutions
-                        return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs: self.no_substs.clone() })));
+                        return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs: self.no_substs.clone(), cacheable: false, cache: RefCell::new(Vec::new()) })));
                     }
                     let frame = {
                         let st = self.stack.borrow();
                         Rc::new(st[self.base.get()..].to_vec())
                     };
                     let substs = Rc::new(self.substs.borrow().clone());
-                    return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame, substs })));
+                    return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame, substs, cacheable: false, cache: RefCell::new(Vec::new()) })));
                 }
                 match self.eval(e, s0, s1) {
                     Ok(v) => Ok(Slot::V(v)),
@@ -328,6 +381,19 @@ impl Ev {
                     _ => {}
                 }
                 let cap = Captured { frame: l.frame.clone(), substs: l.substs.clone(), s0: Rc::new(vec![]), s1: Rc::new(vec![]) };
+                if l.cacheable {
+                    let (p, n, ep) = (s0.as_ptr() as usize, s0.len(), self.epoch.get());
+                    if let Some(c) = l.cache.borrow().iter().find(|c| c.s0_ptr == p && c.s0_len == n && c.epoch == ep) {
+                        return Ok(c.val.clone());
+                    }
+                    let v = self.run_captured_in(&cap, &[], &l.code, s0, s1)?;
+                    let mut cc = l.cache.borrow_mut();
+                    if cc.len() >= 2 {
+                        cc.remove(0);
+                    }
+                    cc.push(LazyCache { s0_ptr: p, s0_len: n, epoch: ep, val: v.clone() });
+                    return Ok(v);
+                }
                 self.run_captured_in(&cap, &[], &l.code, s0, s1)
             }
             Slot::Op(_) => fail("An operator was used where a value was expected."),
@@ -337,14 +403,15 @@ impl Ev {
 
     /// `<Name(p1,p2) line L, col C to line L2, col C2 of module M>`
     pub fn format_label(&self, l: &LabelSpec) -> String {
-        let params = if l.params.is_empty() {
+        let params = if l.base.params.is_empty() {
             String::new()
         } else {
-            format!("({})", l.params.iter().map(|v| v.to_tla()).collect::<Vec<_>>().join(","))
+            format!("({})", l.base.params.iter().map(|v| v.to_tla()).collect::<Vec<_>>().join(","))
         };
+        let name = &l.base.name;
         match self.node_info.borrow().get(&l.stop) {
-            Some(i) => format!("<{}{} line {}, col {} to line {}, col {} of module {}>", l.name, params, i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module),
-            None => format!("<{}{}>", l.name, params),
+            Some(i) => format!("<{}{} line {}, col {} to line {}, col {} of module {}>", name, params, i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module),
+            None => format!("<{}{}>", name, params),
         }
     }
 

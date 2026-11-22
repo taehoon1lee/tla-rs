@@ -59,7 +59,7 @@ impl FpSet {
 struct Rec {
     vals: Vec<Value>,
     parent: u32,
-    label: Option<Rc<LabelSpec>>,
+    label: Option<LabelSpec>,
     level: u32,
 }
 
@@ -266,7 +266,7 @@ impl<'a> Checker<'a> {
     }
 
     /// the behavior leading to `parent`, followed by the state `vals` reached by `label`
-    fn print_trace_ext(&mut self, parent: u32, vals: &[Value], label: &Option<Rc<LabelSpec>>) {
+    fn print_trace_ext(&mut self, parent: u32, vals: &[Value], label: &Option<LabelSpec>) {
         let mut chain = vec![];
         let mut i = parent;
         while i != NONE {
@@ -356,22 +356,29 @@ impl<'a> Checker<'a> {
         }
         // ---- symmetry (Java: Tool.getSymmetryPerms, called when the first state is created)
         if let Some(top) = &setup.symmetry {
-            let r = setup.run_top(top, &ev.empty(), &ev.empty()).and_then(|v| match &v {
-                Value::Set(_) => symmetry::permutation_subgroup(&v),
-                _ => {
-                    if v.is_set_like() {
-                        symmetry::permutation_subgroup(&v)
-                    } else {
-                        fail("The symmetry operator must specify a set of functions.")
-                    }
+            let r = setup.run_top(top, &ev.empty(), &ev.empty()).and_then(|v| {
+                if v.is_set_like() {
+                    let nf = v.enumerate()?.len();
+                    symmetry::permutation_subgroup_members(&v).map(|(p, m)| (p, m, nf))
+                } else {
+                    fail("The symmetry operator must specify a set of functions.")
                 }
             });
             match r {
-                Ok(p) => self.perms = p,
+                Ok((p, members, nf)) => {
+                    if let Ok(Some(w)) = setup.symmetry_warning(nf, &members) {
+                        self.rep.warning(ec::TLC_SYMMETRY_SET_TOO_SMALL, &w);
+                    }
+                    self.perms = p;
+                }
                 Err(e) => {
                     let code = self.report_err(&e, ec::exit_status::ERROR);
                     return Err(Stop::Exit(code));
                 }
+            }
+            // Java: AbstractChecker: symmetry together with temporal properties is dangerous
+            if !setup.properties.is_empty() {
+                self.rep.warning(ec::TLC_FEATURE_UNSUPPORTED_LIVENESS_SYMMETRY, "Declaring symmetry during liveness checking is dangerous. It might cause TLC to miss violations of the stated liveness properties. Please check liveness without symmetry defined.");
             }
         }
         // ---- assumptions
@@ -530,14 +537,14 @@ impl<'a> Checker<'a> {
         while head < self.states.len() {
             let cur = self.states[head].vals.clone();
             let cur_level = self.states[head].level;
-            let mut succs: Vec<(Vec<Value>, Option<Rc<LabelSpec>>)> = vec![];
+            let mut succs: Vec<(Vec<Value>, Option<LabelSpec>)> = vec![];
             let mut incomplete: Option<Vec<Value>> = None;
             prof_phase_on("enum");
             let t_enum = prof_now();
             if let Some(nx) = next {
                 let buf = RefCell::new(vec![Value::Undef; nvars]);
-                *ev.cur_label.borrow_mut() = Some(Rc::new(LabelSpec { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], stop: Rc::as_ptr(&nx.ex) as usize }));
-                ev.splitting.set(true);
+                *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+                ev.splitting.set(std::env::var("TLCRS_NOSPLIT").is_err());
                 let r = ev.with_frame(nx.nslots.get(), |ev| {
                     ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
                         let st = buf.borrow().clone();

@@ -107,6 +107,7 @@ impl Ev {
         let cur = buf.borrow()[i as usize].clone();
         match cur {
             Value::Undef => {
+                self.epoch.set(self.epoch.get() + 1);
                 buf.borrow_mut()[i as usize] = v.normalize()?;
                 let was = self.eval_only.get();
                 if !was && (mode == Mode::Init || self.warn.get()) && buf.borrow().iter().all(|x| !matches!(x, Value::Undef)) {
@@ -115,6 +116,7 @@ impl Ev {
                 }
                 let r = k();
                 self.eval_only.set(was);
+                self.epoch.set(self.epoch.get() + 1);
                 buf.borrow_mut()[i as usize] = Value::Undef;
                 r
             }
@@ -160,15 +162,12 @@ impl Ev {
 
     fn set_stop(&self, ex: &Ex, name: Option<tla_sany::sem::Name>) {
         let mut cl = self.cur_label.borrow_mut();
-        let (n, p) = match &*cl {
-            Some(l) => (l.name.clone(), l.params.clone()),
-            None => return,
-        };
-        let (n, p) = match name {
-            Some(nm) => (nm, vec![]),
-            None => (n, p),
-        };
-        *cl = Some(Rc::new(LabelSpec { name: n, params: p, stop: Rc::as_ptr(ex) as usize }));
+        if let Some(l) = cl.as_mut() {
+            l.stop = Rc::as_ptr(ex) as usize;
+            if let Some(nm) = name {
+                l.base = Rc::new(LabelBase { name: nm, params: vec![] });
+            }
+        }
     }
 
     fn enum_action_inner(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
@@ -751,9 +750,14 @@ to argument {}, which is not in the domain of the function.",
         }
         let body = d.body.borrow().as_ref().unwrap().clone();
         let saved_label = if self.splitting.get() && mode == Mode::Next {
-            let params: Vec<Value> = slots.iter().filter_map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
+            let base = if slots.is_empty() {
+                d.label_base.get_or_init(|| Rc::new(LabelBase { name: d.name.clone(), params: vec![] })).clone()
+            } else {
+                let params: Vec<Value> = slots.iter().filter_map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
+                Rc::new(LabelBase { name: d.name.clone(), params })
+            };
             let stop = Rc::as_ptr(&body) as usize;
-            Some(self.cur_label.replace(Some(Rc::new(LabelSpec { name: d.name.clone(), params, stop }))))
+            Some(self.cur_label.replace(Some(LabelSpec { base, stop })))
         } else {
             None
         };

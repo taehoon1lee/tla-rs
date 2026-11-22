@@ -867,6 +867,178 @@ fn ugraphs_connected_components(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[
 }
 
 
+// ------------------------------------------------------------------ Bags (tlc2.module.Bags)
+
+fn bag_parts(b: &Value) -> R<Option<(Vec<Value>, Vec<Value>)>> {
+    if !b.is_fcn_like() {
+        return Ok(None);
+    }
+    Ok(b.force_fcn()?.fcn_parts())
+}
+
+fn bags_empty(_: &Ev, _: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Value> {
+    Ok(Value::tuple(vec![]))
+}
+
+fn is_a_bag_val(b: &Value) -> R<bool> {
+    match bag_parts(b)? {
+        None => Ok(false),
+        Some((_, vals)) => Ok(vals.iter().all(|v| matches!(v, Value::Int(n) if *n > 0))),
+    }
+}
+
+fn bags_is_a_bag(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let b = arg(ev, a, 0, s0, s1)?;
+    Ok(Value::Bool(is_a_bag_val(&b)?))
+}
+
+fn bag_apply_err<T>(op: &str, what: &str, v: &Value) -> R<T> {
+    fail_code(
+        ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE,
+        format!("Applying {} to {}, but instead it is:\n{}", op, what, crate::pprint::ppr(&v.to_tla())),
+    )
+}
+
+fn bags_cardinality(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let b = arg(ev, a, 0, s0, s1)?;
+    let (_, vals) = match bag_parts(&b)? {
+        Some(p) => p,
+        None => return bag_apply_err("BagCardinality", "a function with a finite domain", &b),
+    };
+    let mut num: i32 = 0;
+    for v in vals.iter() {
+        match v {
+            Value::Int(c) if *c > 0 => {
+                num = match num.checked_add(*c) {
+                    Some(n) => n,
+                    None => return fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}+{}", num, c)),
+                }
+            }
+            _ => return bag_apply_err("BagCardinality", "a bag", &b),
+        }
+    }
+    Ok(Value::Int(num))
+}
+
+fn bags_in(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let e = arg(ev, a, 0, s0, s1)?;
+    let b = arg(ev, a, 1, s0, s1)?;
+    let (dom, vals) = match bag_parts(&b)? {
+        Some(p) => p,
+        None => return module_arg_err("second", "BagIn", "bag", &b),
+    };
+    for (d, v) in dom.iter().zip(vals.iter()) {
+        if e.eq_val(d)? {
+            return match v {
+                Value::Int(n) => Ok(Value::Bool(*n > 0)),
+                _ => module_arg_err("second", "BagIn", "bag", &b),
+            };
+        }
+    }
+    Ok(Value::Bool(false))
+}
+
+fn bags_copies_in(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let e = arg(ev, a, 0, s0, s1)?;
+    let b = arg(ev, a, 1, s0, s1)?;
+    let (dom, vals) = match bag_parts(&b)? {
+        Some(p) => p,
+        None => return module_arg_err("second", "CopiesIn", "bag", &b),
+    };
+    for (d, v) in dom.iter().zip(vals.iter()) {
+        if e.eq_val(d)? {
+            return match v {
+                Value::Int(_) => Ok(v.clone()),
+                _ => module_arg_err("second", "CopiesIn", "bag", &b),
+            };
+        }
+    }
+    Ok(Value::Int(0))
+}
+
+fn bags_cup(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let b1 = arg(ev, a, 0, s0, s1)?;
+    let b2 = arg(ev, a, 1, s0, s1)?;
+    if !is_a_bag_val(&b1)? {
+        return module_arg_err("first", "(+)", "bag", &b1);
+    }
+    if !is_a_bag_val(&b2)? {
+        return module_arg_err("second", "(+)", "bag", &b2);
+    }
+    let (d1, v1) = bag_parts(&b1)?.unwrap();
+    let (d2, v2) = bag_parts(&b2)?.unwrap();
+    let mut pairs: Vec<(Value, Value)> = d1.into_iter().zip(v1.into_iter()).collect();
+    for (d, v) in d2.into_iter().zip(v2.into_iter()) {
+        let mut found = false;
+        for p in pairs.iter_mut() {
+            if p.0.eq_val(&d)? {
+                if let (Value::Int(x), Value::Int(y)) = (&p.1, &v) {
+                    p.1 = match x.checked_add(*y) {
+                        Some(n) => Value::Int(n),
+                        None => return fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}+{}", x, y)),
+                    };
+                }
+                found = true;
+                break;
+            }
+        }
+        if !found {
+            pairs.push((d, v));
+        }
+    }
+    Value::fcn_from(pairs)
+}
+
+fn bags_diff(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let b1 = arg(ev, a, 0, s0, s1)?;
+    let b2 = arg(ev, a, 1, s0, s1)?;
+    let (d1, v1) = match bag_parts(&b1)? {
+        Some(p) => p,
+        None => return module_arg_err("first", "(-)", "bag", &b1),
+    };
+    let (d2, v2) = match bag_parts(&b2)? {
+        Some(p) => p,
+        None => return module_arg_err("second", "(-)", "bag", &b2),
+    };
+    let mut pairs: Vec<(Value, Value)> = vec![];
+    for (d, v) in d1.iter().zip(v1.iter()) {
+        let mut n = match v {
+            Value::Int(n) => *n,
+            _ => return module_arg_err("first", "(-)", "bag", &b1),
+        };
+        for (e, w) in d2.iter().zip(v2.iter()) {
+            if d.eq_val(e)? {
+                if let Value::Int(m) = w {
+                    n -= *m;
+                }
+                break;
+            }
+        }
+        if n > 0 {
+            pairs.push((d.clone(), Value::Int(n)));
+        }
+    }
+    Value::fcn_from(pairs)
+}
+
+fn bags_to_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let b = arg(ev, a, 0, s0, s1)?;
+    match bag_parts(&b)? {
+        Some((dom, _)) => Value::set_from(dom),
+        None => bag_apply_err("BagToSet", "a function with a finite domain", &b),
+    }
+}
+
+fn bags_set_to_bag(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
+    if !s.is_set_like() {
+        return bag_apply_err("SetToBag", "a finite set", &s);
+    }
+    let elems = s.enumerate()?;
+    Value::fcn_from(elems.iter().map(|e| (e.clone(), Value::Int(1))).collect())
+}
+
+
 // ---------------------------------------------------------------------------------------------- lookup
 
 pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
@@ -914,6 +1086,15 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("FiniteSetsExt", "FoldSet") => fold_set,
         ("FiniteSetsExt", "Quantify") => quantify,
         ("IOUtils", "IOEnv") => io_env,
+        ("Bags", "EmptyBag") => bags_empty,
+        ("Bags", "IsABag") => bags_is_a_bag,
+        ("Bags", "BagCardinality") => bags_cardinality,
+        ("Bags", "BagIn") => bags_in,
+        ("Bags", "CopiesIn") => bags_copies_in,
+        ("Bags", r"\oplus") => bags_cup,
+        ("Bags", r"\ominus") => bags_diff,
+        ("Bags", "BagToSet") => bags_to_set,
+        ("Bags", "SetToBag") => bags_set_to_bag,
         ("Graphs", "SimplePath") => graphs_simple_path,
         ("Graphs", "AreConnectedIn") => graphs_are_connected_in,
         ("Graphs", "IsStronglyConnected") => graphs_is_strongly_connected,
