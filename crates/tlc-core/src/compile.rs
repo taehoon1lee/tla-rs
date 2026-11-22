@@ -1,0 +1,610 @@
+//! Compiles the semantic graph (`tla_sany::sem`) to the evaluator's tree (`ir`).
+//!
+//! * every definition gets a `CompiledDef` (compiled on demand, memoized by `OpDef.id`);
+//! * LET definitions are inlined at their use sites (slots of the enclosing frame);
+//! * constants given by the configuration are folded into `Const` nodes unless an INSTANCE may substitute them.
+
+use crate::ir::*;
+use crate::value::*;
+use std::cell::{Cell, RefCell};
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
+use tla_sany::ast::Loc;
+use tla_sany::intern;
+use tla_sany::sem::{self, Arg as SArg, Callee, EKind, OpArg, B};
+
+pub struct Compiler {
+    pub defs: HashMap<usize, Rc<CompiledDef>>,
+    /// state variable index by declaration id
+    pub var_index: HashMap<usize, u32>,
+    /// values given to constants by the configuration (declaration id -> value)
+    pub const_values: HashMap<usize, Value>,
+    /// constant operators given by the configuration (declaration id -> definition)
+    pub const_ops: HashMap<usize, Rc<sem::OpDef>>,
+    /// declarations that some INSTANCE substitutes
+    pub substitutable: HashSet<usize>,
+    /// definition overrides (`CONSTANT Foo <- Bar` for definitions): sem def id -> replacement
+    pub overrides: HashMap<usize, Rc<sem::OpDef>>,
+    /// definitions replaced by a constant value (`CONSTANT Foo = v` naming an operator)
+    pub def_values: HashMap<usize, Value>,
+    pub natives: fn(&str, &str) -> Option<NativeFn>,
+    ctx: Vec<FrameCtx>,
+    let_depth: u32,
+}
+
+struct FrameCtx {
+    locals: HashMap<usize, u32>,
+    /// LET definitions in scope: def id -> definition
+    lets: HashMap<usize, Rc<sem::OpDef>>,
+    next_slot: u32,
+    max_slot: Rc<Cell<usize>>,
+    at_slots: Vec<u32>,
+}
+
+impl FrameCtx {
+    fn new() -> FrameCtx {
+        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![] }
+    }
+    fn alloc(&mut self) -> u32 {
+        let s = self.next_slot;
+        self.next_slot += 1;
+        if self.next_slot as usize > self.max_slot.get() {
+            self.max_slot.set(self.next_slot as usize);
+        }
+        s
+    }
+}
+
+fn nm(s: &str) -> sem::Name {
+    sem::Name::from(s)
+}
+
+impl Compiler {
+    pub fn new(natives: fn(&str, &str) -> Option<NativeFn>) -> Compiler {
+        Compiler {
+            defs: HashMap::new(),
+            var_index: HashMap::new(),
+            const_values: HashMap::new(),
+            const_ops: HashMap::new(),
+            substitutable: HashSet::new(),
+            overrides: HashMap::new(),
+            def_values: HashMap::new(),
+            natives,
+            ctx: vec![],
+            let_depth: 0,
+        }
+    }
+
+    // ------------------------------------------------------------------ definitions
+
+    pub fn compile_def(&mut self, d: &Rc<sem::OpDef>) -> Rc<CompiledDef> {
+        let d = match self.overrides.get(&d.id) {
+            Some(o) => o.clone(),
+            None => d.clone(),
+        };
+        if let Some(c) = self.defs.get(&d.id) {
+            return c.clone();
+        }
+        let params = d.params.borrow().clone();
+        let cd = Rc::new(CompiledDef {
+            id: d.id,
+            name: d.name.clone(),
+            module: d.module.clone(),
+            nparams: params.len(),
+            op_params: params.iter().map(|p| p.arity > 0).collect(),
+            nslots: Cell::new(params.len()),
+            body: RefCell::new(None),
+            native: Cell::new(None),
+            level: d.level.get(),
+            loc: d.loc,
+            cache: RefCell::new(None),
+            is_fcn: d.is_fcn_def.get(),
+            src: d.clone(),
+        });
+        self.defs.insert(d.id, cd.clone());
+        if let Some(v) = self.def_values.get(&d.id).cloned() {
+            *cd.body.borrow_mut() = Some(Rc::new(Node::Const(v)));
+            return cd;
+        }
+        // native implementation of a standard-module operator
+        let orig = d.original();
+        if let Some(f) = (self.natives)(&orig.module, &orig.name) {
+            cd.native.set(Some(f));
+            return cd;
+        }
+        if let Some(body) = d.body() {
+            let mut fc = FrameCtx::new();
+            for p in params.iter() {
+                let s = fc.alloc();
+                fc.locals.insert(p.id, s);
+            }
+            self.ctx.push(fc);
+            let saved = self.let_depth;
+            self.let_depth = 0;
+            let ex = self.expr(&body);
+            self.let_depth = saved;
+            let fc = self.ctx.pop().unwrap();
+            cd.nslots.set(fc.max_slot.get().max(params.len()));
+            *cd.body.borrow_mut() = Some(ex);
+        }
+        cd
+    }
+
+    /// compile a top-level expression into a standalone frame (invariants, Init, Next, constraints ...)
+    pub fn compile_top(&mut self, e: &sem::Expr) -> (Ex, Rc<Cell<usize>>) {
+        let fc = FrameCtx::new();
+        let cell = fc.max_slot.clone();
+        self.ctx.push(fc);
+        let ex = self.expr(e);
+        self.ctx.pop();
+        (ex, cell)
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    fn fc(&mut self) -> &mut FrameCtx {
+        self.ctx.last_mut().expect("frame")
+    }
+
+    fn konst(&self, v: Value) -> Ex {
+        Rc::new(Node::Const(v))
+    }
+
+    fn unsupported(&self, what: impl Into<String>) -> Ex {
+        Rc::new(Node::Unsupported(what.into()))
+    }
+
+    fn decl_ref(&self, d: &Rc<sem::OpDecl>) -> Rc<DeclRef> {
+        let vi = self.var_index.get(&d.id).copied().unwrap_or(u32::MAX);
+        Rc::new(DeclRef { id: d.id, name: d.name.clone(), is_var: d.kind == sem::DeclKind::Variable, var_index: vi, arity: d.arity })
+    }
+
+    fn bound(&mut self, g: &sem::BoundGroup) -> BoundIr {
+        // the set is compiled before the variables are bound
+        let set = self.expr(&g.set);
+        let first = self.fc().next_slot;
+        let mut slots = vec![];
+        for p in &g.params {
+            let s = self.fc().alloc();
+            self.fc().locals.insert(p.id, s);
+            slots.push(s);
+        }
+        BoundIr { slot: first, nvars: g.params.len() as u32, tuple: g.tuple, set }
+    }
+
+    fn bound_vars(&mut self, bv: &sem::BoundVars, set: Ex) -> BoundIr {
+        let first = self.fc().next_slot;
+        for p in &bv.params {
+            let s = self.fc().alloc();
+            self.fc().locals.insert(p.id, s);
+        }
+        BoundIr { slot: first, nvars: bv.params.len() as u32, tuple: bv.tuple, set }
+    }
+
+    fn arg(&mut self, a: &SArg) -> Arg {
+        match a {
+            SArg::Expr(e) => Arg::Val(self.expr(e), e.level >= sem::Level::Action),
+            SArg::Op(oa) => Arg::Op(self.opref(oa)),
+        }
+    }
+
+    fn opref(&mut self, oa: &OpArg) -> OpRef {
+        match oa {
+            OpArg::Builtin(b, _) => OpRef::Builtin(*b),
+            OpArg::Lambda(d) => OpRef::Lambda(self.lambda(d)),
+            OpArg::Callee(c, _) => match c {
+                Callee::Def(d) => {
+                    if self.fc().lets.contains_key(&d.id) {
+                        OpRef::Lambda(self.lambda(d))
+                    } else {
+                        OpRef::Def(self.compile_def(d))
+                    }
+                }
+                Callee::Param(p) => match self.fc().locals.get(&p.id) {
+                    Some(s) => OpRef::Local(*s),
+                    None => OpRef::Lambda(self.lambda_unsupported()),
+                },
+                Callee::Decl(d) => {
+                    if let Some(def) = self.const_ops.get(&d.id).cloned() {
+                        OpRef::Def(self.compile_def(&def))
+                    } else {
+                        OpRef::Decl(d.id)
+                    }
+                }
+            },
+        }
+    }
+
+    fn lambda_unsupported(&mut self) -> Rc<LambdaDef> {
+        Rc::new(LambdaDef { nparams: 0, nslots: 0, body: self.unsupported("operator argument") })
+    }
+
+    /// compile an operator definition used as a closure (LAMBDA / LET definition passed as an argument):
+    /// the body runs in a copy of the enclosing frame; its parameters get fresh slots.
+    fn lambda(&mut self, d: &Rc<sem::OpDef>) -> Rc<LambdaDef> {
+        let params = d.params.borrow().clone();
+        let mut saved: Vec<(usize, Option<u32>)> = vec![];
+        let mut pslots = vec![];
+        for p in &params {
+            let s = self.fc().alloc();
+            saved.push((p.id, self.fc().locals.insert(p.id, s)));
+            pslots.push(s);
+        }
+        let body = match d.body() {
+            Some(b) => self.expr(&b),
+            None => self.unsupported("operator without body"),
+        };
+        for (id, old) in saved {
+            match old {
+                Some(o) => {
+                    self.fc().locals.insert(id, o);
+                }
+                None => {
+                    self.fc().locals.remove(&id);
+                }
+            }
+        }
+        // slot numbers of the parameters are consecutive starting at pslots[0]
+        let first = pslots.first().copied().unwrap_or(0);
+        let _ = first;
+        Rc::new(LambdaDef { nparams: params.len(), nslots: first as usize, body })
+    }
+
+    fn args_of(&mut self, args: &[SArg]) -> Vec<Arg> {
+        args.iter().map(|a| self.arg(a)).collect()
+    }
+
+    // ------------------------------------------------------------------ expressions
+
+    pub fn expr(&mut self, e: &sem::Expr) -> Ex {
+        let loc = e.loc;
+        match &e.kind {
+            EKind::Num(t) => match parse_num(t) {
+                Some(i) => self.konst(Value::Int(i)),
+                None => Rc::new(Node::Unsupported(format!("integer literal {} out of range", t))),
+            },
+            EKind::Dec(a, b) => Rc::new(Node::Unsupported(format!("decimal literal {}.{}", a, b))),
+            EKind::Str(s) => self.konst(Value::Str(intern::intern(s))),
+            EKind::At => match self.fc().at_slots.last().copied() {
+                Some(s) => Rc::new(Node::Local(s)),
+                None => self.unsupported("@ outside EXCEPT"),
+            },
+            EKind::Unsupported(s) => self.unsupported(format!("selector {}", s)),
+            EKind::Apply(c, args) => self.apply(c, args, loc),
+            EKind::Bi(b, es) => self.builtin(*b, es, loc),
+            EKind::Tuple(es) => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                self.maybe_const(Node::Tuple(v))
+            }
+            EKind::SetEnum(es) => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                self.maybe_const(Node::SetEnum(v))
+            }
+            EKind::FcnApply(f, a) => {
+                let fe = self.expr(f);
+                let ae = self.expr(a);
+                Rc::new(Node::FcnApply(fe, ae))
+            }
+            EKind::Record(r, f) => {
+                let re = self.expr(r);
+                Rc::new(Node::Record(re, intern::intern(f)))
+            }
+            EKind::SubsetOf(bv, set, pred) => {
+                let s = self.expr(set);
+                let b = self.bound_vars(bv, s);
+                let p = self.expr(pred);
+                Rc::new(Node::SubsetOf { bound: b, pred: p, filter_slots: Rc::new(vec![]) })
+            }
+            EKind::SetOfAll(ex, groups) => {
+                let bs: Vec<BoundIr> = groups.iter().map(|g| self.bound(g)).collect();
+                let b = self.expr(ex);
+                Rc::new(Node::SetOfAll(b, bs))
+            }
+            EKind::FcnCons(groups, body) => {
+                let bs: Vec<BoundIr> = groups.iter().map(|g| self.bound(g)).collect();
+                let b = self.expr(body);
+                Rc::new(Node::FcnCons(bs, b))
+            }
+            EKind::SetOfFcns(a, b) => {
+                let ae = self.expr(a);
+                let be = self.expr(b);
+                Rc::new(Node::SetOfFcns(ae, be))
+            }
+            EKind::RcdCons(fields) => {
+                let v: Vec<(u32, Ex)> = fields.iter().map(|(n, x)| (intern::intern(n), self.expr(x))).collect();
+                Rc::new(Node::RcdCons(v))
+            }
+            EKind::SetOfRcds(fields) => {
+                let v: Vec<(u32, Ex)> = fields.iter().map(|(n, x)| (intern::intern(n), self.expr(x))).collect();
+                Rc::new(Node::SetOfRcds(v))
+            }
+            EKind::Except(f, specs) => {
+                let fe = self.expr(f);
+                let mut out = vec![];
+                for s in specs {
+                    let mut path = vec![];
+                    for c in &s.path {
+                        match c {
+                            sem::ExceptComp::Field(n) => path.push(PathIr::Field(intern::intern(n))),
+                            sem::ExceptComp::Index(ix) => {
+                                if ix.len() == 1 {
+                                    path.push(PathIr::Index(self.expr(&ix[0])));
+                                } else {
+                                    let v: Vec<Ex> = ix.iter().map(|x| self.expr(x)).collect();
+                                    path.push(PathIr::Index(Rc::new(Node::Tuple(v))));
+                                }
+                            }
+                        }
+                    }
+                    let at = self.fc().alloc();
+                    self.fc().at_slots.push(at);
+                    let val = self.expr(&s.val);
+                    self.fc().at_slots.pop();
+                    out.push(ExceptIr { path, at_slot: at, val });
+                }
+                Rc::new(Node::Except(fe, out))
+            }
+            EKind::ActionSub { boxed, act, sub } => {
+                let a = self.expr(act);
+                let s = self.expr(sub);
+                Rc::new(Node::ActionSub { boxed: *boxed, act: a, sub: s })
+            }
+            EKind::Fair { .. } => Rc::new(Node::Temporal(sem::Level::Temporal)),
+            EKind::If(c, t, f) => {
+                let (c, t, f) = (self.expr(c), self.expr(t), self.expr(f));
+                Rc::new(Node::If(c, t, f))
+            }
+            EKind::Case(arms, other) => {
+                let a: Vec<(Ex, Ex)> = arms.iter().map(|(c, v)| (self.expr(c), self.expr(v))).collect();
+                let o = other.as_ref().map(|x| self.expr(x));
+                Rc::new(Node::Case(a, o))
+            }
+            EKind::LetIn(defs, body) => {
+                for d in defs {
+                    self.fc().lets.insert(d.id, d.clone());
+                }
+                let b = self.expr(body);
+                for d in defs {
+                    self.fc().lets.remove(&d.id);
+                }
+                b
+            }
+            EKind::BQuant { forall, bounds, body } => {
+                let bs: Vec<BoundIr> = bounds.iter().map(|g| self.bound(g)).collect();
+                let b = self.expr(body);
+                if *forall {
+                    Rc::new(Node::Forall(bs, b))
+                } else {
+                    Rc::new(Node::Exists(bs, b))
+                }
+            }
+            EKind::UQuant { .. } => self.unsupported("unbounded quantifier"),
+            EKind::TQuant { .. } => Rc::new(Node::Temporal(sem::Level::Temporal)),
+            EKind::Choose(bv, set, body) => match set {
+                Some(s) => {
+                    let se = self.expr(s);
+                    let b = self.bound_vars(bv, se);
+                    let be = self.expr(body);
+                    Rc::new(Node::Choose(b, be))
+                }
+                None => self.unsupported("unbounded CHOOSE"),
+            },
+            EKind::Conj(es) => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                Rc::new(Node::And(v))
+            }
+            EKind::Disj(es) => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                Rc::new(Node::Or(v))
+            }
+            EKind::SubstIn(subs, body) => {
+                let mut v = vec![];
+                for s in subs.iter() {
+                    v.push((s.target.id, self.arg(&s.value)));
+                }
+                let b = self.expr(body);
+                Rc::new(Node::SubstIn(v, b))
+            }
+            EKind::Label(_, _, inner) => self.expr(inner),
+        }
+    }
+
+    /// constant-fold literal tuples / sets when every element is a constant
+    fn maybe_const(&mut self, n: Node) -> Ex {
+        match &n {
+            Node::Tuple(v) if v.iter().all(|x| matches!(&**x, Node::Const(_))) => {
+                let vals: Vec<Value> = v.iter().map(|x| if let Node::Const(c) = &**x { c.clone() } else { unreachable!() }).collect();
+                self.konst(Value::tuple(vals))
+            }
+            Node::SetEnum(v) if v.iter().all(|x| matches!(&**x, Node::Const(_))) => {
+                let vals: Vec<Value> = v.iter().map(|x| if let Node::Const(c) = &**x { c.clone() } else { unreachable!() }).collect();
+                match Value::set_from(vals) {
+                    Ok(s) => self.konst(s),
+                    Err(_) => Rc::new(n),
+                }
+            }
+            _ => Rc::new(n),
+        }
+    }
+
+    fn builtin(&mut self, b: B, es: &[sem::Expr], _loc: Loc) -> Ex {
+        match b {
+            B::True => self.konst(Value::Bool(true)),
+            B::False => self.konst(Value::Bool(false)),
+            B::Boolean => self.konst(Value::Set(Rc::new(vec![Value::Bool(false), Value::Bool(true)]))),
+            B::String_ => self.konst(Value::StringSet),
+            B::Prime => {
+                // x' for a state variable, general e' otherwise
+                if let EKind::Apply(Callee::Decl(d), args) = &es[0].kind {
+                    if args.is_empty() && d.kind == sem::DeclKind::Variable && !self.substitutable.contains(&d.id) {
+                        if let Some(&i) = self.var_index.get(&d.id) {
+                            return Rc::new(Node::PrimedVar(i));
+                        }
+                    }
+                }
+                let e = self.expr(&es[0]);
+                Rc::new(Node::Prime(e))
+            }
+            B::Unchanged => {
+                let e = self.expr(&es[0]);
+                Rc::new(Node::Unchanged(e))
+            }
+            B::Not => {
+                let e = self.expr(&es[0]);
+                Rc::new(Node::Not(e))
+            }
+            B::And => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::And(vec![a, c]))
+            }
+            B::Or => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::Or(vec![a, c]))
+            }
+            B::Implies => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::Implies(a, c))
+            }
+            B::Equiv => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::Equiv(a, c))
+            }
+            B::Eq => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::Eq(a, c))
+            }
+            B::Neq => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::Neq(a, c))
+            }
+            B::In => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::In(a, c))
+            }
+            B::NotIn => {
+                let (a, c) = (self.expr(&es[0]), self.expr(&es[1]));
+                Rc::new(Node::NotIn(a, c))
+            }
+            B::Times => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                Rc::new(Node::Times(v))
+            }
+            B::Always | B::Eventually | B::LeadsTo | B::TemporalImplies => Rc::new(Node::Temporal(sem::Level::Temporal)),
+            B::Enabled | B::Cdot => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                Rc::new(Node::Bi(b, v))
+            }
+            _ => {
+                let v: Vec<Ex> = es.iter().map(|x| self.expr(x)).collect();
+                Rc::new(Node::Bi(b, v))
+            }
+        }
+    }
+
+    fn apply(&mut self, c: &Callee, args: &[SArg], loc: Loc) -> Ex {
+        match c {
+            Callee::Param(p) => {
+                let slot = match self.fc().locals.get(&p.id) {
+                    Some(s) => *s,
+                    None => return self.unsupported(format!("unbound parameter {}", p.name)),
+                };
+                if args.is_empty() && p.arity == 0 {
+                    Rc::new(Node::Local(slot))
+                } else {
+                    let a = self.args_of(args);
+                    Rc::new(Node::CallLocal(slot, a))
+                }
+            }
+            Callee::Decl(d) => {
+                if args.is_empty() && d.arity == 0 {
+                    if let Some(def) = self.const_ops.get(&d.id).cloned() {
+                        let cd = self.compile_def(&def);
+                        return Rc::new(Node::Call(cd, vec![], loc));
+                    }
+                    if !self.substitutable.contains(&d.id) {
+                        if d.kind == sem::DeclKind::Variable {
+                            if let Some(&i) = self.var_index.get(&d.id) {
+                                return Rc::new(Node::Var(i));
+                            }
+                        } else if let Some(v) = self.const_values.get(&d.id) {
+                            return self.konst(v.clone());
+                        }
+                    }
+                    Rc::new(Node::Decl(self.decl_ref(d)))
+                } else {
+                    // constant operator with arguments
+                    if let Some(def) = self.const_ops.get(&d.id).cloned() {
+                        let cd = self.compile_def(&def);
+                        let a = self.args_of(args);
+                        return Rc::new(Node::Call(cd, a, loc));
+                    }
+                    let a = self.args_of(args);
+                    Rc::new(Node::CallDecl(self.decl_ref(d), a))
+                }
+            }
+            Callee::Def(d) => {
+                if self.fc().lets.contains_key(&d.id) {
+                    return self.inline_let(d, args);
+                }
+                let cd = self.compile_def(d);
+                let a = self.args_of(args);
+                Rc::new(Node::Call(cd, a, loc))
+            }
+        }
+    }
+
+    fn inline_let(&mut self, d: &Rc<sem::OpDef>, args: &[SArg]) -> Ex {
+        if self.let_depth > 40 {
+            return self.unsupported("deeply recursive LET operator");
+        }
+        let body = match d.body() {
+            Some(b) => b,
+            None => return self.unsupported("LET operator without body"),
+        };
+        let params = d.params.borrow().clone();
+        if params.is_empty() {
+            self.let_depth += 1;
+            let b = self.expr(&body);
+            self.let_depth -= 1;
+            return b;
+        }
+        // fresh slots for the parameters at this call site
+        let compiled_args = self.args_of(args);
+        let mut saved: Vec<(usize, Option<u32>)> = vec![];
+        let mut assigns = vec![];
+        for (p, a) in params.iter().zip(compiled_args.into_iter()) {
+            let s = self.fc().alloc();
+            saved.push((p.id, self.fc().locals.insert(p.id, s)));
+            assigns.push((s, a));
+        }
+        self.let_depth += 1;
+        let b = self.expr(&body);
+        self.let_depth -= 1;
+        for (id, old) in saved {
+            match old {
+                Some(o) => {
+                    self.fc().locals.insert(id, o);
+                }
+                None => {
+                    self.fc().locals.remove(&id);
+                }
+            }
+        }
+        Rc::new(Node::InlineCall { assigns, body: b })
+    }
+}
+
+/// decimal / `\b` `\o` `\h` literals
+pub fn parse_num(t: &str) -> Option<i32> {
+    let t = t.trim();
+    if let Some(r) = t.strip_prefix("\\b").or_else(|| t.strip_prefix("\\B")) {
+        return i64::from_str_radix(r, 2).ok().and_then(|x| i32::try_from(x).ok());
+    }
+    if let Some(r) = t.strip_prefix("\\o").or_else(|| t.strip_prefix("\\O")) {
+        return i64::from_str_radix(r, 8).ok().and_then(|x| i32::try_from(x).ok());
+    }
+    if let Some(r) = t.strip_prefix("\\h").or_else(|| t.strip_prefix("\\H")) {
+        return i64::from_str_radix(r, 16).ok().and_then(|x| i32::try_from(x).ok());
+    }
+    t.parse::<i64>().ok().and_then(|x| i32::try_from(x).ok())
+}

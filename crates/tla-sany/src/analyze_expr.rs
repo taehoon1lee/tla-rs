@@ -1081,7 +1081,11 @@ impl<'a> Analyzer<'a> {
         match &*e.kind {
             K::Num(t) => Ok(self.mk(EKind::Num(self.num_lit(t)), loc, Level::Const)),
             K::Real(a, b) => Ok(self.mk(EKind::Dec(a.clone(), b.clone()), loc, Level::Const)),
-            K::Str(s) => Ok(self.mk(EKind::Str(s.clone()), loc, Level::Const)),
+            K::Str(s) => {
+                // `new StringNode(...)` interns the unquoted literal at semantic-analysis time
+                crate::intern::intern(s);
+                Ok(self.mk(EKind::Str(s.clone()), loc, Level::Const))
+            }
             K::Id(g) => self.gen_id_appl(g, None, loc),
             K::Appl(g, args) => self.gen_id_appl(g, Some(args), loc),
             K::Paren(inner) => self.gen_expr(inner),

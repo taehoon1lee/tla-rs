@@ -18,6 +18,7 @@ pub mod analyze;
 pub mod analyze_expr;
 pub mod ast;
 pub mod driver;
+pub mod intern;
 pub mod lexer;
 pub mod modules;
 pub mod ops;

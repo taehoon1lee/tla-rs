@@ -166,6 +166,10 @@ impl Parser {
     }
     fn advance(&mut self) -> Token {
         let t = self.toks[self.pos.min(self.toks.len() - 1)].clone();
+        if !matches!(t.kind, Tk::Eof | Tk::DefBreak | Tk::Error) {
+            // `new SyntaxTreeNode(mn, t)` interns the token image (UniqueString order matters to TLC)
+            crate::intern::intern(&t.image);
+        }
         if self.pos < self.toks.len() - 1 {
             self.pos += 1;
         }
