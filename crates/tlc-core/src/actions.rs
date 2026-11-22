@@ -46,6 +46,14 @@ impl Ev {
     fn target_var(&self, ex: &Ex, mode: Mode) -> Option<u32> {
         match (&**ex, mode) {
             (Node::PrimedVar(i), Mode::Next) => Some(*i),
+            // Java: getPrimedVar follows definitions without parameters (`F == x'`)
+            (Node::Call(d, args, _), Mode::Next) if args.is_empty() && d.native.get().is_none() && d.level >= tla_sany::sem::Level::Action => {
+                let body = d.body.borrow().clone();
+                match body {
+                    Some(b) => self.target_var(&b, mode),
+                    None => None,
+                }
+            }
             // a parameter bound (by name) to a primed variable, e.g. `Send(p, d, memInt, memInt')`: `new = ...`
             (Node::Local(s), Mode::Init) => match self.get_slot(*s) {
                 Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
@@ -265,6 +273,11 @@ impl Ev {
                 let mut vars = vec![];
                 if self.unchanged_vars(inner, &mut vars) {
                     return self.assign_unchanged(&vars, 0, s0, buf, k);
+                }
+                // Java: processUnchangedImplTuple: tuple elements are processed one by one; the elements that are
+                // not variables are only verified (their value must be the same in both states)
+                if let Node::Tuple(es) = &**inner {
+                    return self.unchanged_tuple(es, 0, s0, buf, k);
                 }
                 if self.guard(ex, mode, s0, buf)?.as_bool()? {
                     k()
@@ -503,6 +516,31 @@ to argument {}, which is not in the domain of the function.",
 {}", other.to_tla())),
                 }
             }
+            // Java: OPCODE_subseteq: `x' \subseteq S` enumerates the subsets of S
+            Node::Bi(B::Subseteq, es) if es.len() == 2 && self.target_var(&es[0], mode).is_some() => {
+                let i = self.target_var(&es[0], mode).unwrap();
+                let unassigned = matches!(buf.borrow()[i as usize], Value::Undef);
+                let rset = self.eval_expr(&es[1], mode, s0, buf)?;
+                if !rset.is_set_like() {
+                    return fail(format!("Attempted to compute the powerset of the non-set value
+{}", rset.to_tla()));
+                }
+                if unassigned {
+                    let subs = Value::Subset(Rc::new(rset)).enumerate()?;
+                    for e in subs.iter() {
+                        self.assign_and_continue(i, e.clone(), mode, buf, k)?;
+                    }
+                    Ok(())
+                } else {
+                    let cur = buf.borrow()[i as usize].clone();
+                    let sub = Value::Subset(Rc::new(rset));
+                    if sub.member(&cur)? {
+                        k()
+                    } else {
+                        Ok(())
+                    }
+                }
+            }
             // Java: OPCODE_implies: evaluate the antecedent; when true the consequent is enumerated (it may split)
             Node::Implies(a, b) => {
                 if self.guard(a, mode, s0, buf)?.as_bool()? {
@@ -584,7 +622,7 @@ to argument {}, which is not in the domain of the function.",
         self.simple_memo.borrow_mut().insert(key, false);
         let r = match &**ex {
             Node::And(items) => items.iter().all(|e| self.action_simple(e, mode, depth + 1)),
-            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) | Node::CallLocal(..) | Node::CallDecl(..) | Node::LetRec(..) => false,
+            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) | Node::CallLocal(..) | Node::CallDecl(..) | Node::LetRec(..) | Node::Local(_) => false,
             Node::Forall(_, b) => self.action_simple(b, mode, depth + 1),
             Node::Implies(_, b) => self.action_simple(b, mode, depth + 1),
             Node::If(_, t, f) => self.action_simple(t, mode, depth + 1) && self.action_simple(f, mode, depth + 1),
@@ -847,6 +885,28 @@ to argument {}, which is not in the domain of the function.",
                 }
             }
             _ => false,
+        }
+    }
+
+    fn unchanged_tuple(&self, es: &[Ex], idx: usize, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        if idx == es.len() {
+            return k();
+        }
+        let mut vars = vec![];
+        if self.unchanged_vars(&es[idx], &mut vars) {
+            return self.assign_unchanged(&vars, 0, s0, buf, &mut || self.unchanged_tuple(es, idx + 1, s0, buf, k));
+        }
+        let same = {
+            let b = buf.borrow();
+            let before = self.eval(&es[idx], s0, &b)?;
+            let empty = self.empty();
+            let after = self.eval(&es[idx], &b, &empty)?;
+            before.eq_val(&after)?
+        };
+        if same {
+            self.unchanged_tuple(es, idx + 1, s0, buf, k)
+        } else {
+            Ok(())
         }
     }
 
