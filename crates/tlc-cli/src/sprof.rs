@@ -43,12 +43,23 @@ pub fn start() -> Option<Sampler> {
     let tid = unsafe { GetCurrentThreadId() };
     let stop = Arc::new(AtomicBool::new(false));
     let st = stop.clone();
+    let path_for_dump = path.clone();
     let join = std::thread::spawn(move || {
         unsafe { timeBeginPeriod(1) };
         let h = unsafe { OpenThread(0x0002 | 0x0008 | 0x0010, 0, tid) }; // SUSPEND_RESUME | GET_CONTEXT | QUERY_INFORMATION
         let mut samples: Vec<Vec<u64>> = Vec::new();
         let mut ctx = Context([0; 1232]);
+        let limit: Option<u64> = std::env::var("TLCRS_SPROF_SECS").ok().and_then(|v| v.parse().ok());
+        let t0 = std::time::Instant::now();
         while !st.load(Ordering::Relaxed) {
+            if let Some(l) = limit {
+                if t0.elapsed().as_secs() >= l {
+                    // time limit reached: dump what we have and stop the process
+                    let base = unsafe { GetModuleHandleW(std::ptr::null()) } as u64;
+                    dump(&samples, base, &path_for_dump);
+                    std::process::exit(0);
+                }
+            }
             std::thread::sleep(std::time::Duration::from_millis(1));
             unsafe {
                 if SuspendThread(h) == u32::MAX {
@@ -119,4 +130,15 @@ impl Sampler {
         let _ = std::fs::write(&self.path, out);
         eprintln!("sprof: {} samples -> {}", samples.len(), self.path);
     }
+}
+
+fn dump(samples: &[Vec<u64>], base: u64, path: &str) {
+    let mut out = format!("BASE {:x}\n", base);
+    for s in samples {
+        let line: Vec<String> = s.iter().map(|a| format!("{:x}", a)).collect();
+        out.push_str(&line.join(" "));
+        out.push('\n');
+    }
+    let _ = std::fs::write(path, out);
+    eprintln!("sprof: {} samples -> {}", samples.len(), path);
 }

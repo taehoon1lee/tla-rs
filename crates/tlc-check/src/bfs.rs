@@ -990,6 +990,7 @@ fn start_sampler() -> Sampler {
         let stop2 = stop.clone();
         let h = std::thread::spawn(move || {
             let mut hist: std::collections::HashMap<usize, (u64, String)> = std::collections::HashMap::new();
+            let mut defs: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
             let t0 = std::time::Instant::now();
             let mut last = std::time::Instant::now();
             let mut report = |hist: &std::collections::HashMap<usize, (u64, String)>| {
@@ -1004,7 +1005,19 @@ fn start_sampler() -> Sampler {
             while !stop2.load(std::sync::atomic::Ordering::Relaxed) {
                 if last.elapsed().as_secs() >= 20 {
                     report(&hist);
+                    let mut dv: Vec<_> = defs.iter().collect();
+                    dv.sort_by(|a, b| b.1.cmp(a.1));
+                    let tot: u64 = defs.values().sum();
+                    eprintln!("DEFS (innermost user definition) total={}", tot);
+                    for (k, c) in dv.iter().take(14) {
+                        eprintln!("  {:6.2}% {}", **c as f64 * 100.0 / tot.max(1) as f64, k);
+                    }
                     last = std::time::Instant::now();
+                }
+                let cd = tlc_core::eval::PROF_DEF.load(std::sync::atomic::Ordering::Relaxed);
+                if cd != 0 {
+                    let d = unsafe { &*(cd as *const tlc_core::ir::CompiledDef) };
+                    *defs.entry(d.name.to_string()).or_insert(0) += 1;
                 }
                 let cur = tlc_core::eval::PROF_CUR.load(std::sync::atomic::Ordering::Relaxed);
                 if cur != 0 {

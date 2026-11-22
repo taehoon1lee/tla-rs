@@ -50,11 +50,13 @@ struct FrameCtx {
     rec_lets: HashMap<usize, u32>,
     /// number of slot allocations / slot references so far: an expression compiled without any is closed w.r.t. the frame
     events: u64,
+    /// nullary LET definitions whose value is memoized: def id -> memo slot
+    let_memo: HashMap<usize, u32>,
 }
 
 impl FrameCtx {
     fn new() -> FrameCtx {
-        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], rec_lets: HashMap::new(), events: 0 }
+        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], rec_lets: HashMap::new(), events: 0, let_memo: HashMap::new() }
     }
     fn alloc(&mut self) -> u32 {
         self.events += 1;
@@ -589,6 +591,20 @@ impl Compiler {
                         recs.push((s, d.clone()));
                     }
                 }
+                // nullary definitions without primes are evaluated at most once per scope (Java: LazyValue)
+                let mut memo_slots: Vec<u32> = vec![];
+                for d in defs {
+                    if d.params.borrow().is_empty()
+                        && !d.in_recursive.get()
+                        && !d.is_recursive_fcn.get()
+                        && d.level.get() <= sem::Level::State
+                        && d.body().map_or(false, |b| !matches!(&b.kind, EKind::Num(_) | EKind::Str(_)))
+                    {
+                        let s = self.fc().alloc();
+                        self.fc().let_memo.insert(d.id, s);
+                        memo_slots.push(s);
+                    }
+                }
                 for d in defs {
                     self.fc().lets.insert(d.id, d.clone());
                 }
@@ -601,11 +617,13 @@ impl Compiler {
                 for d in defs {
                     self.fc().lets.remove(&d.id);
                     self.fc().rec_lets.remove(&d.id);
+                    self.fc().let_memo.remove(&d.id);
                 }
-                if lams.is_empty() {
+                let b = if lams.is_empty() { b } else { Rc::new(Node::LetRec(lams, b)) };
+                if memo_slots.is_empty() {
                     b
                 } else {
-                    Rc::new(Node::LetRec(lams, b))
+                    Rc::new(Node::LetScope(memo_slots, b))
                 }
             }
             EKind::BQuant { forall, bounds, body } => {
@@ -868,6 +886,9 @@ impl Compiler {
             }
             self.pending_self_slot = saved_pending;
             self.let_depth -= 1;
+            if let Some(slot) = self.fc().let_memo.get(&d.id).copied() {
+                return Rc::new(Node::LetUse(slot, b));
+            }
             return b;
         }
         // fresh slots for the parameters at this call site

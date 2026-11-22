@@ -145,6 +145,8 @@ impl Ev {
             // applications of operators to constant arguments; the first other expression is the action's `pred`
             let splittable = match &**ex {
                 Node::Or(_) => true,
+                // a LET scope only memoizes definitions: the action is split inside its body
+                Node::LetScope(..) => true,
                 Node::Exists(..) => self.info_const_sub(ex),
                 Node::Call(d, ..) => d.native.get().is_none() && d.body.borrow().is_some() && !d.src.in_let.get() && self.info_const_sub(ex),
                 _ => false,
@@ -459,6 +461,12 @@ impl Ev {
                 });
                 *self.substs.borrow_mut() = outer;
                 r
+            }
+            Node::LetScope(slots, body) => {
+                for s in slots {
+                    self.set_slot(*s, Slot::Unset);
+                }
+                self.enum_action(body, mode, s0, buf, k)
             }
             Node::LetRec(defs, body) => {
                 for (slot, l) in defs {

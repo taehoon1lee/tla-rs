@@ -22,6 +22,9 @@ pub enum Slot {
     Poison(Box<TlcErr>),
     /// call-by-name argument (action-level expressions)
     Lazy(Rc<LazyArg>),
+    /// memoized value of a nullary LET definition: (value, address and length of the current state, evaluation epoch);
+    /// valid while the same state is evaluated and nothing was assigned (Java: `LazyValue`)
+    Memo(Value, usize, usize, u64),
 }
 
 pub struct LazyArg {
@@ -275,4 +278,8 @@ pub enum Node {
     Fail(String),
     /// the argument of an inlined call: assign then evaluate (LET operator with parameters)
     InlineCall { assigns: Vec<(u32, Arg)>, body: Ex },
+    /// scope of LET definitions that are evaluated at most once: their memo slots are cleared on entry
+    LetScope(Vec<u32>, Ex),
+    /// use of a memoized nullary LET definition: (memo slot, body of the definition)
+    LetUse(u32, Ex),
 }

@@ -105,3 +105,8 @@
 - ENABLED: a substituted declaration `v <- expr` met as `v' = e` or `UNCHANGED v` is bound by name (`Ev::virt`), as Java binds it in the TLCStateFun.
 - With a VIEW a graph node stands for several states: action/consistency checks use the successor actually produced by the edge (`live_edge`),
   the printed trace is rebuilt state by state with `Checker::step` (Java: `Tool.getState(fp, predecessor)`).
+- Nullary LET definitions (state level, no primes) are memoized per LET scope: `Node::LetScope(slots, body)` clears the memo slots on
+  entry, `Node::LetUse(slot, def)` evaluates the definition once per (state pointer, evaluation epoch) like Java's `LazyValue`. Before, every
+  use re-evaluated the body: nested LETs multiplied the cost (TLCSailfish1: > 7x slower than Java, timeout) — now 0.7x of Java.
+  `LetScope` is transparent to action splitting (labels point into the LET body).
+- `SUBSET S` is enumerated directly in normalized order (size, then lexicographic): no sorting of 2^n sets.

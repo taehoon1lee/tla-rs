@@ -317,17 +317,28 @@ impl Value {
                 if n >= 31 {
                     return fail(format!("Attempted to enumerate SUBSET of a set with {} elements.", n));
                 }
+                // the subsets in the normalized order of sets (by size, then lexicographically by element): generated
+                // directly, without sorting 2^n sets
                 let mut out = Vec::with_capacity(1usize << n);
-                for mask in 0u64..(1u64 << n) {
-                    let mut sub = Vec::new();
-                    for (i, e) in base.iter().enumerate() {
-                        if mask & (1 << i) != 0 {
-                            sub.push(e.clone());
+                for k in 0..=n {
+                    let mut idx: Vec<usize> = (0..k).collect();
+                    loop {
+                        out.push(Value::Set(Rc::new(idx.iter().map(|&i| base[i].clone()).collect())));
+                        // next combination in lexicographic order
+                        let mut j = k;
+                        while j > 0 && idx[j - 1] == n - k + j - 1 {
+                            j -= 1;
+                        }
+                        if j == 0 {
+                            break;
+                        }
+                        idx[j - 1] += 1;
+                        for t in j..k {
+                            idx[t] = idx[t - 1] + 1;
                         }
                     }
-                    out.push(Value::Set(Rc::new(sub)));
                 }
-                Ok(Value::set_from(out)?.enumerate()?)
+                Ok(Rc::new(out))
             }
             Value::SetOfFcns(p) => {
                 let doms = p.0.enumerate()?;

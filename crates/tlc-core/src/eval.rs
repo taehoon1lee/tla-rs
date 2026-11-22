@@ -15,6 +15,9 @@ use tla_sany::sem::{self, B};
 pub static PROF_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 #[cfg(feature = "prof")]
 pub static PROF_CUR: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+/// the definition (`Rc<CompiledDef>` address) whose body is being evaluated (innermost user-defined operator)
+#[cfg(feature = "prof")]
+pub static PROF_DEF: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 #[cfg(feature = "prof")]
 pub fn node_kind(n: &Node) -> String {
@@ -419,6 +422,7 @@ impl Ev {
                 self.run_captured_in(&cap, &[], &l.code, s0, s1)
             }
             Slot::Op(_) => fail("An operator was used where a value was expected."),
+            Slot::Memo(v, ..) => Ok(v),
             Slot::Unset => fail("Internal error: use of an unassigned local variable."),
         }
     }
@@ -477,11 +481,15 @@ impl Ev {
             let old = self.base.get();
             self.base.set(nb);
             self.depth.set(self.depth.get() + 1);
+            #[cfg(feature = "prof")]
+            let prev_def = PROF_DEF.swap(Rc::as_ptr(d) as usize, std::sync::atomic::Ordering::Relaxed);
             let r = if self.depth.get() > MAX_DEPTH {
                 fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
             } else {
                 self.eval(&body, s0, s1)
             };
+            #[cfg(feature = "prof")]
+            PROF_DEF.store(prev_def, std::sync::atomic::Ordering::Relaxed);
             self.depth.set(self.depth.get() - 1);
             self.stack.borrow_mut().truncate(nb);
             self.base.set(old);
@@ -798,6 +806,23 @@ impl Ev {
                     self.set_slot(*slot, s);
                 }
                 self.eval(body, s0, s1)
+            }
+            Node::LetScope(slots, body) => {
+                for s in slots {
+                    self.set_slot(*s, Slot::Unset);
+                }
+                self.eval(body, s0, s1)
+            }
+            Node::LetUse(slot, def) => {
+                let (p, n, ep) = (s0.as_ptr() as usize, s0.len(), self.epoch.get());
+                if let Slot::Memo(v, mp, mn, me) = &self.stack.borrow()[self.base.get() + *slot as usize] {
+                    if *mp == p && *mn == n && *me == ep {
+                        return Ok(v.clone());
+                    }
+                }
+                let v = self.eval(def, s0, s1)?;
+                self.set_slot(*slot, Slot::Memo(v.clone(), p, n, self.epoch.get()));
+                Ok(v)
             }
             Node::Bi(b, es) => self.eval_bi(*b, es, s0, s1),
             Node::And(es) => {
