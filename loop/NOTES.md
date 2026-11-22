@@ -127,3 +127,9 @@
   `Json.ndJsonDeserialize/JsonDeserialize` (override errors carry the framed 2154 text; the FileNotFoundException text is
   `<path with \ on Windows> (<OS message minus the final period>)`), `\o` and `Len` accept strings like Sequences.java.
 - A LET-local `INSTANCE M` of an operator with a native implementation is called, not inlined (`is_native_copy`).
+
+## Action labels are recomputed for traces
+- The main search runs with `ev.splitting = false` (no per-disjunct label bookkeeping, ~8% of the time on LamportMutex). When a
+  trace is printed, `Checker::transition_label` re-splits the actions for that one predecessor (`step()`, Java:
+  `Tool.getState(fp, predecessor)`) and takes the label of the first successor with the child's fingerprint.
+- `tools/cpu.py exe1,exe2 -n 3 <ids>`: best-of-N wall and CPU time (GetProcessTimes); far less noisy than wall time.

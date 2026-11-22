@@ -330,9 +330,12 @@ impl<'a> Checker<'a> {
         chain.reverse();
         self.rep.error(ec::TLC_BEHAVIOR_UP_TO_THIS_POINT, "The behavior up to this point is:");
         for (n, &si) in chain.iter().enumerate() {
-            let label = match &self.states[si as usize].label {
-                Some(l) => self.setup.ev.format_label(l),
-                None => "<Initial predicate>".to_string(),
+            let label = if n == 0 {
+                "<Initial predicate>".to_string()
+            } else {
+                let pred = self.states[chain[n - 1] as usize].vals.clone();
+                let cur = self.states[si as usize].vals.clone();
+                self.transition_label(&pred, &cur)
             };
             let nx = chain.get(n + 1).copied().unwrap_or(si);
             let (cur, succ) = (self.states[si as usize].vals.clone(), self.states[nx as usize].vals.clone());
@@ -390,7 +393,7 @@ impl<'a> Checker<'a> {
     }
 
     /// the behavior leading to `parent`, followed by the state `vals` reached by `label`
-    fn print_trace_ext(&mut self, parent: u32, vals: &[Value], label: &Option<LabelSpec>) {
+    fn print_trace_ext(&mut self, parent: u32, vals: &[Value]) {
         let mut chain = vec![];
         let mut i = parent;
         while i != NONE {
@@ -400,9 +403,12 @@ impl<'a> Checker<'a> {
         chain.reverse();
         self.rep.error(ec::TLC_BEHAVIOR_UP_TO_THIS_POINT, "The behavior up to this point is:");
         for (n, &si) in chain.iter().enumerate() {
-            let l = match &self.states[si as usize].label {
-                Some(l) => self.setup.ev.format_label(l),
-                None => "<Initial predicate>".to_string(),
+            let l = if n == 0 {
+                "<Initial predicate>".to_string()
+            } else {
+                let pred = self.states[chain[n - 1] as usize].vals.clone();
+                let cur = self.states[si as usize].vals.clone();
+                self.transition_label(&pred, &cur)
             };
             let cur = self.states[si as usize].vals.clone();
             let succ = match chain.get(n + 1) {
@@ -413,8 +419,11 @@ impl<'a> Checker<'a> {
             let text = format!("{}: {}\n{}", n + 1, l, body);
             self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
         }
-        let l = match label {
-            Some(l) => self.setup.ev.format_label(l),
+        let l = match chain.last() {
+            Some(&last) => {
+                let pred = self.states[last as usize].vals.clone();
+                self.transition_label(&pred, vals)
+            }
             None => "<Next>".to_string(),
         };
         let body = self.state_text_at(chain.len() + 1, vals, vals);
@@ -685,7 +694,7 @@ impl<'a> Checker<'a> {
             if let Some(nx) = next {
                 let buf = RefCell::new(vec![Value::Undef; nvars]);
                 *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
-                ev.splitting.set(splitting_enabled());
+                ev.splitting.set(false);
                 let r = ev.with_frame(nx.nslots.get(), |ev| {
                     ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
                         let st = buf.borrow().clone();
@@ -695,7 +704,7 @@ impl<'a> Checker<'a> {
                             }
                             return Ok(());
                         }
-                        succs.push((st, ev.cur_label.borrow().clone()));
+                        succs.push((st, None));
                         Ok(())
                     })
                 });
@@ -759,7 +768,7 @@ impl<'a> Checker<'a> {
                         Ok(Some(name)) => {
                             self.flush_output();
                             self.rep.error(ec::TLC_INVARIANT_VIOLATED_BEHAVIOR, &format!("Invariant {} is violated.", name));
-                            self.print_trace_ext(head as u32, &st, &label);
+                            self.print_trace_ext(head as u32, &st);
                             let left = self.states.len() - head - 1;
                             self.stats(left);
                             if !self.opts.continue_after_error {
@@ -857,7 +866,7 @@ impl<'a> Checker<'a> {
                         Ok(Some(name)) => {
                             self.flush_output();
                             self.rep.error(ec::TLC_ACTION_PROPERTY_VIOLATED_BEHAVIOR, &format!("Action property {} is violated.", name));
-                            self.print_trace_ext(head as u32, &sv, &lb);
+                            self.print_trace_ext(head as u32, &sv);
                             let left = self.states.len() - head - 1 - usize::from(just_pushed);
                             self.stats(left);
                             return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_ACTION_PROPERTY_VIOLATED_BEHAVIOR)));
@@ -898,6 +907,19 @@ impl<'a> Checker<'a> {
             self.final_liveness_check()?;
         }
         Ok(())
+    }
+
+    /// the label of the action taking `pred` to `succ` as printed in a trace (`<Next line ...>`): the actions are split
+    /// again for this one state (Java: `Tool.getState(fp, predecessor)`), the main search does not track labels
+    fn transition_label(&mut self, pred: &[Value], succ: &[Value]) -> String {
+        let fp = match self.fp(succ) {
+            Ok(f) => f,
+            Err(_) => return "<Next>".to_string(),
+        };
+        match self.step(pred, fp) {
+            Some((_, Some(l))) => self.setup.ev.format_label(&l),
+            _ => "<Next>".to_string(),
+        }
     }
 
     /// Java: `Tool.getState(fp, predecessor)`: the first successor of `pred` (in the order the actions yield them) whose
