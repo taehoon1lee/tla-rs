@@ -14,7 +14,7 @@ does ONE small task. The per-iteration procedure is in `loop/PROMPT.md`. The tas
 | `loop/TASKS.md`, `loop/PROGRESS.md`, `loop/NOTES.md` | your plan / log / knowledge base | YES (keep them short) |
 | `docs/JAVA_MAP.md` | Java→Rust file map | YES (add what you learn) |
 | `harness/**` (scripts, goldens, corpus) | the judge | **NO — never** |
-| `reference/**` | Java source, examples, libraries, jars (read-only reference) | **NO** |
+| `reference/**` | Java source, examples, libraries (git submodules, pinned) + generated jars/library dir (read-only) | **NO** — never commit a submodule change |
 | `loop/PROMPT.md`, `loop/run-loop.ps1`, `loop/haiku-settings.json`, `CLAUDE.md`, `.claude/` | loop driver + rules | **NO** |
 
 Java source root: `reference/tlaplus/tlatools/org.lamport.tlatools/` (= `TT`; sources under `TT/src`).

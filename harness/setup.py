@@ -1,4 +1,8 @@
-"""Preflight / bootstrap: reference sources (pinned commits), the Java jars, the TLA+ library dir, toolchains.
+"""Preflight / bootstrap: reference sources (git submodules, pinned), the Java jars, the TLA+ library dir, toolchains.
+
+reference/{tlaplus,examples,community-modules,tlapm,apalache} are git submodules (shallow). Their gitlinks must
+equal common.PINS: the goldens were generated from exactly these commits. tlapm and apalache are sparse-checked-out
+(only library/ and src/tla/ are used). reference/bin and reference/tla-library are generated here (gitignored).
 
 Usage: python harness/setup.py   (idempotent; the loop driver runs it before starting)
 """
@@ -44,18 +48,33 @@ def git_head(d: Path) -> str:
     return r.stdout.strip()
 
 
-def clone(name):
-    url, sha = PINS[name]
+def gitlink(name) -> str:
+    """Commit the superproject's HEAD records for submodule reference/<name>."""
+    r = subprocess.run(["git", "-C", str(ROOT), "rev-parse", f"HEAD:reference/{name}"], capture_output=True, text=True)
+    return r.stdout.strip()
+
+
+def submodule_ok(name) -> bool:
+    sha = PINS[name][1]
+    if gitlink(name) != sha:
+        return False  # never fixed automatically: bumping a reference invalidates the goldens
     d = REFERENCE / name
-    if not d.exists():
-        if name in SPARSE:
-            run(["git", "clone", "-q", "--filter=blob:none", "--sparse", "--no-checkout", url, str(d)])
-            run(["git", "-C", str(d), "sparse-checkout", "set", SPARSE[name]])
-        else:
-            run(["git", "clone", "-q", "--filter=blob:none", "--no-checkout", url, str(d)])
     if git_head(d) != sha:
-        run(["git", "-C", str(d), "fetch", "-q", "--depth", "1", "origin", sha])
-        run(["git", "-C", str(d), "checkout", "-q", sha])
+        return False
+    if name in SPARSE:
+        r = subprocess.run(["git", "-C", str(d), "sparse-checkout", "list"], capture_output=True, text=True)
+        return r.stdout.split() == [SPARSE[name]]
+    return True
+
+
+def update_submodule(name):
+    if gitlink(name) != PINS[name][1]:
+        print(f"       gitlink of reference/{name} is {gitlink(name)[:10]}, expected {PINS[name][1][:10]} "
+              "(goldens were generated from the pinned commit; restore it with git checkout/restore)")
+        return
+    run(["git", "submodule", "update", "--init", "--depth", "1", "--", f"reference/{name}"])
+    if name in SPARSE:
+        run(["git", "-C", str(REFERENCE / name), "sparse-checkout", "set", SPARSE[name]])
 
 
 def sha256(p: Path) -> str:
@@ -93,8 +112,8 @@ def library_ok():
 
 REFERENCE.mkdir(exist_ok=True)
 for name in PINS:
-    step(f"reference/{name} @ {PINS[name][1][:10]}", lambda n=name: git_head(REFERENCE / n) == PINS[n][1],
-         lambda n=name: clone(n))
+    step(f"reference/{name} (submodule) @ {PINS[name][1][:10]}", lambda n=name: submodule_ok(n),
+         lambda n=name: update_submodule(n))
 step("reference/bin/tla2tools.jar (TLC 1.8.0) + CommunityModules-deps.jar",
      lambda: sha256(JAR_TLA2TOOLS) == JAR_SHA256["tla2tools.jar"]
      and sha256(JAR_COMMUNITY) == JAR_SHA256["CommunityModules-deps.jar"], fetch_jars)

@@ -1,0 +1,20 @@
+[submodule "reference/tlaplus"]
+	path = reference/tlaplus
+	url = https://github.com/tlaplus/tlaplus.git
+	shallow = true
+[submodule "reference/examples"]
+	path = reference/examples
+	url = https://github.com/tlaplus/Examples.git
+	shallow = true
+[submodule "reference/community-modules"]
+	path = reference/community-modules
+	url = https://github.com/tlaplus/CommunityModules.git
+	shallow = true
+[submodule "reference/tlapm"]
+	path = reference/tlapm
+	url = https://github.com/tlaplus/tlapm.git
+	shallow = true
+[submodule "reference/apalache"]
+	path = reference/apalache
+	url = https://github.com/apalache-mc/apalache.git
+	shallow = true

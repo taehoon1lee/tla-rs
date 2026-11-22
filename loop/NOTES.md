@@ -5,6 +5,8 @@
 - `cargo` lives in `%USERPROFILE%\.cargo\bin`; add it to PATH if a shell does not see it.
 - Java 25 (only for the oracle). TLC jar: `reference/bin/tla2tools.jar` (1.8.0, rev bc1b506 = source in
   `reference/tlaplus`), `reference/bin/CommunityModules-deps.jar` (release 202611191749 = `reference/community-modules`).
+- `reference/{tlaplus,examples,community-modules,tlapm,apalache}` are git submodules pinned to the commits the
+  goldens were made from; the driver resets them every iteration. Never `git add` a submodule change.
 - Ad-hoc Java/Rust comparisons on your own scratch spec: `python harness/oracle.py tlc tmp/x/S.tla --diff`.
 
 ## Harness facts

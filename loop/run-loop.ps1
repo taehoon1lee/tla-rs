@@ -49,7 +49,7 @@ $Protected = @(
     "harness/golden", "harness/common.py", "harness/check.py", "harness/tlcout.py", "harness/corpus.py",
     "harness/gen_golden.py", "harness/setup.py", "harness/oracle.py", "harness/corpus.json", "harness/quick.txt",
     "harness/SCHEMA.md", "loop/PROMPT.md", "loop/run-loop.ps1", "loop/haiku-settings.json", "CLAUDE.md",
-    ".claude/settings.json", ".gitattributes", ".gitignore"
+    ".claude/settings.json", ".gitattributes", ".gitignore", ".gitmodules", "reference"
 )
 
 function Write-Log([string]$m) {
@@ -86,8 +86,8 @@ function Restore-Protected([string]$base, [int]$iter) {
     if ($changed.Count -eq 0) { return }
     Write-Log "iter ${iter}: agent touched protected files -> restoring: $($changed -join ' ')"
     foreach ($f in $changed) {
-        & git.exe cat-file -e "${base}:$f" 2>$null
-        if ($LASTEXITCODE -eq 0) {
+        # ls-tree (not cat-file): a submodule gitlink exists in $base although its commit is not in our object store
+        if (Invoke-Git ls-tree $base "--" $f) {
             Invoke-Git restore "--source=$base" --staged --worktree "--" $f | Out-Null
         } else {
             Invoke-Git rm -q -f --cached --ignore-unmatch "--" $f | Out-Null
@@ -95,6 +95,13 @@ function Restore-Protected([string]$base, [int]$iter) {
         }
     }
     Invoke-Git commit -qm "loop: restore protected files changed in iteration $iter" | Out-Null
+}
+
+# reference/* are git submodules: put every checkout back to the recorded (pinned) commit, discard local edits
+# and untracked files inside them (the oracle and the loop must never write there).
+function Reset-References {
+    & git.exe submodule update --init --force --quiet 2>$null | Out-Null
+    & git.exe submodule foreach --quiet "git reset -q --hard && git clean -fdq" 2>$null | Out-Null
 }
 
 # ---- preflight -------------------------------------------------------------------------------
@@ -151,6 +158,7 @@ for ($i = 1; $i -le $MaxIterations; $i++) {
     } else { Write-Log "iter ${i}: no result line (see $err)" }
 
     Restore-Protected $before $i
+    Reset-References
     # The baseline may only grow through the driver's own gate run below (protects against a weakened best.json).
     if (Invoke-Git diff --name-only $before "--" harness/results/best.json) {
         Invoke-Git restore "--source=$before" --staged --worktree "--" harness/results/best.json | Out-Null

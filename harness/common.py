@@ -24,7 +24,7 @@ GOLDEN_CHECK = GOLDEN_DIR / "check"     # TLC result per (spec, cfg, args) model
 RESULTS_DIR = HARNESS / "results"
 TMP = ROOT / "tmp" / "harness"
 
-# ---- pinned reference inputs (setup.py fetches exactly these) -------------------------------
+# ---- pinned reference inputs: git submodules under reference/ (setup.py verifies the gitlinks equal these) ----
 PINS = {
     "tlaplus": ("https://github.com/tlaplus/tlaplus.git", "bc1b506bdcad80bb518bf3776a9161c34ff0fc4c"),  # tag v1.8.0
     "examples": ("https://github.com/tlaplus/Examples.git", "334c3983a2f44ac78fce89d1d20aa79ceb3e6987"),
