@@ -143,6 +143,9 @@ pub struct Ev {
     pub set_bound: Cell<i64>,
     /// counters exposed through TLCGet
     pub tlc_registers: RefCell<HashMap<i32, Value>>,
+    /// `-seed`: the generator behind `RandomElement` (Java: `RandomEnumerableValues`), created on first use
+    pub seed: Cell<i64>,
+    pub rng: RefCell<Option<crate::jrandom::JRandom>>,
     pub stats: RefCell<HashMap<String, Value>>,
     pub empty_cache: RefCell<Rc<Vec<Value>>>,
     /// label of the action being enumerated (`<Name line .. of module M>`)
@@ -195,6 +198,8 @@ impl Ev {
             var_names: RefCell::new(vec![]),
             set_bound: Cell::new(1_000_000),
             tlc_registers: RefCell::new(HashMap::new()),
+            seed: Cell::new(0),
+            rng: RefCell::new(None),
             stats: RefCell::new(HashMap::new()),
             empty_cache: RefCell::new(Rc::new(vec![Value::Undef; nvars])),
             cur_label: RefCell::new(None),

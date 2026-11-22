@@ -110,3 +110,11 @@
   use re-evaluated the body: nested LETs multiplied the cost (TLCSailfish1: > 7x slower than Java, timeout) — now 0.7x of Java.
   `LetScope` is transparent to action splitting (labels point into the LET body).
 - `SUBSET S` is enumerated directly in normalized order (size, then lexicographic): no sorting of 2^n sets.
+
+## RandomElement (java.util.Random)
+- `TLC.RandomElement` is native (`natives::random_element`): SetOfFcns/SetOfRcds/SetOfTuples recurse per component, Interval and
+  every other finite set pick `floor(nextDouble() * size)` of the normalized elements. The generator is `jrandom::JRandom` (port
+  of `java.util.Random`), seeded with `-seed` and shared by the whole run (`Ev.rng`).
+- Java reseeds it with `state.fingerPrint() ^ seed` while the successors of a state are generated (BFS only); that needs Java's
+  FP64 state fingerprint, which we do not reproduce. Constant-level uses (SpanTreeRandom's `Edges`, evaluated once at startup)
+  and initial-state generation use the plain sequence and match Java exactly.

@@ -415,6 +415,78 @@ fn permutations(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Val
     Value::set_from(out)
 }
 
+/// the next pseudo-random double of the shared generator (Java: `RandomEnumerableValues.get().nextDouble()`)
+fn next_double(ev: &Ev) -> f64 {
+    let mut g = ev.rng.borrow_mut();
+    g.get_or_insert_with(|| crate::jrandom::JRandom::new(ev.seed.get())).next_double()
+}
+
+// Java: TLC.RandomElement
+fn random_element_of(ev: &Ev, v: &Value) -> R<Value> {
+    let wrong = || {
+        fail_code(
+            ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE,
+            format!(
+                "Applying RandomElement to a finite set, but instead it is:
+{}",
+                crate::pprint::ppr(&v.to_tla())
+            ),
+        )
+    };
+    match v {
+        Value::SetOfFcns(p) => {
+            let (dom, range) = &**p;
+            if !dom.is_set_like() {
+                return wrong();
+            }
+            let dom = dom.enumerate()?;
+            let mut pairs = Vec::with_capacity(dom.len());
+            for d in dom.iter() {
+                pairs.push((d.clone(), random_element_of(ev, range)?));
+            }
+            Value::fcn_from(pairs)
+        }
+        Value::SetOfRcds(fields) => {
+            let mut pairs = Vec::with_capacity(fields.len());
+            for (name, set) in fields.iter() {
+                pairs.push((Value::Str(*name), random_element_of(ev, set)?));
+            }
+            Value::fcn_from(pairs)
+        }
+        Value::SetOfTuples(sets) => {
+            let mut out = Vec::with_capacity(sets.len());
+            for s in sets.iter() {
+                out.push(random_element_of(ev, s)?);
+            }
+            Ok(Value::tuple(out))
+        }
+        Value::Interval(lo, hi) => {
+            if hi < lo {
+                return fail_code(ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE, "Attempted to select a random element of an empty set.".to_string());
+            }
+            let sz = (*hi as i64 - *lo as i64 + 1) as f64;
+            let index = (next_double(ev) * sz).floor() as i64;
+            Ok(Value::Int((*lo as i64 + index) as i32))
+        }
+        _ => {
+            if !v.is_set_like() || matches!(v, Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_)) {
+                return wrong();
+            }
+            let elems = v.enumerate()?;
+            if elems.is_empty() {
+                return fail_code(ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE, "Attempted to select a random element of an empty set.".to_string());
+            }
+            let index = (next_double(ev) * elems.len() as f64).floor() as usize;
+            Ok(elems[index].clone())
+        }
+    }
+}
+
+fn random_element(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let s = arg(ev, a, 0, s0, s1)?;
+    random_element_of(ev, &s)
+}
+
 fn sort_seq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
     let cmp = match std::mem::replace(&mut a[1], Slot::Unset) {
@@ -1131,6 +1203,7 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("TLC", "@@") => combine_fcn,
         ("TLC", "Permutations") => permutations,
         ("TLC", "SortSeq") => sort_seq,
+        ("TLC", "RandomElement") => random_element,
         ("TLC", "TLCGet") => tlc_get,
         ("TLC", "TLCSet") => tlc_set,
         ("Functions", "FoldFunctionOnSet") => fold_function_on_set,

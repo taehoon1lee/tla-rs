@@ -20,6 +20,7 @@ pub mod ec;
 pub mod eval;
 pub mod liveness;
 pub mod ir;
+pub mod jrandom;
 pub mod natives;
 pub mod mp;
 pub mod options;

@@ -97,11 +97,12 @@ impl Setup {
     }
 }
 
-pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, SetupErr> {
+pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Result<Setup, SetupErr> {
     let root = sem.root.clone();
     let vars: Vec<Rc<sem::OpDecl>> = root.variables();
     let ev = Ev::new(vars.len());
     ev.set_bound.set(set_bound);
+    ev.seed.set(seed);
     *ev.var_names.borrow_mut() = vars.iter().map(|v| v.name.clone()).collect();
     let mut comp = Compiler::new(natives::lookup);
     for (i, v) in vars.iter().enumerate() {
