@@ -400,6 +400,8 @@ pub enum EKind {
     Disj(Vec<Expr>),
     SubstIn(Rc<Vec<Subst>>, Expr),
     Label(Name, Vec<Rc<Param>>, Expr),
+    /// a construct SANY accepts but this port does not model yet; evaluating it reports "not ported"
+    Unsupported(Name),
 }
 
 /// Java `InstanceNode`
@@ -543,7 +545,7 @@ impl ExprNode {
     pub fn children(&self) -> Vec<Expr> {
         let mut v: Vec<Expr> = Vec::new();
         match &self.kind {
-            EKind::Num(_) | EKind::Dec(..) | EKind::Str(_) | EKind::At => {}
+            EKind::Num(_) | EKind::Dec(..) | EKind::Str(_) | EKind::At | EKind::Unsupported(_) => {}
             EKind::Apply(_, args) => {
                 for a in args {
                     if let Arg::Expr(e) = a {

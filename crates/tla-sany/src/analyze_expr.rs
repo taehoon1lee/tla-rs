@@ -70,7 +70,7 @@ fn level_params(e: &Expr, out: &mut HashSet<usize>) {
         }
     }
     match &e.kind {
-        EKind::Num(_) | EKind::Dec(..) | EKind::Str(_) | EKind::At => {}
+        EKind::Num(_) | EKind::Dec(..) | EKind::Str(_) | EKind::At | EKind::Unsupported(_) => {}
         EKind::Apply(c, args) => {
             match c {
                 Callee::Param(p) => {
@@ -697,6 +697,9 @@ impl<'a> Analyzer<'a> {
                 let sym = self.resolve(&compound);
                 match sym {
                     None => {
+                        if !g.prefix.is_empty() && self.any_prefix_resolves(g) {
+                            return Ok(Arg::Expr(self.mk(EKind::Unsupported(nm(&compound)), a.loc, Level::Const)));
+                        }
                         self.err(a.loc, format!("Unknown operator: `{}'.", compound));
                         Err(())
                     }
@@ -872,8 +875,8 @@ impl<'a> Analyzer<'a> {
                 match next {
                     Some(n) => cur = n,
                     None => {
-                        self.err(loc, format!("Unknown operator: `{}'.", path.iter().map(|p| &*p.0).collect::<Vec<_>>().join("!")));
-                        return Some(Err(()));
+                        let n = path.iter().map(|p| &*p.0).collect::<Vec<_>>().join("!");
+                        return Some(Ok(self.mk(EKind::Unsupported(nm(&n)), loc, Level::Const)));
                     }
                 }
             }
@@ -901,6 +904,16 @@ impl<'a> Analyzer<'a> {
     }
 
     /// `Thm!<<...`, `Thm!2`, `Thm!:`: navigation into a theorem/assumption (proof steps are not analysed)
+    fn any_prefix_resolves(&mut self, g: &ast::GenId) -> bool {
+        for k in (1..=g.prefix.len()).rev() {
+            let name: Vec<&str> = g.prefix[..k].iter().map(|p| &*p.name).collect();
+            if self.resolve(&name.join("!")).is_some() {
+                return true;
+            }
+        }
+        false
+    }
+
     fn is_theorem_ref(&mut self, g: &ast::GenId) -> bool {
         for k in (1..=g.prefix.len()).rev() {
             let name: Vec<&str> = g.prefix[..k].iter().map(|p| &*p.name).collect();
@@ -941,6 +954,9 @@ impl<'a> Analyzer<'a> {
             None if !g.prefix.is_empty() => {
                 if let Some(r) = self.gen_selector(g, args, loc) {
                     return r;
+                }
+                if self.any_prefix_resolves(g) {
+                    return Ok(self.mk(EKind::Unsupported(nm(&compound)), loc, Level::Const));
                 }
                 self.err(loc, format!("Unknown operator: `{}'.", compound));
                 return Err(());
