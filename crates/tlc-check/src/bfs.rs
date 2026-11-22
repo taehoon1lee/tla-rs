@@ -691,10 +691,18 @@ impl<'a> Checker<'a> {
                     prof_add(3, t_s);
                     if self.live {
                         let target = if is_new { self.states.len() as u32 } else { self.fp_index.get(&fp).copied().unwrap_or(u32::MAX) };
-                        if target != u32::MAX && !self.live_succ[head].contains(&target) {
-                            self.live_succ[head].push(target);
-                            if self.setup.view.is_some() {
-                                self.live_edge[head].push(Rc::new(st.clone()));
+                        if target != u32::MAX {
+                            if self.setup.view.is_some() || !self.perms.is_empty() {
+                                // a node stands for several states (VIEW / SYMMETRY): keep one edge per distinct actual successor
+                                let dup = self.live_succ[head].iter().zip(self.live_edge[head].iter()).any(|(t, vals)| {
+                                    *t == target && vals.iter().zip(st.iter()).all(|(a, b)| a.eq_val(b).unwrap_or(false))
+                                });
+                                if !dup {
+                                    self.live_succ[head].push(target);
+                                    self.live_edge[head].push(Rc::new(st.clone()));
+                                }
+                            } else if !self.live_succ[head].contains(&target) {
+                                self.live_succ[head].push(target);
                             }
                         }
                         if is_new {
@@ -769,11 +777,18 @@ impl<'a> Checker<'a> {
             if self.live {
                 // Java: `Worker.doNextCheckLiveness` adds the stuttering step to the successors
                 let h = head as u32;
-                if !self.live_succ[head].contains(&h) {
-                    self.live_succ[head].push(h);
-                    if self.setup.view.is_some() {
-                        self.live_edge[head].push(Rc::new(self.states[head].vals.clone()));
+                if self.setup.view.is_some() || !self.perms.is_empty() {
+                    let cur = &self.states[head].vals;
+                    let dup = self.live_succ[head].iter().zip(self.live_edge[head].iter()).any(|(t, vals)| {
+                        *t == h && vals.iter().zip(cur.iter()).all(|(a, b)| a.eq_val(b).unwrap_or(false))
+                    });
+                    if !dup {
+                        let v = Rc::new(cur.clone());
+                        self.live_succ[head].push(h);
+                        self.live_edge[head].push(v);
                     }
+                } else if !self.live_succ[head].contains(&h) {
+                    self.live_succ[head].push(h);
                 }
             }
             head += 1;
@@ -838,6 +853,15 @@ impl<'a> Checker<'a> {
         );
         let oss = &setup.live.oss;
         let t0 = std::time::Instant::now();
+        // Java iterates the successors of a state in the order of a hash set (`SetOfStates`: slot = FP64 % capacity), an
+        // order that cannot be reproduced here (our fingerprints and intern tokens differ); any fixed order is as good as
+        // another.  The reverse generation order agrees with Java's counterexamples more often on the test corpus.
+        for (i, v) in self.live_succ.iter_mut().enumerate() {
+            v.reverse();
+            if i < self.live_edge.len() && self.live_edge[i].len() == v.len() {
+                self.live_edge[i].reverse();
+            }
+        }
         let table = StateTable(&self.states, &self.live_edge);
         let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, &self.live_inits, oss) {
             Ok(g) => g,
@@ -902,7 +926,9 @@ impl<'a> Checker<'a> {
         let mut violated: Vec<String> = vec![];
         for (name, ln) in &setup.live.props {
             if let Ok(false) = ln.eval_on_lasso(&ev, &vals, lasso.cycle_pos, 0) {
-                violated.push(name.clone());
+                if !violated.contains(name) {
+                    violated.push(name.clone());
+                }
             }
         }
         let text = match violated.len() {
@@ -925,7 +951,23 @@ impl<'a> Checker<'a> {
         let cycle_num = lasso.cycle_pos + 1;
         if lasso.stuttering {
             self.rep.message(ec::TLC_STATE_PRINT3, mp::class::STATE, &format!("{}: Stuttering", cycle_num + 1));
-            let _ = oos;
+            // Java: `Liveness.printStutteringCounterExampleWarning`
+            if !oos.has_empty_pem_and_box_free_promises() {
+                if !setup.spec_name.is_empty() && setup.spec_temporal.is_empty() {
+                    self.rep.warning(
+                        ec::TLC_CONFIG_NO_FAIRNESS_BUT_LIVE_PROPERTY,
+                        &format!(
+                            "The stuttering counterexample above may be caused by the absence of a fairness constraint in the behavior specification {} defined at {}. To rule out such counterexamples, conjoin a suitable fairness constraint to {} (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).",
+                            setup.spec_name, setup.spec_loc, setup.spec_name
+                        ),
+                    );
+                } else if setup.spec_name.is_empty() {
+                    self.rep.warning(
+                        ec::TLC_CONFIG_NO_SPEC_BUT_PROPERTY,
+                        "The stuttering counterexample above may be caused by the absence of a behavior specification (SPECIFICATION). Only INIT and NEXT have been provided, so TLC permits infinite stuttering. To rule out such counterexamples, use SPECIFICATION Spec, with Spec asserting a suitable fairness constraint (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).",
+                    );
+                }
+            }
         } else {
             let last = actual.last().unwrap().0.clone();
             let label = match self.step(&last, fps[lasso.cycle_pos]) {

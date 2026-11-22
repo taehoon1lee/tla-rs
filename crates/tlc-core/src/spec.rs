@@ -62,6 +62,9 @@ pub struct Setup {
     /// POSTCONDITION definitions (constant level), checked after the state space has been explored
     pub postconditions: Vec<(Top, String)>,
     pub spec_temporal: Vec<sem::Expr>,
+    /// the SPECIFICATION of the configuration and the location of its definition (for warning 2259)
+    pub spec_name: String,
+    pub spec_loc: String,
     /// orders of solution of the temporal properties (`Liveness.processLiveness`), filled by the driver
     pub live: crate::liveness::oos::LiveSpec,
     /// names and locations of the "actions" (top-level disjuncts of Next) for trace labels
@@ -253,6 +256,8 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
         postconditions: vec![],
         spec_temporal: vec![],
         live: Default::default(),
+        spec_name: String::new(),
+        spec_loc: String::new(),
         root: root.clone(),
     };
 
@@ -274,6 +279,8 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64) -> Result<Setup, 
             return serr(ec::TLC_CONFIG_ID_REQUIRES_NO_ARG, format!("TLC requires {} not to take any argument.", cfg.spec));
         }
         let body = def.body();
+        setup.spec_name = cfg.spec.clone();
+        setup.spec_loc = format!("line {}, col {} to line {}, col {} of module {}", def.loc.bl, def.loc.bc, def.loc.el, def.loc.ec, def.module);
         let mut inits: Vec<sem::Expr> = vec![];
         let mut nexts: Vec<(sem::Expr, String)> = vec![];
         let mut temporals: Vec<sem::Expr> = vec![];
@@ -435,7 +442,7 @@ is not defined in the specification.", name),
         if let Some(b) = def.body() {
             let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
             let mut bound: Vec<(Rc<sem::Param>, Value)> = vec![];
-            classify_property(&mut setup, name, &b, &def, &mut wraps, &mut bound, 0)?;
+            classify_property(&mut setup, name, name, &b, &def, &mut wraps, &mut bound, 0)?;
         }
     }
     // ---- postconditions
@@ -481,6 +488,7 @@ is not defined in the specification.", name),
 #[allow(clippy::too_many_arguments)]
 fn classify_property(
     setup: &mut Setup,
+    cfg_name: &str,
     name: &str,
     e: &sem::Expr,
     owner: &Rc<sem::OpDef>,
@@ -497,22 +505,22 @@ fn classify_property(
         let (ex, n) = setup.comp.compile_top_bound(&w, &params);
         Top { name: nm.to_string(), ex, nslots: n, loc: x.loc, module: owner.module.to_string(), bound: bound.iter().map(|(_, v)| v.clone()).collect() }
     };
-    let push_prop = |setup: &mut Setup, nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>], bound: &[(Rc<sem::Param>, Value)]| {
-        setup.properties.push((nm.to_string(), wrap_all(x, wraps)));
+    let push_prop = |setup: &mut Setup, _nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>], bound: &[(Rc<sem::Param>, Value)]| {
+        setup.properties.push((cfg_name.to_string(), wrap_all(x, wraps)));
         setup.properties_bound.push(bound.to_vec());
     };
     match &e.kind {
         EKind::SubstIn(subs, b) => {
             wraps.push(subs.clone());
-            let r = classify_property(setup, name, b, owner, wraps, bound, depth + 1);
+            let r = classify_property(setup, cfg_name, name, b, owner, wraps, bound, depth + 1);
             wraps.pop();
             return r;
         }
-        EKind::Label(_, _, b) => return classify_property(setup, name, b, owner, wraps, bound, depth + 1),
+        EKind::Label(_, _, b) => return classify_property(setup, cfg_name, name, b, owner, wraps, bound, depth + 1),
         EKind::Apply(Callee::Def(d), args) if args.is_empty() && d.kind != sem::DefKind::ModuleInstance => {
             if let Some(b) = d.body() {
                 // a definition: recurse with its name
-                return classify_property(setup, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
+                return classify_property(setup, cfg_name, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
             }
         }
         // Java: a call of a non-recursive operator with constant arguments is replaced by its body (`getOpContext`)
@@ -546,7 +554,7 @@ fn classify_property(
                 if ok {
                     let n0 = bound.len();
                     bound.extend(vals);
-                    let r = classify_property(setup, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
+                    let r = classify_property(setup, cfg_name, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
                     bound.truncate(n0);
                     return r;
                 }
@@ -567,7 +575,7 @@ fn classify_property(
                 for ctx in ctxs {
                     let n0 = bound.len();
                     bound.extend(ctx);
-                    let r = classify_property(setup, &nm, body, owner, wraps, bound, depth + 1);
+                    let r = classify_property(setup, cfg_name, &nm, body, owner, wraps, bound, depth + 1);
                     bound.truncate(n0);
                     r?;
                 }
@@ -578,7 +586,7 @@ fn classify_property(
             for x in items {
                 // Java: `conj.toString()` is the source location of the conjunct
                 let nm = format!("line {}, col {} to line {}, col {} of module {}", x.loc.bl, x.loc.bc, x.loc.el, x.loc.ec, owner.original().module);
-                classify_property(setup, &nm, x, owner, wraps, bound, depth + 1)?;
+                classify_property(setup, cfg_name, &nm, x, owner, wraps, bound, depth + 1)?;
             }
             return Ok(());
         }

@@ -142,6 +142,11 @@ pub fn run(opts: &TlcOptions, resolver: &Resolver, rep: &mut Reporter) -> i32 {
             }
         }
     }
+    if let Ok(names) = std::env::var("TLCRS_TOK") {
+        for n in names.split(',') {
+            eprintln!("TOK {} {}", n, tla_sany::intern::intern(n));
+        }
+    }
     let setup = Rc::new(setup);
     let code = bfs::model_check(&setup, opts, rep, start);
     rep.flush();
