@@ -410,6 +410,17 @@ impl Ev {
                 self.substs.borrow_mut().truncate(n0);
                 r
             }
+            Node::LetRec(defs, body) => {
+                for (slot, l) in defs {
+                    let frame = {
+                        let st = self.stack.borrow();
+                        Rc::new(st[self.base.get()..].to_vec())
+                    };
+                    let clo = Rc::new(OpClosure::Lambda { def: l.clone(), frame, self_slot: Some(*slot) });
+                    self.set_slot(*slot, Slot::Op(clo));
+                }
+                self.enum_action(body, mode, s0, buf, k)
+            }
             // Java: a LazyValue (call-by-name argument such as an action passed to an operator) is expanded
             Node::Local(s) => match self.get_slot(*s) {
                 Slot::Lazy(l) => self.enum_in_frame(&l.frame, &l.substs, &[], &l.code, mode, s0, buf, k),
@@ -574,7 +585,7 @@ to argument {}, which is not in the domain of the function.",
         self.simple_memo.borrow_mut().insert(key, false);
         let r = match &**ex {
             Node::And(items) => items.iter().all(|e| self.action_simple(e, mode, depth + 1)),
-            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) | Node::CallLocal(..) | Node::CallDecl(..) => false,
+            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) | Node::CallLocal(..) | Node::CallDecl(..) | Node::LetRec(..) => false,
             Node::Forall(_, b) => self.action_simple(b, mode, depth + 1),
             Node::Implies(_, b) => self.action_simple(b, mode, depth + 1),
             Node::If(_, t, f) => self.action_simple(t, mode, depth + 1) && self.action_simple(f, mode, depth + 1),
@@ -672,7 +683,7 @@ to argument {}, which is not in the domain of the function.",
                     _ => fail("A constant operator was used but has not been assigned a value."),
                 }
             }
-            OpClosure::Lambda { def, frame } => {
+            OpClosure::Lambda { def, frame, self_slot } => {
                 let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
                 for a in args {
                     let s = {
@@ -697,6 +708,13 @@ to argument {}, which is not in the domain of the function.",
                             st.resize(idx + 1, Slot::Unset);
                         }
                         st[idx] = s;
+                    }
+                    if let Some(ss) = self_slot {
+                        let idx = nb + *ss as usize;
+                        if idx >= st.len() {
+                            st.resize(idx + 1, Slot::Unset);
+                        }
+                        st[idx] = Slot::Op(c.clone());
                     }
                 }
                 self.base.set(nb);

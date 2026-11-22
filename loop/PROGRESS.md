@@ -8,3 +8,12 @@ next: M1.1 lexer
 syntax 1140/1140, parse 1132/1140, parse_msg 1126/1140 (all 436 ex/ modules pass; remaining = tt/ error-message cases), front 1, init 1, verdict 1
 code: crates/tla-sany/src/{lexer,parser,ast,ops,modules,sem,analyze,analyze_expr,driver}.rs (see docs/JAVA_MAP.md)
 next: TLC side — values (M3), config + spec processing (M4), evaluator, BFS (M5)
+
+## 2026-11-22 M3-M5, M7 partial (Sonnet 5.5, /goal session)
+full corpus: front 341/364, init 315, verdict 245, trace 199, perf 227; ex/ only: verdict ~144/150, trace ~140/150.
+done: Java-faithful action enumeration (`getNextStates`: =>, \A chain, FcnApply/LAMBDA expansion, all-assigned fast path,
+ContextEnumerator order = first var fastest), action splitting + labels (`Action.getLocation`), SYMMETRY, PROPERTY
+classification (`[]P` invariants, implied init/action), TLC pretty printer (`pprint.rs` = tlc2.pprint), outdegree stats,
+community natives (Functions, FiniteSetsExt fold/quantify, IOUtils env, Graphs/UndirectedGraphs), recursive LET ops,
+INSTANCE substitution fixes, perf (Arith nodes, fast allocator in tlc-cli, Fcn dom sharing, no per-call allocs).
+open: liveness (43 tt/ models + 3 ex/), CCT/ALIAS/POSTCONDITION, perf of heavy models (Sailfish1, MultiPaxos, FastPaxos).

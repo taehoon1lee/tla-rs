@@ -279,7 +279,17 @@ impl Ev {
         Ok(match r {
             OpRef::Def(d) => Rc::new(OpClosure::Def(d.clone())),
             OpRef::Builtin(b) => Rc::new(OpClosure::Builtin(*b)),
-            OpRef::Decl(id) => Rc::new(OpClosure::Decl(*id)),
+            OpRef::Decl(id) => {
+                // a declared operator that an enclosing INSTANCE substitutes stands for the substituted operator
+                let sub = {
+                    let ss = self.substs.borrow();
+                    ss.iter().rev().find(|e| e.decl == *id).map(|e| e.slot.clone())
+                };
+                match sub {
+                    Some(Slot::Op(c)) => c,
+                    _ => Rc::new(OpClosure::Decl(*id)),
+                }
+            }
             OpRef::Local(i) => match self.get_slot(*i) {
                 Slot::Op(c) => c,
                 _ => return fail("An operator parameter was used as an operator but is not bound to one."),
@@ -288,7 +298,7 @@ impl Ev {
                 let st = self.stack.borrow();
                 let b = self.base.get();
                 let frame = Rc::new(st[b..].to_vec());
-                Rc::new(OpClosure::Lambda { def: l.clone(), frame })
+                Rc::new(OpClosure::Lambda { def: l.clone(), frame, self_slot: None })
             }
         })
     }
@@ -437,10 +447,13 @@ impl Ev {
                 }
                 self.apply_builtin(*b, vals)
             }
-            OpClosure::Lambda { def, frame } => {
+            OpClosure::Lambda { def, frame, self_slot } => {
                 let cap = Captured { frame: frame.clone(), substs: Rc::new(self.substs.borrow().clone()), s0: Rc::new(s0.to_vec()), s1: Rc::new(s1.to_vec()) };
                 // parameters occupy consecutive slots starting at `def.nslots`
-                let assigns: Vec<(u32, Slot)> = slots.into_iter().enumerate().map(|(i, s)| ((def.nslots + i) as u32, s)).collect();
+                let mut assigns: Vec<(u32, Slot)> = slots.into_iter().enumerate().map(|(i, s)| ((def.nslots + i) as u32, s)).collect();
+                if let Some(ss) = self_slot {
+                    assigns.push((*ss, Slot::Op(c.clone())));
+                }
                 self.run_captured(&cap, &assigns, &def.body)
             }
             OpClosure::Decl(id) => {
@@ -617,6 +630,17 @@ impl Ev {
                 let empty = self.empty_state();
                 let nxt = self.eval(inner, s1, &empty)?;
                 Ok(Value::Bool(cur.eq_val(&nxt)?))
+            }
+            Node::LetRec(defs, body) => {
+                for (slot, l) in defs {
+                    let frame = {
+                        let st = self.stack.borrow();
+                        Rc::new(st[self.base.get()..].to_vec())
+                    };
+                    let clo = Rc::new(OpClosure::Lambda { def: l.clone(), frame, self_slot: Some(*slot) });
+                    self.set_slot(*slot, Slot::Op(clo));
+                }
+                self.eval(body, s0, s1)
             }
             Node::Fold(inner, cache) => {
                 if let Some(v) = &*cache.borrow() {

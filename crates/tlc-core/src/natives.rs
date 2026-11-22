@@ -660,6 +660,213 @@ fn atoi(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     }
 }
 
+// ------------------------------------------------------------------ Graphs / UndirectedGraphs (AbstractGraphs.java)
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GMode {
+    Forward,
+    Transpose,
+    Symmetric,
+}
+
+struct Graph {
+    nodes: Rc<Vec<Value>>,
+    /// adjacency lists by node index
+    adj: Vec<Vec<usize>>,
+}
+
+fn node_index(nodes: &[Value], v: &Value) -> R<Option<usize>> {
+    let (mut lo, mut hi) = (0usize, nodes.len());
+    while lo < hi {
+        let mid = (lo + hi) / 2;
+        match nodes[mid].cmp_val(v)? {
+            std::cmp::Ordering::Less => lo = mid + 1,
+            std::cmp::Ordering::Greater => hi = mid,
+            std::cmp::Ordering::Equal => return Ok(Some(mid)),
+        }
+    }
+    Ok(None)
+}
+
+fn graph_arg_err<T>(op: &str, pos: &str, kind: &str, detail: &str, v: &Value) -> R<T> {
+    fail_code(
+        ec::TLC_MODULE_ARGUMENT_ERROR,
+        format!("The {} argument of {} should be a {} {}, but instead it is:\n{}", pos, op, kind, detail, crate::pprint::ppr(&v.to_tla())),
+    )
+}
+
+/// directed edge: a pair `<<a, b>>`; undirected: a set `{a, b}` (a singleton is a self-loop)
+fn endpoints(edge: &Value, directed: bool) -> R<Option<(Value, Value)>> {
+    if directed {
+        return Ok(match edge {
+            Value::Tuple(t) if t.len() == 2 => Some((t[0].clone(), t[1].clone())),
+            _ => None,
+        });
+    }
+    if !edge.is_set_like() {
+        return Ok(None);
+    }
+    let e = edge.enumerate()?;
+    Ok(match e.len() {
+        1 => Some((e[0].clone(), e[0].clone())),
+        2 => Some((e[0].clone(), e[1].clone())),
+        _ => None,
+    })
+}
+
+fn to_graph(op: &str, pos: &str, kind: &str, v: &Value, directed: bool, mode: GMode) -> R<Graph> {
+    let rcd = v.force_fcn()?;
+    let (node, edge) = match &rcd {
+        Value::Fcn(f) => {
+            let (mut n, mut e) = (None, None);
+            for (d, x) in f.dom.iter().zip(f.vals.iter()) {
+                if let Value::Str(id) = d {
+                    match &*intern::name_of(*id) {
+                        "node" => n = Some(x.clone()),
+                        "edge" => e = Some(x.clone()),
+                        _ => {}
+                    }
+                }
+            }
+            (n, e)
+        }
+        _ => (None, None),
+    };
+    let node = match node {
+        Some(n) if n.is_set_like() => n,
+        _ => return graph_arg_err(op, pos, kind, "record whose node field is a set", v),
+    };
+    let edge = match edge {
+        Some(e) if e.is_set_like() => e,
+        _ => return graph_arg_err(op, pos, kind, "record whose edge field is a set", v),
+    };
+    let nodes = node.enumerate()?;
+    let mut adj: Vec<Vec<usize>> = vec![vec![]; nodes.len()];
+    for ed in edge.enumerate()?.iter() {
+        if let Some((a, b)) = endpoints(ed, directed)? {
+            let (ia, ib) = match (node_index(&nodes, &a)?, node_index(&nodes, &b)?) {
+                (Some(x), Some(y)) => (x, y),
+                _ => continue,
+            };
+            let (from, to) = if mode == GMode::Transpose { (ib, ia) } else { (ia, ib) };
+            adj[from].push(to);
+            if mode == GMode::Symmetric && from != to {
+                adj[to].push(from);
+            }
+        }
+    }
+    Ok(Graph { nodes, adj })
+}
+
+fn reachable(g: &Graph, src: usize) -> Vec<bool> {
+    let mut seen = vec![false; g.nodes.len()];
+    let mut q = std::collections::VecDeque::new();
+    seen[src] = true;
+    q.push_back(src);
+    while let Some(c) = q.pop_front() {
+        for &n in &g.adj[c] {
+            if !seen[n] {
+                seen[n] = true;
+                q.push_back(n);
+            }
+        }
+    }
+    seen
+}
+
+fn extend_simple_path(g: &Graph, cur: usize, path: &mut Vec<usize>, visited: &mut Vec<bool>, out: &mut Vec<Value>) {
+    out.push(Value::tuple(path.iter().map(|&i| g.nodes[i].clone()).collect()));
+    for &n in &g.adj[cur] {
+        if !visited[n] {
+            visited[n] = true;
+            path.push(n);
+            extend_simple_path(g, n, path, visited, out);
+            path.pop();
+            visited[n] = false;
+        }
+    }
+}
+
+fn simple_path_impl(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value], kind: &str, directed: bool) -> R<Value> {
+    let gv = arg(ev, a, 0, s0, s1)?;
+    let mode = if directed { GMode::Forward } else { GMode::Symmetric };
+    let g = to_graph("SimplePath", "first", kind, &gv, directed, mode)?;
+    let mut out = vec![];
+    let mut visited = vec![false; g.nodes.len()];
+    for start in 0..g.nodes.len() {
+        let mut path = vec![start];
+        visited[start] = true;
+        extend_simple_path(&g, start, &mut path, &mut visited, &mut out);
+        visited[start] = false;
+    }
+    Value::set_from(out)
+}
+
+fn are_connected_in_impl(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value], kind: &str, directed: bool) -> R<Value> {
+    let m = arg(ev, a, 0, s0, s1)?;
+    let n = arg(ev, a, 1, s0, s1)?;
+    let gv = arg(ev, a, 2, s0, s1)?;
+    let mode = if directed { GMode::Forward } else { GMode::Symmetric };
+    let g = to_graph("AreConnectedIn", "third", kind, &gv, directed, mode)?;
+    let (im, inn) = match (node_index(&g.nodes, &m)?, node_index(&g.nodes, &n)?) {
+        (Some(x), Some(y)) => (x, y),
+        _ => return Ok(Value::Bool(false)),
+    };
+    if im == inn {
+        return Ok(Value::Bool(true));
+    }
+    Ok(Value::Bool(reachable(&g, im)[inn]))
+}
+
+fn graphs_simple_path(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    simple_path_impl(ev, a, s0, s1, "directed graph", true)
+}
+fn graphs_are_connected_in(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    are_connected_in_impl(ev, a, s0, s1, "directed graph", true)
+}
+fn ugraphs_simple_path(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    simple_path_impl(ev, a, s0, s1, "undirected graph", false)
+}
+fn ugraphs_are_connected_in(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    are_connected_in_impl(ev, a, s0, s1, "undirected graph", false)
+}
+
+fn graphs_is_strongly_connected(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let gv = arg(ev, a, 0, s0, s1)?;
+    let g = to_graph("IsStronglyConnected", "first", "directed graph", &gv, true, GMode::Forward)?;
+    if g.nodes.is_empty() {
+        return Ok(Value::Bool(true));
+    }
+    if reachable(&g, 0).iter().any(|&b| !b) {
+        return Ok(Value::Bool(false));
+    }
+    let gt = to_graph("IsStronglyConnected", "first", "directed graph", &gv, true, GMode::Transpose)?;
+    Ok(Value::Bool(reachable(&gt, 0).iter().all(|&b| b)))
+}
+
+fn ugraphs_connected_components(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let gv = arg(ev, a, 0, s0, s1)?;
+    let g = to_graph("ConnectedComponents", "first", "undirected graph", &gv, false, GMode::Symmetric)?;
+    let mut done = vec![false; g.nodes.len()];
+    let mut comps: Vec<Value> = vec![];
+    for i in 0..g.nodes.len() {
+        if done[i] {
+            continue;
+        }
+        let seen = reachable(&g, i);
+        let mut members = vec![];
+        for (j, &b) in seen.iter().enumerate() {
+            if b {
+                done[j] = true;
+                members.push(g.nodes[j].clone());
+            }
+        }
+        comps.push(Value::set_from(members)?);
+    }
+    Value::set_from(comps)
+}
+
+
 // ---------------------------------------------------------------------------------------------- lookup
 
 pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
@@ -707,6 +914,12 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("FiniteSetsExt", "FoldSet") => fold_set,
         ("FiniteSetsExt", "Quantify") => quantify,
         ("IOUtils", "IOEnv") => io_env,
+        ("Graphs", "SimplePath") => graphs_simple_path,
+        ("Graphs", "AreConnectedIn") => graphs_are_connected_in,
+        ("Graphs", "IsStronglyConnected") => graphs_is_strongly_connected,
+        ("UndirectedGraphs", "SimplePath") => ugraphs_simple_path,
+        ("UndirectedGraphs", "AreConnectedIn") => ugraphs_are_connected_in,
+        ("UndirectedGraphs", "ConnectedComponents") => ugraphs_connected_components,
         ("IOUtils", "atoi") => atoi,
         _ => return None,
     };

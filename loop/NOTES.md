@@ -53,3 +53,17 @@
 - Selectors `Def!label`, `Def!2`, `Thm!:` handled via synthetic defs (`gen_selector`); exotic ones become `EKind::Unsupported` (TLC must report 9999 if evaluated).
 - Levels are computed on the fly (`Expr.level`, `OpDef.level/weights`), simplified w.r.t. SANY's level-parameter machinery.
 - Tooling gotcha: the Bash tool mangles backslashes inside `python - <<EOF` heredocs. Write patch scripts with the Write tool (scratchpad) and run them.
+
+## Evaluator / enumeration facts learned (TLC semantics that bite)
+- Java enumerates `\E x \in S, y \in T` with the FIRST variable varying fastest (ContextEnumerator). `for_each_binding_cb` mirrors it.
+- `getNextStates` expands `\/`, `\E`, `=>` (consequent), bounded `\A` (one continuation per context), applications of user ops and
+  function constructors (`f[x]` of an unevaluated FcnLambda) in ANY conjunct position => duplicate successors are counted in
+  "states generated". Once every variable is assigned (`allAssigned`) the remaining conjuncts are only evaluated (no expansion).
+  Our `eval_only` flag in `actions.rs` does this (Init too; Next only when `warn`).
+- Action labels: `<Name(arg,..) line L, col C to line L2, col C2 of module M>`: Name/params from the operator the splitting went
+  through (constant args only), location of the first non-splittable node (`Ev::node_info` side table filled by the compiler).
+- `left on queue` at an invariant violation excludes the violating state (Java enqueues after the checks).
+- Config overrides (`Op <- Op2`, `[Mod]Op = v`) name the ORIGINAL def; INSTANCE copies must follow (`d.original().id`).
+- Profiling: `cargo build --release --features tlc-check/prof` then `TLCRS_PROF=1 [TLCRS_PROF_PHASE=enum|inv|constraint] tlc-rs ...`
+  prints a sampling profile of the current node kind to stderr (no external profiler on this box). Remove nothing: off by default.
+- The windows heap is slow: `crates/tlc-cli/src/alloc.rs` is a per-thread size-class allocator (measured 10-15%).

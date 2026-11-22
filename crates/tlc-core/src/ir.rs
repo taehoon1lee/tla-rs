@@ -45,7 +45,8 @@ pub struct LambdaDef {
 pub enum OpClosure {
     Def(Rc<CompiledDef>),
     Builtin(B),
-    Lambda { def: Rc<LambdaDef>, frame: Rc<Vec<Slot>> },
+    /// `self_slot`: slot (in the captured frame layout) that holds the closure itself (recursive LET operators)
+    Lambda { def: Rc<LambdaDef>, frame: Rc<Vec<Slot>>, self_slot: Option<u32> },
     /// a constant operator parameter (`CONSTANT F(_)`) assigned by the configuration
     Decl(usize),
 }
@@ -138,6 +139,8 @@ pub enum ArithOp {
 }
 
 pub enum Node {
+    /// LET with recursive operator definitions: bind each closure to its slot, then evaluate the body
+    LetRec(Vec<(u32, Rc<LambdaDef>)>, Ex),
     /// a closed constant expression: evaluated once, on first use
     Fold(Ex, RefCell<Option<Value>>),
     /// fast path of a native binary operator; the native function handles every other case (errors included)

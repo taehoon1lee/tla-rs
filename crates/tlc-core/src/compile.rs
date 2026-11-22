@@ -46,11 +46,13 @@ struct FrameCtx {
     next_slot: u32,
     max_slot: Rc<Cell<usize>>,
     at_slots: Vec<u32>,
+    /// recursive LET operators compiled as closures: def id -> slot holding the closure
+    rec_lets: HashMap<usize, u32>,
 }
 
 impl FrameCtx {
     fn new() -> FrameCtx {
-        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![] }
+        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], rec_lets: HashMap::new() }
     }
     fn alloc(&mut self) -> u32 {
         let s = self.next_slot;
@@ -89,7 +91,9 @@ impl Compiler {
     // ------------------------------------------------------------------ definitions
 
     pub fn compile_def(&mut self, d: &Rc<sem::OpDef>) -> Rc<CompiledDef> {
-        let d = match self.overrides.get(&d.id) {
+        // overrides given in the configuration name the original definition; INSTANCE copies (`I!Op`) follow it
+        let orig_id = d.original().id;
+        let d = match self.overrides.get(&d.id).or_else(|| self.overrides.get(&orig_id)) {
             Some(o) => o.clone(),
             None => d.clone(),
         };
@@ -114,7 +118,7 @@ impl Compiler {
             label_cache: std::cell::OnceCell::new(),
         });
         self.defs.insert(d.id, cd.clone());
-        if let Some(v) = self.def_values.get(&d.id).cloned() {
+        if let Some(v) = self.def_values.get(&d.id).or_else(|| self.def_values.get(&orig_id)).cloned() {
             *cd.body.borrow_mut() = Some(Rc::new(Node::Const(v)));
             return cd;
         }
@@ -530,14 +534,33 @@ impl Compiler {
                 Rc::new(Node::Case(a, o))
             }
             EKind::LetIn(defs, body) => {
+                // recursive operators with parameters cannot be inlined: they become closures stored in slots
+                let mut recs: Vec<(u32, Rc<sem::OpDef>)> = vec![];
+                for d in defs {
+                    if d.in_recursive.get() && !d.params.borrow().is_empty() {
+                        let s = self.fc().alloc();
+                        self.fc().rec_lets.insert(d.id, s);
+                        recs.push((s, d.clone()));
+                    }
+                }
                 for d in defs {
                     self.fc().lets.insert(d.id, d.clone());
+                }
+                let mut lams = vec![];
+                for (s, d) in &recs {
+                    let l = self.lambda(d);
+                    lams.push((*s, l));
                 }
                 let b = self.expr(body);
                 for d in defs {
                     self.fc().lets.remove(&d.id);
+                    self.fc().rec_lets.remove(&d.id);
                 }
-                b
+                if lams.is_empty() {
+                    b
+                } else {
+                    Rc::new(Node::LetRec(lams, b))
+                }
             }
             EKind::BQuant { forall, bounds, body } => {
                 let bs: Vec<BoundIr> = self.bounds_flat(bounds);
@@ -719,6 +742,10 @@ impl Compiler {
                 }
             }
             Callee::Def(d) => {
+                if let Some(&slot) = self.fc().rec_lets.get(&d.id) {
+                    let a = self.args_of(args);
+                    return Rc::new(Node::CallLocal(slot, a));
+                }
                 if self.fc().lets.contains_key(&d.id) {
                     return self.inline_let(d, args);
                 }

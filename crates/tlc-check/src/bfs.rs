@@ -697,7 +697,22 @@ fn start_sampler() -> Sampler {
         let stop2 = stop.clone();
         let h = std::thread::spawn(move || {
             let mut hist: std::collections::HashMap<usize, (u64, String)> = std::collections::HashMap::new();
+            let t0 = std::time::Instant::now();
+            let mut last = std::time::Instant::now();
+            let mut report = |hist: &std::collections::HashMap<usize, (u64, String)>| {
+                let mut by_kind: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+                let mut total = 0u64;
+                for (_, (c, k)) in hist.iter() { *by_kind.entry(k.clone()).or_insert(0) += *c; total += *c; }
+                let mut v: Vec<_> = by_kind.into_iter().collect();
+                v.sort_by(|a, b| b.1.cmp(&a.1));
+                eprintln!("SAMPLES total={} at {}s", total, t0.elapsed().as_secs());
+                for (k, c) in v.iter().take(25) { eprintln!("  {:6.2}% {}", *c as f64 * 100.0 / total.max(1) as f64, k); }
+            };
             while !stop2.load(std::sync::atomic::Ordering::Relaxed) {
+                if last.elapsed().as_secs() >= 20 {
+                    report(&hist);
+                    last = std::time::Instant::now();
+                }
                 let cur = tlc_core::eval::PROF_CUR.load(std::sync::atomic::Ordering::Relaxed);
                 if cur != 0 {
                     let e = hist.entry(cur).or_insert_with(|| {
