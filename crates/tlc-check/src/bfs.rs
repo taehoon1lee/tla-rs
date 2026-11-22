@@ -247,6 +247,7 @@ impl<'a> Checker<'a> {
     fn run(&mut self) -> SR<()> {
         let setup = self.setup;
         let ev = setup.ev.clone();
+        ev.warn.set(!self.opts.no_warning);
         {
             let mut st = ev.stats.borrow_mut();
             let seed = self.opts.seed.to_string();

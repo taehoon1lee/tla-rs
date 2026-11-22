@@ -11,11 +11,22 @@ use std::rc::{Rc, Weak};
 use tla_sany::intern;
 use tla_sany::sem::{self, B};
 
+#[derive(Clone)]
 pub struct Captured {
     pub frame: Rc<Vec<Slot>>,
     pub substs: Rc<Vec<SubstEntry>>,
     pub s0: Rc<Vec<Value>>,
     pub s1: Rc<Vec<Value>>,
+}
+
+/// Java: FcnLambdaValue.body / params / context, kept so `getNextStates` can expand a function application
+pub struct LamIr {
+    pub cap: Captured,
+    /// (slot, nvars, tuple) of every bound group
+    pub binds: Vec<(u32, u32, bool)>,
+    pub body: Ex,
+    pub self_slot: Option<u32>,
+    pub me: Rc<RefCell<Option<Value>>>,
 }
 
 pub struct Ev {
@@ -39,6 +50,12 @@ pub struct Ev {
     pub cur_label: RefCell<Option<Rc<str>>>,
     /// true while the enumerator may still split disjunctions into named actions
     pub splitting: Cell<bool>,
+    /// memo for `Ev::action_simple`: (node address, mode) -> may the action enumerator produce at most one continuation
+    pub simple_memo: RefCell<HashMap<(usize, bool), bool>>,
+    /// Java: Tool.getNextStatesAllAssigned: once every variable is assigned the remaining conjuncts are only evaluated
+    pub eval_only: Cell<bool>,
+    /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
+    pub warn: Cell<bool>,
 }
 
 const MAX_DEPTH: u32 = 3000;
@@ -66,6 +83,9 @@ impl Ev {
             empty_cache: RefCell::new(Rc::new(vec![Value::Undef; nvars])),
             cur_label: RefCell::new(None),
             splitting: Cell::new(false),
+            simple_memo: RefCell::new(HashMap::new()),
+            eval_only: Cell::new(false),
+            warn: Cell::new(true),
         })
     }
 
@@ -91,7 +111,7 @@ impl Ev {
         self.stack.borrow_mut()[b + idx as usize] = s;
     }
 
-    fn get_slot(&self, idx: u32) -> Slot {
+    pub fn get_slot(&self, idx: u32) -> Slot {
         let b = self.base.get();
         self.stack.borrow()[b + idx as usize].clone()
     }
@@ -605,6 +625,7 @@ impl Ev {
                     let me: Rc<RefCell<Option<Value>>> = Rc::new(RefCell::new(None));
                     let me2 = me.clone();
                     let self_slot = *self_slot;
+                    let lir = Rc::new(LamIr { cap: cap.clone(), binds: vec![(slot, nvars, tuple)], body: body.clone(), self_slot, me: me.clone() });
                     let v = Value::FcnLam(Rc::new(FcnLam {
                         dom,
                         apply: Box::new(move |v: &Value| {
@@ -617,6 +638,7 @@ impl Ev {
                             ev.run_captured(&cap, &assigns, &body)
                         }),
                         cache: RefCell::new(None),
+                        body: Some(lir),
                     }));
                     if self_slot.is_some() {
                         *me.borrow_mut() = Some(v.clone());
@@ -640,6 +662,13 @@ impl Ev {
                     let me: Rc<RefCell<Option<Value>>> = Rc::new(RefCell::new(None));
                     let me2 = me.clone();
                     let self_slot = *self_slot;
+                    let lir = Rc::new(LamIr {
+                        cap: cap.clone(),
+                        binds: slots.clone(),
+                        body: body.clone(),
+                        self_slot,
+                        me: me.clone(),
+                    });
                     let v = Value::FcnLam(Rc::new(FcnLam {
                         dom,
                         apply: Box::new(move |v: &Value| {
@@ -659,6 +688,7 @@ impl Ev {
                             ev.run_captured(&cap, &assigns, &body)
                         }),
                         cache: RefCell::new(None),
+                        body: Some(lir),
                     }));
                     if self_slot.is_some() {
                         *me.borrow_mut() = Some(v.clone());
@@ -839,6 +869,7 @@ impl Ev {
         self.for_each_binding_cb(bounds, i, &evals, f)
     }
 
+    /// Java: `ContextEnumerator`: all range sets are evaluated first (in order); the FIRST variable varies fastest.
     pub fn for_each_binding_cb(
         &self,
         bounds: &[BoundIr],
@@ -846,39 +877,80 @@ impl Ev {
         evals: &dyn Fn(&Ex) -> R<Value>,
         f: &mut dyn FnMut(&Ev) -> R<bool>,
     ) -> R<bool> {
-        if i == bounds.len() {
+        let bounds = &bounds[i..];
+        if bounds.is_empty() {
             return f(self);
         }
-        let b = &bounds[i];
-        let set = evals(&b.set)?;
-        if !set.is_set_like() {
-            return fail(format!(
-                "Attempted to enumerate the elements of the non-set value\n{}\nin a quantifier or set constructor.",
-                set.to_tla()
-            ));
+        let mut doms: Vec<Value> = Vec::with_capacity(bounds.len());
+        for b in bounds {
+            let set = evals(&b.set)?;
+            if !set.is_set_like() {
+                return fail(format!(
+                    "Attempted to enumerate the elements of the non-set value
+{}
+in a quantifier or set constructor.",
+                    set.to_tla()
+                ));
+            }
+            doms.push(set);
         }
-        if let Value::Interval(lo, hi) = &set {
-            let mut k = *lo;
-            while k <= *hi {
-                self.bind_bound(b, &Value::Int(k))?;
-                if !self.for_each_binding_cb(bounds, i + 1, evals, f)? {
+        if bounds.len() == 1 {
+            let b = &bounds[0];
+            if let Value::Interval(lo, hi) = &doms[0] {
+                let mut k = *lo;
+                while k <= *hi {
+                    self.bind_bound(b, &Value::Int(k))?;
+                    if !f(self)? {
+                        return Ok(false);
+                    }
+                    if k == i32::MAX {
+                        break;
+                    }
+                    k += 1;
+                }
+                return Ok(true);
+            }
+            let elems = doms[0].enumerate()?;
+            for el in elems.iter() {
+                self.bind_bound(b, el)?;
+                if !f(self)? {
                     return Ok(false);
                 }
-                if k == i32::MAX {
-                    break;
-                }
-                k += 1;
             }
             return Ok(true);
         }
-        let elems = set.enumerate()?;
-        for el in elems.iter() {
-            self.bind_bound(b, el)?;
-            if !self.for_each_binding_cb(bounds, i + 1, evals, f)? {
+        // materialize the elements of every range (empty range => no bindings)
+        let mut lists: Vec<Rc<Vec<Value>>> = Vec::with_capacity(doms.len());
+        for d in &doms {
+            let e = d.enumerate()?;
+            if e.is_empty() {
+                return Ok(true);
+            }
+            lists.push(e);
+        }
+        let n = lists.len();
+        let mut idx = vec![0usize; n];
+        loop {
+            for j in 0..n {
+                self.bind_bound(&bounds[j], &lists[j][idx[j]])?;
+            }
+            if !f(self)? {
                 return Ok(false);
             }
+            // odometer: the first variable advances fastest
+            let mut j = 0;
+            loop {
+                idx[j] += 1;
+                if idx[j] < lists[j].len() {
+                    break;
+                }
+                idx[j] = 0;
+                j += 1;
+                if j == n {
+                    return Ok(true);
+                }
+            }
         }
-        Ok(true)
     }
 
     fn except_path(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {

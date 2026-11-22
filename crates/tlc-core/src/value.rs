@@ -60,6 +60,8 @@ pub struct FcnLam {
     pub dom: Value,
     pub apply: Box<dyn Fn(&Value) -> R<Value>>,
     pub cache: RefCell<Option<Value>>,
+    /// the evaluator's view of the function body (`eval::LamIr`), used to expand it while enumerating actions
+    pub body: Option<Rc<dyn std::any::Any>>,
 }
 
 #[derive(Clone)]

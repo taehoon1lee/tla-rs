@@ -82,12 +82,18 @@ impl Ev {
     }
 
     /// assign variable `i := v` (or check equality if already assigned) and continue
-    fn assign_and_continue(&self, i: u32, v: Value, buf: &Buf, k: &mut Cont) -> R<()> {
+    fn assign_and_continue(&self, i: u32, v: Value, mode: Mode, buf: &Buf, k: &mut Cont) -> R<()> {
         let cur = buf.borrow()[i as usize].clone();
         match cur {
             Value::Undef => {
                 buf.borrow_mut()[i as usize] = v.normalize()?;
+                let was = self.eval_only.get();
+                if !was && (mode == Mode::Init || self.warn.get()) && buf.borrow().iter().all(|x| !matches!(x, Value::Undef)) {
+                    // Java: getNextStates0 -> getNextStatesAllAssigned / getInitStates(acts, ps, ..) with `ps.allAssigned()`
+                    self.eval_only.set(true);
+                }
                 let r = k();
+                self.eval_only.set(was);
                 buf.borrow_mut()[i as usize] = Value::Undef;
                 r
             }
@@ -103,6 +109,18 @@ impl Ev {
 
     /// enumerate the ways of satisfying `ex`; for each, call `k` with the assignments in `buf`
     pub fn enum_action(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        if self.eval_only.get() {
+            // Java: getNextStatesAllAssigned: all variables are assigned; the remaining conjuncts are plain predicates
+            return match self.guard(ex, mode, s0, buf)? {
+                Value::Bool(true) => k(),
+                Value::Bool(false) => Ok(()),
+                other => fail(format!(
+                    "The expression of an action or initial predicate evaluated to the non-boolean value
+{}",
+                    other.to_tla()
+                )),
+            };
+        }
         match &**ex {
             Node::And(items) => {
                 let was = self.splitting.replace(false);
@@ -122,14 +140,14 @@ impl Ev {
             Node::Eq(l, r) => {
                 if let Some(i) = self.target_var(l, mode) {
                     let v = self.eval_expr(r, mode, s0, buf)?;
-                    return self.assign_and_continue(i, v, buf, k);
+                    return self.assign_and_continue(i, v, mode, buf, k);
                 }
                 if let Some(i) = self.target_var(r, mode) {
                     // `e = x'`: TLC evaluates the equality; assign when the variable is still unassigned
                     let unassigned = matches!(buf.borrow()[i as usize], Value::Undef);
                     if unassigned {
                         let v = self.eval_expr(l, mode, s0, buf)?;
-                        return self.assign_and_continue(i, v, buf, k);
+                        return self.assign_and_continue(i, v, mode, buf, k);
                     }
                 }
                 if self.guard(ex, mode, s0, buf)?.as_bool()? {
@@ -152,7 +170,7 @@ impl Ev {
                         if let Value::Interval(lo, hi) = &sv {
                             let mut x = *lo;
                             while x <= *hi {
-                                self.assign_and_continue(i, Value::Int(x), buf, k)?;
+                                self.assign_and_continue(i, Value::Int(x), mode, buf, k)?;
                                 if x == i32::MAX {
                                     break;
                                 }
@@ -162,7 +180,7 @@ impl Ev {
                         }
                         let elems = sv.enumerate()?;
                         for e in elems.iter() {
-                            self.assign_and_continue(i, e.clone(), buf, k)?;
+                            self.assign_and_continue(i, e.clone(), mode, buf, k)?;
                         }
                         return Ok(());
                     }
@@ -258,7 +276,11 @@ impl Ev {
                 }
                 self.enum_action(body, mode, s0, buf, k)
             }
-            Node::Call(d, args, _) if d.native.get().is_none() && d.body.borrow().is_some() && d.level >= tla_sany::sem::Level::State => {
+            Node::Call(d, args, _)
+                if d.native.get().is_none()
+                    && d.body.borrow().is_some()
+                    && (d.level >= tla_sany::sem::Level::State || !self.action_simple(ex, mode, 0)) =>
+            {
                 let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
                 for a in args {
                     let s = {
@@ -341,7 +363,114 @@ impl Ev {
                 self.substs.borrow_mut().truncate(n0);
                 r
             }
-            Node::Bi(B::Enabled, _) | Node::Not(_) | Node::Implies(..) | Node::Equiv(..) | Node::Forall(..) | Node::Neq(..) | Node::NotIn(..) => {
+            // Java: OPCODE_fa: applying a (not yet evaluated) function constructor expands its body
+            Node::FcnApply(f, a) => {
+                let fv = self.eval_expr(f, mode, s0, buf)?;
+                if let Value::FcnLam(l) = &fv {
+                    let lir = if l.cache.borrow().is_none() { l.body.as_ref().and_then(|b| b.clone().downcast::<LamIr>().ok()) } else { None };
+                    if let Some(lir) = lir {
+                        let av = self.eval_expr(a, mode, s0, buf)?;
+                        if !l.dom.member(&av)? {
+                            return fail(format!(
+                                "Attempted to apply function:
+{}
+to argument {}, which is not in the domain of the function.",
+                                fv.to_tla(),
+                                av.to_tla()
+                            ));
+                        }
+                        let mut assigns: Vec<(u32, Slot)> = vec![];
+                        if lir.binds.len() == 1 {
+                            let (slot, nvars, tuple) = lir.binds[0];
+                            assigns.extend(bind_assigns(slot, nvars, tuple, &av)?);
+                        } else {
+                            let t = match &av {
+                                Value::Tuple(t) => t.clone(),
+                                _ => return fail("Internal error: argument of a multi-variable function is not a tuple"),
+                            };
+                            for (i, (slot, nvars, tuple)) in lir.binds.iter().enumerate() {
+                                assigns.extend(bind_assigns(*slot, *nvars, *tuple, &t[i])?);
+                            }
+                        }
+                        if let Some(ss) = lir.self_slot {
+                            if let Some(sv) = &*lir.me.borrow() {
+                                assigns.push((ss, Slot::V(sv.clone())));
+                            }
+                        }
+                        let caller_base = self.base.get();
+                        let nb = self.stack.borrow().len();
+                        {
+                            let mut st = self.stack.borrow_mut();
+                            st.extend(lir.cap.frame.iter().cloned());
+                            for (i, sl) in &assigns {
+                                let idx = nb + *i as usize;
+                                if idx >= st.len() {
+                                    st.resize(idx + 1, Slot::Unset);
+                                }
+                                st[idx] = sl.clone();
+                            }
+                        }
+                        self.base.set(nb);
+                        let caller_substs = std::mem::replace(&mut *self.substs.borrow_mut(), (*lir.cap.substs).clone());
+                        self.depth.set(self.depth.get() + 1);
+                        let r = if self.depth.get() > 3000 {
+                            fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
+                        } else {
+                            self.enum_action(&lir.body, mode, s0, buf, &mut || {
+                                // the rest of the caller's formula runs in the caller's frame and substitutions
+                                self.base.set(caller_base);
+                                let callee_substs = std::mem::replace(&mut *self.substs.borrow_mut(), caller_substs.clone());
+                                let r = k();
+                                *self.substs.borrow_mut() = callee_substs;
+                                self.base.set(nb);
+                                r
+                            })
+                        };
+                        self.depth.set(self.depth.get() - 1);
+                        *self.substs.borrow_mut() = caller_substs;
+                        self.base.set(caller_base);
+                        self.stack.borrow_mut().truncate(nb);
+                        return r;
+                    }
+                }
+                let av = self.eval_expr(a, mode, s0, buf)?;
+                match fv.apply(&av)? {
+                    Value::Bool(true) => k(),
+                    Value::Bool(false) => Ok(()),
+                    other => fail(format!("The expression of an action or initial predicate evaluated to the non-boolean value
+{}", other.to_tla())),
+                }
+            }
+            // Java: OPCODE_implies: evaluate the antecedent; when true the consequent is enumerated (it may split)
+            Node::Implies(a, b) => {
+                if self.guard(a, mode, s0, buf)?.as_bool()? {
+                    self.enum_action(b, mode, s0, buf, k)
+                } else {
+                    k()
+                }
+            }
+            // Java: OPCODE_bf: all contexts are collected, then the body is processed once per context in sequence
+            Node::Forall(bounds, body) if !self.action_simple(body, mode, 0) => {
+                let mut ctxs: Vec<Vec<(u32, Slot)>> = vec![];
+                {
+                    let evals = |e: &Ex| self.eval_expr(e, mode, s0, buf);
+                    self.for_each_binding_cb(bounds, 0, &evals, &mut |ev| {
+                        let mut snap = vec![];
+                        for b in bounds.iter() {
+                            for j in 0..b.nvars.max(1) {
+                                snap.push((b.slot + j, ev.get_slot(b.slot + j)));
+                            }
+                        }
+                        ctxs.push(snap);
+                        Ok(true)
+                    })?;
+                }
+                if ctxs.is_empty() {
+                    return k();
+                }
+                self.forall_chain(&ctxs, 0, body, mode, s0, buf, k)
+            }
+            Node::Bi(B::Enabled, _) | Node::Not(_) | Node::Equiv(..) | Node::Forall(..) | Node::Neq(..) | Node::NotIn(..) => {
                 if self.guard(ex, mode, s0, buf)?.as_bool()? {
                     k()
                 } else {
@@ -360,6 +489,63 @@ impl Ev {
                 }
             }
         }
+    }
+
+    fn forall_chain(&self, ctxs: &[Vec<(u32, Slot)>], i: usize, body: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        for (slot, s) in &ctxs[i] {
+            self.set_slot(*slot, s.clone());
+        }
+        if i + 1 == ctxs.len() {
+            return self.enum_action(body, mode, s0, buf, k);
+        }
+        self.enum_action(body, mode, s0, buf, &mut || {
+            let r = self.forall_chain(ctxs, i + 1, body, mode, s0, buf, k);
+            // the next context reused the bound slots: restore this context for the remaining alternatives of `body`
+            for (slot, s) in &ctxs[i] {
+                self.set_slot(*slot, s.clone());
+            }
+            r
+        })
+    }
+
+    /// Can the action enumerator process `ex` with at most one continuation and no assignments?
+    /// (then it is equivalent to evaluating `ex` as a boolean, which is cheaper)
+    pub fn action_simple(&self, ex: &Ex, mode: Mode, depth: u32) -> bool {
+        if depth > 6 {
+            return false;
+        }
+        let key = (Rc::as_ptr(ex) as usize, mode == Mode::Next);
+        if let Some(&b) = self.simple_memo.borrow().get(&key) {
+            return b;
+        }
+        // guard against recursive definitions
+        self.simple_memo.borrow_mut().insert(key, false);
+        let r = match &**ex {
+            Node::And(items) => items.iter().all(|e| self.action_simple(e, mode, depth + 1)),
+            Node::Or(..) | Node::Exists(..) | Node::Case(..) | Node::Unchanged(..) | Node::ActionSub { .. } | Node::FcnApply(..) => false,
+            Node::Forall(_, b) => self.action_simple(b, mode, depth + 1),
+            Node::Implies(_, b) => self.action_simple(b, mode, depth + 1),
+            Node::If(_, t, f) => self.action_simple(t, mode, depth + 1) && self.action_simple(f, mode, depth + 1),
+            Node::Eq(l, r) => self.target_var(l, mode).is_none() && self.target_var(r, mode).is_none(),
+            Node::In(l, _) => self.target_var(l, mode).is_none(),
+            Node::InlineCall { .. } | Node::SubstIn(..) => false,
+            Node::Call(d, _, _) => {
+                if d.native.get().is_none() {
+                    match d.body.borrow().as_ref() {
+                        Some(b) => {
+                            let b = b.clone();
+                            self.action_simple(&b, mode, depth + 1)
+                        }
+                        None => true,
+                    }
+                } else {
+                    true
+                }
+            }
+            _ => true,
+        };
+        self.simple_memo.borrow_mut().insert(key, r);
+        r
     }
 
     fn enum_conj(&self, items: &[Ex], idx: usize, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
@@ -404,7 +590,7 @@ impl Ev {
         }
         let i = vars[idx];
         let v = s0[i as usize].clone();
-        self.assign_and_continue(i, v, buf, &mut || self.assign_unchanged(vars, idx + 1, s0, buf, k))
+        self.assign_and_continue(i, v, Mode::Next, buf, &mut || self.assign_unchanged(vars, idx + 1, s0, buf, k))
     }
 
     pub fn empty(&self) -> Rc<Vec<Value>> {
