@@ -871,7 +871,17 @@ impl Value {
     }
 
     /// `Value.compareTo`
+    /// the total order of TLC values; scalars are compared inline, everything else by `cmp_val_slow`
+    #[inline]
     pub fn cmp_val(&self, o: &Value) -> R<Ordering> {
+        match (self, o) {
+            (Value::Int(a), Value::Int(b)) => Ok(a.cmp(b)),
+            (Value::Str(a), Value::Str(b)) => Ok(a.cmp(b)),
+            _ => self.cmp_val_slow(o),
+        }
+    }
+
+    pub fn cmp_val_slow(&self, o: &Value) -> R<Ordering> {
         use Value::*;
         match (self, o) {
             // shared structure: identical values compare equal without looking inside

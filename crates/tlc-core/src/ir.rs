@@ -160,6 +160,9 @@ pub struct CompiledDef {
     pub memo_kind: Cell<u8>,
     pub memo: RefCell<std::collections::HashMap<u64, Vec<(Vec<Value>, Value)>>>,
     pub memo_n: Cell<usize>,
+    /// calls looked up / found in `memo`: remembering stops when fewer than half of the calls are found
+    pub memo_calls: Cell<u32>,
+    pub memo_hits: Cell<u32>,
 }
 
 pub enum OpRef {

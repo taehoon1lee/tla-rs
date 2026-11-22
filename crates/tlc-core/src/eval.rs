@@ -493,15 +493,23 @@ impl Ev {
                         let mut h = Hasher::new();
                         if vals.iter().all(|v| v.hash_into(&mut h).is_ok()) {
                             let key = h.finish();
+                            d.memo_calls.set(d.memo_calls.get() + 1);
                             if let Some(bucket) = d.memo.borrow().get(&key) {
                                 for (a, r) in bucket {
                                     if a.len() == vals.len() && a.iter().zip(vals.iter()).all(|(x, y)| x.eq_val(y).unwrap_or(false)) {
+                                        d.memo_hits.set(d.memo_hits.get() + 1);
                                         self.stack.borrow_mut().truncate(nb);
                                         return Ok(r.clone());
                                     }
                                 }
                             }
-                            memo_key = Some((key, vals));
+                            if d.memo_calls.get() >= 128 && d.memo_hits.get() * 2 < d.memo_calls.get() {
+                                // the arguments hardly ever repeat: hashing them costs more than it saves
+                                d.memo_kind.set(2);
+                                d.memo.borrow_mut().clear();
+                            } else {
+                                memo_key = Some((key, vals));
+                            }
                         }
                     }
                 }

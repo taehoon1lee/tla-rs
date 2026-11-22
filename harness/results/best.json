@@ -4643,6 +4643,7 @@
 "tt/UserModuleOverrideFromJarTest"
 ],
 "perf": [
+"ex/Bakery-Boulangerie/MCBakery",
 "ex/CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_1/MC",
 "ex/CarTalkPuzzle/CarTalkPuzzle.toolbox/Model_2/MC",
 "ex/Chameneos/Chameneos",
@@ -4769,6 +4770,7 @@
 "ex/ewd998/AsyncTerminationDetection",
 "ex/ewd998/EWD998ChanID",
 "ex/ewd998/EWD998ChanTrace",
+"ex/ewd998/EWD998Small",
 "ex/glowingRaccoon/clean",
 "ex/glowingRaccoon/product",
 "ex/glowingRaccoon/stages",
