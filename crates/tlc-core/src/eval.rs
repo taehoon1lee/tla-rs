@@ -481,6 +481,31 @@ impl Ev {
                     }
                 }
             }
+            // a pure constant-level operator that builds sets: remembered by the values of its arguments
+            let mut memo_key: Option<(u64, Vec<Value>)> = None;
+            if d.nparams > 0 && d.level == sem::Level::Const && d.memo_kind.get() != 2 && self.substs.borrow().is_empty() {
+                if d.memo_kind.get() == 0 {
+                    d.memo_kind.set(if crate::memo::memoizable(&d.src) { 1 } else { 2 });
+                }
+                if d.memo_kind.get() == 1 {
+                    let vals: Option<Vec<Value>> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
+                    if let Some(vals) = vals {
+                        let mut h = Hasher::new();
+                        if vals.iter().all(|v| v.hash_into(&mut h).is_ok()) {
+                            let key = h.finish();
+                            if let Some(bucket) = d.memo.borrow().get(&key) {
+                                for (a, r) in bucket {
+                                    if a.len() == vals.len() && a.iter().zip(vals.iter()).all(|(x, y)| x.eq_val(y).unwrap_or(false)) {
+                                        self.stack.borrow_mut().truncate(nb);
+                                        return Ok(r.clone());
+                                    }
+                                }
+                            }
+                            memo_key = Some((key, vals));
+                        }
+                    }
+                }
+            }
             let nslots = d.nslots.get().max(args.len());
             self.stack.borrow_mut().resize(nb + nslots, Slot::Unset);
             let old = self.base.get();
@@ -498,7 +523,18 @@ impl Ev {
             self.depth.set(self.depth.get() - 1);
             self.stack.borrow_mut().truncate(nb);
             self.base.set(old);
-            let v = r?;
+            let mut v = r?;
+            if let Some((key, vals)) = memo_key {
+                if let Ok(nv) = v.normalize() {
+                    v = nv;
+                    if d.memo_n.get() >= 20_000 {
+                        d.memo.borrow_mut().clear();
+                        d.memo_n.set(0);
+                    }
+                    d.memo.borrow_mut().entry(key).or_default().push((vals, v.clone()));
+                    d.memo_n.set(d.memo_n.get() + 1);
+                }
+            }
             if cacheable {
                 *d.cache.borrow_mut() = Some(v.clone());
             }

@@ -133,3 +133,10 @@
   trace is printed, `Checker::transition_label` re-splits the actions for that one predecessor (`step()`, Java:
   `Tool.getState(fp, predecessor)`) and takes the label of the first successor with the child's fingerprint.
 - `tools/cpu.py exe1,exe2 -n 3 <ids>`: best-of-N wall and CPU time (GetProcessTimes); far less noisy than wall time.
+
+## Memoized constant-level operator calls (`memo.rs`)
+- A call of a constant-level, parameterized, non-native operator is remembered by the values of its arguments when the operator
+  is pure (everything it reaches is a pure standard-module operator or a user definition; no TLC Print/TLCGet/RandomElement,
+  no IOUtils/Json/SVG, no operator-valued parameters) and builds sets/functions (SUBSET, {x \in S : P}, {e : x \in S}, [S -> T]).
+  Skipped inside INSTANCE substitutions. 20000 entries per operator, the table is cleared when full.
+- MCQuicksort: 5.9 s -> 0.5 s (`PermsOf(seq0)` was recomputed for every state).

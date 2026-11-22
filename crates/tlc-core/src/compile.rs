@@ -123,6 +123,9 @@ impl Compiler {
             state_cache: RefCell::new(None),
             label_cache: std::cell::OnceCell::new(),
             label_base: std::cell::OnceCell::new(),
+            memo_kind: Cell::new(0),
+            memo: RefCell::new(std::collections::HashMap::new()),
+            memo_n: Cell::new(0),
         });
         self.defs.insert(d.id, cd.clone());
         if let Some(v) = self.def_values.get(&d.id).or_else(|| self.def_values.get(&orig_id)).cloned() {

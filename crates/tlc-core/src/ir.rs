@@ -156,6 +156,10 @@ pub struct CompiledDef {
     pub label_cache: std::cell::OnceCell<Option<Rc<str>>>,
     /// label base (name without parameters) shared by every call of this definition without arguments
     pub label_base: std::cell::OnceCell<Rc<crate::eval::LabelBase>>,
+    /// calls remembered by argument values (see `memo`): 0 = not analysed yet, 1 = remember, 2 = never
+    pub memo_kind: Cell<u8>,
+    pub memo: RefCell<std::collections::HashMap<u64, Vec<(Vec<Value>, Value)>>>,
+    pub memo_n: Cell<usize>,
 }
 
 pub enum OpRef {
