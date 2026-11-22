@@ -156,6 +156,7 @@ pub struct Ev {
     pub epoch: Cell<u64>,
     pub no_frame: Rc<Vec<Slot>>,
     pub no_substs: Rc<Vec<SubstEntry>>,
+    pub no_state: Rc<Vec<Value>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
     pub warn: Cell<bool>,
 }
@@ -191,6 +192,7 @@ impl Ev {
             epoch: Cell::new(1),
             no_frame: Rc::new(Vec::new()),
             no_substs: Rc::new(Vec::new()),
+            no_state: Rc::new(Vec::new()),
             warn: Cell::new(true),
         })
     }
@@ -262,7 +264,8 @@ impl Ev {
             nb
         };
         self.base.set(nb);
-        let saved_substs = std::mem::replace(&mut *self.substs.borrow_mut(), (*cap.substs).clone());
+        let skip_substs = cap.substs.is_empty() && self.substs.borrow().is_empty();
+        let saved_substs = if skip_substs { Vec::new() } else { std::mem::replace(&mut *self.substs.borrow_mut(), (*cap.substs).clone()) };
         for (i, sl) in assigns {
             let mut st = self.stack.borrow_mut();
             let idx = nb + *i as usize;
@@ -278,7 +281,9 @@ impl Ev {
             self.eval(code, s0, s1)
         };
         self.depth.set(self.depth.get() - 1);
-        *self.substs.borrow_mut() = saved_substs;
+        if !skip_substs {
+            *self.substs.borrow_mut() = saved_substs;
+        }
         self.stack.borrow_mut().truncate(nb);
         self.base.set(old_base);
         r
@@ -526,13 +531,15 @@ impl Ev {
                 self.apply_builtin(*b, vals)
             }
             OpClosure::Lambda { def, frame, self_slot } => {
-                let cap = Captured { frame: frame.clone(), substs: Rc::new(self.substs.borrow().clone()), s0: Rc::new(s0.to_vec()), s1: Rc::new(s1.to_vec()) };
+                // runs right now in the current state: no need to copy the states into a `Captured`
+                let substs = if self.substs.borrow().is_empty() { self.no_substs.clone() } else { Rc::new(self.substs.borrow().clone()) };
+                let cap = Captured { frame: frame.clone(), substs, s0: self.no_state.clone(), s1: self.no_state.clone() };
                 // parameters occupy consecutive slots starting at `def.nslots`
                 let mut assigns: Vec<(u32, Slot)> = slots.into_iter().enumerate().map(|(i, s)| ((def.nslots + i) as u32, s)).collect();
                 if let Some(ss) = self_slot {
                     assigns.push((*ss, Slot::Op(c.clone())));
                 }
-                self.run_captured(&cap, &assigns, &def.body)
+                self.run_captured_in(&cap, &assigns, &def.body, s0, s1)
             }
             OpClosure::Decl(id) => {
                 let d = self.const_ops.borrow().get(id).cloned();
