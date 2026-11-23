@@ -179,6 +179,17 @@ pub struct Ev {
 
 const MAX_DEPTH: u32 = 3000;
 
+/// extend a frame stack to `len` slots with `Slot::Unset` (a plain tag-store loop; `Vec::resize` clones through `Slot::clone`)
+#[inline(always)]
+pub fn grow_unset(st: &mut Vec<Slot>, len: usize) {
+    if st.len() < len {
+        st.reserve(len - st.len());
+        while st.len() < len {
+            st.push(Slot::Unset);
+        }
+    }
+}
+
 fn undef_state(n: usize) -> Vec<Value> {
     vec![Value::Undef; n]
 }
@@ -232,7 +243,7 @@ impl Ev {
     fn push_frame(&self, nslots: usize) -> usize {
         let mut st = self.stack.borrow_mut();
         let nb = st.len();
-        st.resize(nb + nslots, Slot::Unset);
+        grow_unset(&mut st, nb + nslots);
         nb
     }
 
@@ -465,6 +476,18 @@ impl Ev {
                         return Ok(c.val.clone());
                     }
                 }
+                // the variables the definition reads still have the values it was computed with (see `deps`)
+                if let Some(deps) = d.deps.get_or_init(|| crate::deps::state_reads(d).map(Rc::new)) {
+                    if let Some(dc) = &*d.dep_cache.borrow() {
+                        if dc.substs.same(&self.substs.borrow())
+                            && deps.iter().zip(dc.vals.iter()).all(|(&i, v)| s0.get(i as usize).map_or(false, |x| x.eq_val(v).unwrap_or(false)))
+                        {
+                            let v = dc.val.clone();
+                            *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone(), substs: dc.substs.clone() });
+                            return Ok(v);
+                        }
+                    }
+                }
             }
             let body = match &*d.body.borrow() {
                 Some(b) => b.clone(),
@@ -483,11 +506,26 @@ impl Ev {
             }
             // a pure constant-level operator that builds sets: remembered by the values of its arguments
             let mut memo_key: Option<(u64, Vec<Value>)> = None;
-            if d.nparams > 0 && d.level == sem::Level::Const && d.memo_kind.get() != 2 && self.substs.borrow().is_empty() {
+            if d.nparams > 0 && d.level == sem::Level::Const && d.memo_kind.get() != 2 {
                 if d.memo_kind.get() == 0 {
-                    d.memo_kind.set(if crate::memo::memoizable(&d.src) { 1 } else { 2 });
+                    match crate::memo::memoizable(&d.src) {
+                        Some(decls) => {
+                            *d.memo_decls.borrow_mut() = decls;
+                            d.memo_kind.set(1);
+                        }
+                        None => d.memo_kind.set(2),
+                    }
                 }
-                if d.memo_kind.get() == 1 {
+                // an enclosing INSTANCE may substitute a constant the operator reaches: then the value is not a function of the arguments
+                let substs_ok = {
+                    let ss = self.substs.borrow();
+                    ss.is_empty()
+                        || match &*d.memo_decls.borrow() {
+                            Some(ds) => !ss.iter().any(|e| ds.contains(&e.decl)),
+                            None => false,
+                        }
+                };
+                if d.memo_kind.get() == 1 && substs_ok {
                     let vals: Option<Vec<Value>> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
                     if let Some(vals) = vals {
                         let mut h = Hasher::new();
@@ -515,7 +553,7 @@ impl Ev {
                 }
             }
             let nslots = d.nslots.get().max(args.len());
-            self.stack.borrow_mut().resize(nb + nslots, Slot::Unset);
+            grow_unset(&mut self.stack.borrow_mut(), nb + nslots);
             let old = self.base.get();
             self.base.set(nb);
             self.depth.set(self.depth.get() + 1);
@@ -548,6 +586,12 @@ impl Ev {
             }
             if state_cacheable {
                 *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone(), substs: self.substs.borrow().clone() });
+                if let Some(Some(deps)) = d.deps.get() {
+                    if deps.iter().all(|&i| (i as usize) < s0.len()) {
+                        let vals: Vec<Value> = deps.iter().map(|&i| s0[i as usize].clone()).collect();
+                        *d.dep_cache.borrow_mut() = Some(DepCache { vals, val: v.clone(), substs: self.substs.borrow().clone() });
+                    }
+                }
             }
             return Ok(v);
         }
@@ -1381,58 +1425,70 @@ impl Ev {
         if bounds.is_empty() {
             return f(self);
         }
-        let mut doms: Vec<Value> = Vec::with_capacity(bounds.len());
-        for b in bounds {
-            let set = evals(&b.set)?;
-            if !set.is_set_like() {
-                return fail(format!(
-                    "Attempted to enumerate the elements of the non-set value
+        fn not_a_set(set: &Value) -> R<bool> {
+            fail(format!(
+                "Attempted to enumerate the elements of the non-set value
 {}
 in a quantifier or set constructor.",
-                    set.to_tla()
-                ));
-            }
-            doms.push(set);
+                set.to_tla()
+            ))
         }
         if bounds.len() == 1 {
+            // elements are visited lazily (SUBSET S and {x \in S : P} are generated on demand: Java's enumerators)
             let b = &bounds[0];
-            if let Value::Interval(lo, hi) = &doms[0] {
-                let mut k = *lo;
-                while k <= *hi {
-                    self.bind_bound(b, &Value::Int(k))?;
-                    if !f(self)? {
-                        return Ok(false);
-                    }
-                    if k == i32::MAX {
-                        break;
-                    }
-                    k += 1;
-                }
-                return Ok(true);
+            let set = evals(&b.set)?;
+            if !set.is_set_like() {
+                return not_a_set(&set);
             }
-            let elems = doms[0].enumerate()?;
-            for el in elems.iter() {
+            return set.try_each(&mut |el| {
                 self.bind_bound(b, el)?;
-                if !f(self)? {
-                    return Ok(false);
-                }
+                f(self)
+            });
+        }
+        // up to 4 ranges live on the stack (no heap traffic per quantifier evaluation)
+        let n = bounds.len();
+        let mut doms_a: [Value; 4] = [Value::Undef, Value::Undef, Value::Undef, Value::Undef];
+        let mut doms_v: Vec<Value>;
+        let doms: &mut [Value] = if n <= 4 {
+            &mut doms_a[..n]
+        } else {
+            doms_v = vec![Value::Undef; n];
+            &mut doms_v[..]
+        };
+        for (k, b) in bounds.iter().enumerate() {
+            let set = evals(&b.set)?;
+            if !set.is_set_like() {
+                return not_a_set(&set);
             }
-            return Ok(true);
+            doms[k] = set;
         }
         // materialize the elements of every range (empty range => no bindings)
-        let mut lists: Vec<Rc<Vec<Value>>> = Vec::with_capacity(doms.len());
-        for d in &doms {
+        let mut lists_a: [Option<Rc<Vec<Value>>>; 4] = [None, None, None, None];
+        let mut lists_v: Vec<Option<Rc<Vec<Value>>>>;
+        let lists: &mut [Option<Rc<Vec<Value>>>] = if n <= 4 {
+            &mut lists_a[..n]
+        } else {
+            lists_v = vec![None; n];
+            &mut lists_v[..]
+        };
+        for (k, d) in doms.iter().enumerate() {
             let e = d.enumerate()?;
             if e.is_empty() {
                 return Ok(true);
             }
-            lists.push(e);
+            lists[k] = Some(e);
         }
-        let n = lists.len();
-        let mut idx = vec![0usize; n];
+        let mut idx_a = [0usize; 4];
+        let mut idx_v: Vec<usize>;
+        let idx: &mut [usize] = if n <= 4 {
+            &mut idx_a[..n]
+        } else {
+            idx_v = vec![0usize; n];
+            &mut idx_v[..]
+        };
         loop {
             for j in 0..n {
-                self.bind_bound(&bounds[j], &lists[j][idx[j]])?;
+                self.bind_bound(&bounds[j], &lists[j].as_ref().unwrap()[idx[j]])?;
             }
             if !f(self)? {
                 return Ok(false);
@@ -1441,7 +1497,7 @@ in a quantifier or set constructor.",
             let mut j = 0;
             loop {
                 idx[j] += 1;
-                if idx[j] < lists[j].len() {
+                if idx[j] < lists[j].as_ref().unwrap().len() {
                     break;
                 }
                 idx[j] = 0;

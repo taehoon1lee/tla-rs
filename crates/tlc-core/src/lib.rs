@@ -16,6 +16,7 @@
 pub mod actions;
 pub mod compile;
 pub mod config;
+pub mod deps;
 pub mod ec;
 pub mod eval;
 pub mod liveness;

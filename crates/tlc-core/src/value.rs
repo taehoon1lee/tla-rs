@@ -105,6 +105,33 @@ pub enum Value {
     Undef,
 }
 
+/// The subsets of the normalized set `base` in the normalized order of sets (by size, then lexicographically by element),
+/// generated directly without sorting 2^n sets.  `f` returns `Ok(false)` to stop (the result is `Ok(false)` then).
+fn each_subset(base: &[Value], f: &mut dyn FnMut(Value) -> R<bool>) -> R<bool> {
+    let n = base.len();
+    for k in 0..=n {
+        let mut idx: Vec<usize> = (0..k).collect();
+        loop {
+            if !f(Value::Set(Rc::new(idx.iter().map(|&i| base[i].clone()).collect())))? {
+                return Ok(false);
+            }
+            // next combination in lexicographic order
+            let mut j = k;
+            while j > 0 && idx[j - 1] == n - k + j - 1 {
+                j -= 1;
+            }
+            if j == 0 {
+                break;
+            }
+            idx[j - 1] += 1;
+            for t in j..k {
+                idx[t] = idx[t - 1] + 1;
+            }
+        }
+    }
+    Ok(true)
+}
+
 pub const TRUE: Value = Value::Bool(true);
 pub const FALSE: Value = Value::Bool(false);
 
@@ -296,6 +323,46 @@ impl Value {
         }
     }
 
+    /// Visit the elements of a set-like value in normalized order, stopping when `f` returns `Ok(false)` (the result is
+    /// `Ok(false)` exactly then).  `SUBSET S` is generated element by element: Java's `SubsetValue.elements(NORMALIZED)` is
+    /// lazy, so `\E s \in SUBSET S : Q` stops at the first witness.  Every other set is converted first, like
+    /// `EnumerableValue.elements(NORMALIZED)` does (`toSetEnum`): in particular `{x \in S : P(x)}` evaluates `P` for ALL
+    /// elements before the first one is visited (an error behind the witness is still raised).
+    pub fn try_each(&self, f: &mut dyn FnMut(&Value) -> R<bool>) -> R<bool> {
+        match self {
+            Value::Subset(s) => {
+                let base = s.enumerate()?;
+                let n = base.len();
+                if n >= 31 {
+                    return fail(format!("Attempted to enumerate SUBSET of a set with {} elements.", n));
+                }
+                each_subset(&base, &mut |sv| f(&sv))
+            }
+            Value::Interval(lo, hi) => {
+                let mut k = *lo;
+                while k <= *hi {
+                    if !f(&Value::Int(k))? {
+                        return Ok(false);
+                    }
+                    if k == i32::MAX {
+                        break;
+                    }
+                    k += 1;
+                }
+                Ok(true)
+            }
+            _ => {
+                let elems = self.enumerate()?;
+                for e in elems.iter() {
+                    if !f(e)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
+        }
+    }
+
     /// normalized element list of a finite set-like value
     pub fn enumerate(&self) -> R<Rc<Vec<Value>>> {
         match self {
@@ -310,13 +377,14 @@ impl Value {
                 if let Some(c) = &*p.cache.borrow() {
                     return Ok(c.clone());
                 }
-                let base = p.base.enumerate()?;
+                // Java: SetPredValue.toSetEnum walks `inVal.elements()`; a SUBSET base is generated lazily there
                 let mut out = Vec::new();
-                for e in base.iter() {
+                p.base.try_each(&mut |e| {
                     if (p.pred)(e)? {
                         out.push(e.clone());
                     }
-                }
+                    Ok(true)
+                })?;
                 let r = Rc::new(out);
                 *p.cache.borrow_mut() = Some(r.clone());
                 Ok(r)
@@ -327,27 +395,11 @@ impl Value {
                 if n >= 31 {
                     return fail(format!("Attempted to enumerate SUBSET of a set with {} elements.", n));
                 }
-                // the subsets in the normalized order of sets (by size, then lexicographically by element): generated
-                // directly, without sorting 2^n sets
                 let mut out = Vec::with_capacity(1usize << n);
-                for k in 0..=n {
-                    let mut idx: Vec<usize> = (0..k).collect();
-                    loop {
-                        out.push(Value::Set(Rc::new(idx.iter().map(|&i| base[i].clone()).collect())));
-                        // next combination in lexicographic order
-                        let mut j = k;
-                        while j > 0 && idx[j - 1] == n - k + j - 1 {
-                            j -= 1;
-                        }
-                        if j == 0 {
-                            break;
-                        }
-                        idx[j - 1] += 1;
-                        for t in j..k {
-                            idx[t] = idx[t - 1] + 1;
-                        }
-                    }
-                }
+                each_subset(&base, &mut |sv| {
+                    out.push(sv);
+                    Ok(true)
+                })?;
                 Ok(Rc::new(out))
             }
             Value::SetOfFcns(p) => {
@@ -1356,6 +1408,62 @@ mod tests {
         assert_eq!(fs.size().unwrap(), 4);
         assert_eq!(fs.enumerate().unwrap().len(), 4);
         assert!(fs.member(&Value::tuple(vec![Value::Int(0), Value::Int(1)])).unwrap());
+    }
+
+    /// Java: SubsetValue / SetPredValue enumerators produce the elements one at a time
+    #[test]
+    fn try_each_visits_subsets_lazily_in_normalized_order() {
+        let s = Value::Subset(Rc::new(Value::Interval(1, 3)));
+        let mut seen: Vec<String> = vec![];
+        assert!(s.try_each(&mut |v| { seen.push(v.to_tla()); Ok(true) }).unwrap());
+        assert_eq!(seen, ["{}", "{1}", "{2}", "{3}", "{1, 2}", "{1, 3}", "{2, 3}", "{1, 2, 3}"]);
+        // the same order as the materialized enumeration
+        let all: Vec<String> = s.enumerate().unwrap().iter().map(|v| v.to_tla()).collect();
+        assert_eq!(seen, all);
+        // stopping early: the result is Ok(false) and no further element is produced
+        let mut n = 0;
+        assert!(!s.try_each(&mut |_| { n += 1; Ok(n < 3) }).unwrap());
+        assert_eq!(n, 3);
+    }
+
+    /// Java converts `{x \in S : P}` completely before a quantifier looks at it (`EnumerableValue.elements(NORMALIZED)`)
+    #[test]
+    fn try_each_set_pred_is_evaluated_completely_first() {
+        use std::cell::Cell;
+        let calls = Rc::new(Cell::new(0));
+        let c2 = calls.clone();
+        let p = Value::SetPred(Rc::new(SetPred {
+            base: Value::Interval(1, 10),
+            pred: Box::new(move |v: &Value| {
+                c2.set(c2.get() + 1);
+                Ok(v.as_int()? % 2 == 0)
+            }),
+            cache: RefCell::new(None),
+        }));
+        // stopping at the first element still evaluated the predicate for all 10 elements
+        let mut first = None;
+        assert!(!p.try_each(&mut |v| { first = Some(v.to_tla()); Ok(false) }).unwrap());
+        assert_eq!(first.as_deref(), Some("2"));
+        assert_eq!(calls.get(), 10);
+        // the result is cached: walking it again does not call the predicate
+        let mut all = vec![];
+        assert!(p.try_each(&mut |v| { all.push(v.to_tla()); Ok(true) }).unwrap());
+        assert_eq!(all, ["2", "4", "6", "8", "10"]);
+        assert_eq!(calls.get(), 10);
+    }
+
+    /// an error in the predicate for an element after the witness is raised, as in Java
+    #[test]
+    fn try_each_set_pred_error_behind_the_witness_is_raised() {
+        let p = Value::SetPred(Rc::new(SetPred {
+            base: Value::Subset(Rc::new(Value::Interval(1, 3))),
+            pred: Box::new(|v: &Value| match v {
+                Value::Set(e) if e.len() == 3 => fail("boom"),
+                _ => Ok(true),
+            }),
+            cache: RefCell::new(None),
+        }));
+        assert!(p.try_each(&mut |_| Ok(false)).is_err());
     }
 }
 

@@ -9,7 +9,7 @@ use std::collections::HashSet;
 use tla_sany::sem::*;
 
 /// operators of the standard modules that are functions of their arguments only
-fn pure_native(module: &str, name: &str) -> bool {
+pub(crate) fn pure_native(module: &str, name: &str) -> bool {
     match module {
         "Naturals" | "Integers" | "Reals" | "Sequences" | "FiniteSets" | "Bags" | "FiniteSetsExt" | "SequencesExt" | "Functions" | "Folds"
         | "Graphs" | "UndirectedGraphs" | "DyadicRationals" | "Bitwise" => true,
@@ -22,6 +22,10 @@ struct Scan {
     seen: HashSet<usize>,
     heavy: bool,
     steps: usize,
+    /// constant declarations (ids) the operator mentions
+    decls: Vec<usize>,
+    /// an INSTANCE substitution occurs (its value expressions are not visited by `Expr::children`)
+    subst_in: bool,
 }
 
 fn scan(e: &Expr, st: &mut Scan) -> bool {
@@ -31,6 +35,7 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
     }
     match &e.kind {
         EKind::Unsupported(_) => return false,
+        EKind::SubstIn(..) => st.subst_in = true,
         EKind::SubsetOf(..) | EKind::SetOfAll(..) | EKind::SetOfFcns(..) => st.heavy = true,
         EKind::Bi(B::Subset, _) => st.heavy = true,
         EKind::Apply(callee, args) => {
@@ -64,6 +69,7 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
                     if dc.kind == DeclKind::Variable {
                         return false;
                     }
+                    st.decls.push(dc.id);
                 }
                 Callee::Param(_) => {}
             }
@@ -78,16 +84,19 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
     true
 }
 
-/// may calls of this constant-level, parameterized definition be remembered?
-pub fn memoizable(d: &std::rc::Rc<OpDef>) -> bool {
+/// may calls of this constant-level, parameterized definition be remembered?  `Some(decls)`: yes; `decls` lists the constant
+/// declarations it can reach, or `None` when it contains INSTANCE substitutions (then calls are only remembered while no
+/// substitution is in scope: an enclosing INSTANCE may substitute the declarations it reaches)
+pub fn memoizable(d: &std::rc::Rc<OpDef>) -> Option<Option<Vec<usize>>> {
     if d.params.borrow().iter().any(|p| p.arity > 0) {
-        return false;
+        return None;
     }
-    let body = match d.body() {
-        Some(b) => b,
-        None => return false,
-    };
-    let mut st = Scan { seen: HashSet::new(), heavy: false, steps: 0 };
+    let body = d.body()?;
+    let mut st = Scan { seen: HashSet::new(), heavy: false, steps: 0, decls: Vec::new(), subst_in: false };
     st.seen.insert(d.id);
-    scan(&body, &mut st) && st.heavy
+    if scan(&body, &mut st) && st.heavy {
+        Some(if st.subst_in { None } else { Some(st.decls) })
+    } else {
+        None
+    }
 }

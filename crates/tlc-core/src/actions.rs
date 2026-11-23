@@ -890,7 +890,7 @@ to argument {}, which is not in the domain of the function.",
         let caller_base = self.base.get();
         let nslots = d.nslots.get().max(args.len());
         let old_len = nb;
-        self.stack.borrow_mut().resize(nb + nslots, Slot::Unset);
+        crate::eval::grow_unset(&mut self.stack.borrow_mut(), nb + nslots);
         self.base.set(nb);
         self.depth.set(self.depth.get() + 1);
         let callee_base = nb;

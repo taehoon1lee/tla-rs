@@ -40,3 +40,8 @@ string `\o`/`Len`, LET-local INSTANCE of native ops; perf: liveness behaviour-gr
 16-byte Slot, function fingerprint memo, 4 KB allocator classes, no label tracking in the search (labels recomputed for traces),
 cached getenv, memoized pure constant-level set-building operator calls (MCQuicksort 5.9 s -> 0.5 s).
 next: ex/ perf borderline (MCLamportMutex ~1.12x, RandomGraphs, PCal), heavy ex/ models (see tmp/heavy1.log), remaining tt/ failures.
+
+## 2026-11-23 perf: dependency cache, lazy SUBSET, memo under INSTANCE (Sonnet 5.5)
+sequential ex/: all 150 + 13 heavy within 1.1x of Java (heavy x0.13-1.10); MCInnerSerial 523 s -> 2 s (Java 495 s), MisraReachability RandomGraphs 1.5 -> 0.2 s, AllGraphs 5.2 -> 1.2 s.
+full corpus: verdict 304/364 (unchanged), trace 250, perf 300-301, time x0.53 of Java (was x0.70). Gate: no regressions.
+next: remaining ex/ >= 1.0x of Java: DijkstraMutex 1.10, MCLamportMutex 1.08, EWD998PCal 1.06, KVS Small 1.03 (flat interpreter profile: eval_inner, Value clone/drop, action enumeration); tt/ failures.

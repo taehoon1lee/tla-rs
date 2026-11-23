@@ -128,6 +128,9 @@ impl Compiler {
             memo_n: Cell::new(0),
             memo_calls: Cell::new(0),
             memo_hits: Cell::new(0),
+            memo_decls: RefCell::new(None),
+            deps: std::cell::OnceCell::new(),
+            dep_cache: RefCell::new(None),
         });
         self.defs.insert(d.id, cd.clone());
         if let Some(v) = self.def_values.get(&d.id).or_else(|| self.def_values.get(&orig_id)).cloned() {

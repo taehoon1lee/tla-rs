@@ -146,3 +146,25 @@
   (operator parameters, `\E` witnesses). The frame `[base, end)` is saved when `body` yields and restored after the next instance
   returns, so the remaining alternatives of the earlier instance see their own values (Java: immutable `Context`s).
 - Reproduction: `\A rm \in RM : Decided(rm)` with `Decided(rm) == \E MS \in Majority : ...` (more than one witness per rm).
+
+## Dependency-based cache of state-level nullary definitions (`deps.rs`) — 2026-11-23
+- Java's `LazyValue` keeps (value, copy of s0/s1) and reuses it while every variable assigned *when it was computed* still has the same
+  value (`TLCState.isSubset`). `CompiledDef::dep_cache` does it with the variables the definition really reads (`deps::state_reads`:
+  walks the compiled body and everything it calls; `None` for primes, UNCHANGED, ENABLED, temporal ops, operator parameters,
+  INSTANCE substitutions, impure natives). Checked after the (state ptr, epoch) cache misses. InnerSerial: `totalOpOrder` reads only `opQ`
+  and was recomputed for each of 2^16 candidate `opOrder'` values: MCInnerSerial 523 s -> 2 s (Java 495 s), same counts.
+- Constant-level operator memo (`memo.rs`) is now also used under INSTANCE substitutions when the operator contains no `SubstIn` and
+  reaches none of the substituted constants (`CompiledDef::memo_decls`): MisraReachability RandomGraphs 1.5 s -> 0.2 s.
+- Quantifier bounds: `SUBSET S` is generated lazily (`Value::try_each`, Java `SubsetValue.elements(NORMALIZED)` is lazy, so
+  `\E s \in SUBSET S : Q` stops at the first witness) but `{x \in S : P}` is NOT: `EnumerableValue.elements(NORMALIZED)` converts every other
+  set with `toSetEnum()`, i.e. P is evaluated for ALL elements before the first one is visited (an error behind the witness is raised).
+  A lazy SetPred walk looked like a win and is WRONG (verified with tmp/dep1 against Java). Do not "optimize" it.
+- Java's `ContextEnumerator` also prefetches one element ahead; this only matters for side effects/errors of the enumerator itself.
+- Known gap (unchanged): an evaluation error in an invariant of an INITIAL state is reported by Java as 1000+2103 / exit 75 (or 255 with
+  2121+2103 for Next), by us as 2111 / exit 76; the 2103 position chain is not produced (TODO 2 in TASKS.md).
+- Measurement: sequential `tools/perf.py --heavy-ex` (TLCRS_EXE=<exe> to time a copy of the binary) gave x0.13 .. x1.10 for the 13 heavy ex/
+  models; MCReachable's golden (78 s) is a measurement artefact (Java 0.4 s when rerun). `tools/profnode_t.py <id> [secs]` = node-kind
+  profile of a time-limited run (needs `--features "tlc-cli/sprof tlc-check/prof"` in target-prof).
+- Frame growth uses `eval::grow_unset` (a tag-store loop) instead of `Vec::resize` (~1-2 %). A hand-written `Clone for Value` with an
+  inline scalar fast path was SLOWER (code bloat): keep the derive.
+- Run the gate with `-j 4`: `-j8` plus a background build/test made the machine run out of memory once.

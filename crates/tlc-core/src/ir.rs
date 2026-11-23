@@ -163,6 +163,21 @@ pub struct CompiledDef {
     /// calls looked up / found in `memo`: remembering stops when fewer than half of the calls are found
     pub memo_calls: Cell<u32>,
     pub memo_hits: Cell<u32>,
+    /// constant declarations the memoized operator can reach (`memo::memoizable`); `None` = it contains INSTANCE substitutions,
+    /// so its calls are only remembered when no substitution is in scope
+    pub memo_decls: RefCell<Option<Vec<usize>>>,
+    /// state variables a state-level definition without parameters reads (`deps::state_reads`); `None` = unknown /
+    /// not analysable.  Computed on first use.
+    pub deps: std::cell::OnceCell<Option<Rc<Vec<u32>>>>,
+    /// value of the definition for the values the variables in `deps` had when it was computed
+    pub dep_cache: RefCell<Option<DepCache>>,
+}
+
+/// see `CompiledDef::dep_cache`
+pub struct DepCache {
+    pub vals: Vec<Value>,
+    pub val: Value,
+    pub substs: Substs,
 }
 
 pub enum OpRef {
