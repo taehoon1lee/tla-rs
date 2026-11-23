@@ -162,6 +162,33 @@ impl<'a> Translator<'a> {
                 r
             }
             EKind::Label(_, _, body) => self.translate(body),
+            // a parameter bound by name to the argument of an inlined operator (see `appl`): translate the argument
+            EKind::Apply(Callee::Param(p), args) if args.is_empty() && crate::spec::inline_param(p.id).is_some() => {
+                let x = crate::spec::inline_param(p.id).unwrap();
+                self.translate(&x)
+            }
+            EKind::Apply(Callee::Param(p), args) if !args.is_empty() && crate::spec::inline_op(p.id).is_some() => {
+                let od = crate::spec::inline_op(p.id).unwrap();
+                // the level of the call is that of its arguments (an argument that is a parameter bound by name counts as
+                // the expression it stands for)
+                fn eff_level(x: &Expr) -> Level {
+                    match &x.kind {
+                        EKind::Apply(Callee::Param(q), a) if a.is_empty() => match crate::spec::inline_param(q.id) {
+                            Some(y) => eff_level(&y),
+                            None => x.level,
+                        },
+                        _ => x.level,
+                    }
+                }
+                let mut level = e.level;
+                for a in args {
+                    if let Arg::Expr(x) = a {
+                        level = Level::max(level, eff_level(x));
+                    }
+                }
+                let call = Expr::new(EKind::Apply(Callee::Def(od), args.clone()), e.loc, level);
+                self.translate(&call)
+            }
             EKind::Apply(callee, args) => self.appl(e, callee, args),
             EKind::Bi(op, args) => self.bi(e, *op, args),
             EKind::Conj(items) => self.junct(e, items, true),
@@ -197,6 +224,19 @@ impl<'a> Translator<'a> {
                                 pushed += 1;
                             }
                             Err(_) => {
+                                ok = false;
+                                break;
+                            }
+                        },
+                        // an argument that is not constant is bound by name (call by name): the leaves of the body that use the
+                        // parameter are compiled with the argument expression in its place (Java: `getOpContext` + LazyValue)
+                        // (only state- and action-level arguments: a temporal argument keeps the previous handling)
+                        Arg::Expr(x) if lv(x.level) <= LEVEL_ACTION => crate::spec::register_inline_param(p.id, x.clone()),
+                        Arg::Op(sem::OpArg::Callee(Callee::Def(od), _)) => crate::spec::register_inline_op(p.id, od.clone()),
+                        // an operator parameter passed on
+                        Arg::Op(sem::OpArg::Callee(Callee::Param(q), _)) => match crate::spec::inline_op(q.id) {
+                            Some(od) => crate::spec::register_inline_op(p.id, od),
+                            None => {
                                 ok = false;
                                 break;
                             }

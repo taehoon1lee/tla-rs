@@ -62,7 +62,8 @@ pub struct Setup {
     pub implied_inits: Vec<Top>,
     pub implied_actions: Vec<Top>,
     /// POSTCONDITION definitions (constant level), checked after the state space has been explored
-    pub postconditions: Vec<(Top, String)>,
+    /// (compiled definition, location text, is a `_POSSIBLE` check)
+    pub postconditions: Vec<(Top, String, bool)>,
     pub spec_temporal: Vec<sem::Expr>,
     /// the SPECIFICATION of the configuration and the location of its definition (for warning 2259)
     pub spec_name: String,
@@ -99,7 +100,10 @@ impl Setup {
     }
 }
 
-pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Result<Setup, SetupErr> {
+/// analyses a module generated at run time against the specification's module table (see `tla_sany::analyze_generated_module`)
+pub type ModuleAnalyzer<'a> = &'a dyn Fn(&str) -> Result<Rc<sem::ModuleNode>, String>;
+
+pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyze: ModuleAnalyzer) -> Result<Setup, SetupErr> {
     let root = sem.root.clone();
     let vars: Vec<Rc<sem::OpDecl>> = root.variables();
     let ev = Ev::new(vars.len());
@@ -137,6 +141,17 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Res
                     )
                 }
             }
+            continue;
+        }
+        // `CONSTANT F(0) = 1  F(1) = 2`: the lines of an operator form its table (Java: SpecProcessor.makeConstantTable)
+        let rows: Vec<&crate::config::ConstAssign> = cfg.constants.iter().filter(|c| c.name == name && !c.args.is_empty()).collect();
+        if !rows.is_empty() {
+            used_cfg.insert(name.clone());
+            let arity = rows[0].args.len();
+            if rows.iter().any(|r| r.args.len() != arity) {
+                return serr(ec::TLC_CONFIG_OP_ARITY_INCONSISTENT, format!("The operator {} is assigned values with inconsistent numbers of arguments.", name));
+            }
+            ev.const_tables.borrow_mut().insert(d.id, Rc::new(rows.iter().map(|r| (r.args.clone(), r.value.clone())).collect()));
             continue;
         }
         match cfg.constants.iter().find(|c| c.name == name) {
@@ -289,7 +304,56 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Res
         let mut nexts: Vec<(sem::Expr, String)> = vec![];
         let mut temporals: Vec<sem::Expr> = vec![];
         if let Some(b) = body {
+            // Java: SpecProcessor.processConfigSpec: a name that is neither an operator nor a Boolean (a state variable)
+            // cannot be used as a spec
+            let mut cur = b.clone();
+            for _ in 0..50 {
+                match &cur.kind {
+                    EKind::Apply(Callee::Def(d), a) if a.is_empty() && d.arity() == 0 => match d.body() {
+                        Some(nb) => cur = nb,
+                        None => break,
+                    },
+                    EKind::Apply(Callee::Decl(dd), a) if a.is_empty() && matches!(dd.kind, sem::DeclKind::Variable) => {
+                        return serr(
+                            ec::TLC_CONFIG_OP_IS_EQUAL,
+                            format!(
+                                "The operator {}, which equals line {}, col {} to line {}, col {} of module {},
+cannot be used as a spec",
+                                dd.name, dd.loc.bl, dd.loc.bc, dd.loc.el, dd.loc.ec, dd.module
+                            ),
+                        );
+                    }
+                    _ => break,
+                }
+            }
+            SPEC_ERR.with(|c| *c.borrow_mut() = None);
             analyze_spec_formula(&b, &mut inits, &mut nexts, &mut temporals, 0);
+            if let Some(loc) = SPEC_ERR.with(|c| c.borrow_mut().take()) {
+                return serr(ec::TLC_LIVE_CANNOT_HANDLE_FORMULA, format!("TLC cannot handle the temporal formula {}{}", loc, def.module));
+            }
+            // Java: processConfigSpec: a conjunct that is a constant Boolean is no initial predicate: FALSE makes the spec trivially false
+            let mut kept: Vec<sem::Expr> = Vec::with_capacity(inits.len());
+            for e in inits.drain(..) {
+                if let EKind::Apply(Callee::Def(d), a) = &e.kind {
+                    // (a definition that reads variables, or applies a parameterized INSTANCE whose level SANY cannot narrow to
+                    // constant, fails to evaluate here and stays an initial predicate)
+                    if a.is_empty() && e.level <= sem::Level::State && !mentions_tlcget(&e, &mut vec![], 0) {
+                        let r = {
+                            let mut tr = crate::liveness::translate::Translator::new(&mut setup);
+                            tr.eval_const(&e)
+                        };
+                        match r {
+                            Ok(Value::Bool(false)) => {
+                                return serr(ec::TLC_CONFIG_SPEC_IS_TRIVIAL, format!("The spec is trivially false because {} is false.", d.name))
+                            }
+                            Ok(Value::Bool(true)) => continue,
+                            _ => {}
+                        }
+                    }
+                }
+                kept.push(e);
+            }
+            inits = kept;
         }
         if !inits.is_empty() {
             let e = if inits.len() == 1 {
@@ -306,7 +370,10 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64) -> Res
             return serr(ec::TLC_CANT_HANDLE_TOO_MANY_NEXT_STATE_RELS, "TLC cannot handle the specification: it has more than one next-state relation.");
         }
         for (e, name) in nexts {
+            // the action's source position names the module the relation is written in
+            let saved_module = std::mem::replace(&mut setup.comp.cur_module, def.module.clone());
             let (ex, n) = setup.comp.compile_top(&e);
+            setup.comp.cur_module = saved_module;
             setup.next.push(Top { name, ex, nslots: n, loc: e.loc, module: def.module.to_string(), bound: vec![] });
         }
         setup.spec_temporal = temporals;
@@ -472,8 +539,9 @@ is not defined in the specification.", name),
         let (ex, n) = setup.comp.compile_top(&e);
         let loc = sem_body_loc(&def);
         let text = format!("line {}, col {} to line {}, col {} of module {}", loc.bl, loc.bc, loc.el, loc.ec, def.original().module);
-        setup.postconditions.push((Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] }, text));
+        setup.postconditions.push((Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] }, text, false));
     }
+    process_config_possible(&mut setup, &root, cfg, analyze)?;
     // ---- assumptions
     let assumes: Vec<Rc<sem::AssumeNode>> = root.assumes.borrow().clone();
     for a in assumes {
@@ -488,15 +556,113 @@ is not defined in the specification.", name),
         let cd = setup.comp.compile_def(&def);
         ev.const_ops.borrow_mut().insert(id, cd);
     }
+    // Java: SpecProcessor.processConstantDefns evaluates the definition a constant is substituted with once at startup; a failure
+    // is an error only if the definition is not constant-level (it reads variables or TLCGet)
+    ev.setup_phase.set(true);
+    for (id, def) in setup.comp.const_ops.clone() {
+        if def.arity() != 0 {
+            continue;
+        }
+        let body = match def.body() {
+            Some(b) => b,
+            None => continue,
+        };
+        if def.level.get() == sem::Level::Const && !mentions_tlcget(&body, &mut vec![], 0) {
+            continue;
+        }
+        let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
+        let (ex, n) = setup.comp.compile_top(&e);
+        let top = Top { name: def.name.to_string(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
+        if let Err(err) = setup.run_top(&top, &ev.empty(), &ev.empty()) {
+            ev.setup_phase.set(false);
+            let cname = root.constants().iter().find(|d| d.id == id).map(|d| d.name.to_string()).unwrap_or_default();
+            return serr(
+                ec::TLC_CONFIG_SUBSTITUTION_NON_CONSTANT,
+                format!("The configuration file substitutes constant {} with non-constant {} - specifically: {}", cname, def.name, err.msg),
+            );
+        }
+    }
+    ev.setup_phase.set(false);
     // source info for action labels
     *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info).into_iter().collect();
     Ok(setup)
+}
+
+/// does `e` (or a definition it calls) apply `TLC!TLCGet`? (Java: `TLCGet` has `minLevel = 1`, i.e. it is not constant)
+fn mentions_tlcget(e: &sem::Expr, seen: &mut Vec<usize>, depth: u32) -> bool {
+    if depth > 40 {
+        return false;
+    }
+    if let EKind::Apply(Callee::Def(d), args) = &e.kind {
+        if &*d.module == "TLC" && &*d.name == "TLCGet" {
+            return true;
+        }
+        for a in args {
+            if let sem::Arg::Expr(x) = a {
+                if mentions_tlcget(x, seen, depth + 1) {
+                    return true;
+                }
+            }
+        }
+        if !seen.contains(&d.id) {
+            seen.push(d.id);
+            if let Some(b) = d.body() {
+                if mentions_tlcget(&b, seen, depth + 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    e.children().iter().any(|c| mentions_tlcget(c, seen, depth + 1))
 }
 
 /// Port of `SpecProcessor.processConfigProps`: split a PROPERTY into invariants (`[]P`), implied actions
 /// (`[][A]_v`), implied initial predicates and temporal formulas.  `bound` is the Java `Context`: the constant arguments
 /// operators were called with and the elements of unrolled `\A` quantifiers.
 #[allow(clippy::too_many_arguments)]
+thread_local! {
+    /// formal parameters of operators inlined by `classify_property` that stand for a non-constant argument formula
+    static PROP_ENV: std::cell::RefCell<Vec<(usize, sem::Expr)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+thread_local! {
+    /// arguments of operator applications met while the SPECIFICATION is analysed: parameter id -> argument expression
+    static INLINE_PARAMS: std::cell::RefCell<HashMap<usize, sem::Expr>> = std::cell::RefCell::new(HashMap::new());
+}
+
+/// the argument expression a parameter that is not bound in the frame being compiled stands for (see `analyze_apply`)
+pub fn inline_param(id: usize) -> Option<sem::Expr> {
+    INLINE_PARAMS.with(|m| m.borrow().get(&id).cloned())
+}
+
+pub fn register_inline_param(id: usize, x: sem::Expr) {
+    INLINE_PARAMS.with(|m| m.borrow_mut().insert(id, x));
+}
+
+thread_local! {
+    /// definitions passed for operator parameters (same purpose as `INLINE_PARAMS`)
+    static INLINE_OPS: std::cell::RefCell<HashMap<usize, Rc<sem::OpDef>>> = std::cell::RefCell::new(HashMap::new());
+}
+
+pub fn register_inline_op(id: usize, d: Rc<sem::OpDef>) {
+    INLINE_OPS.with(|m| m.borrow_mut().insert(id, d));
+}
+
+pub fn inline_op(id: usize) -> Option<Rc<sem::OpDef>> {
+    INLINE_OPS.with(|m| m.borrow().get(&id).cloned())
+}
+
+thread_local! {
+    /// the name the next inlined operator application is reported with (an operator parameter bound to a definition)
+    static PROP_NAME: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+thread_local! {
+    /// operator parameters of inlined operators that are bound to a definition
+    static PROP_OPS: std::cell::RefCell<Vec<(usize, Rc<sem::OpDef>)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
 fn classify_property(
     setup: &mut Setup,
     cfg_name: &str,
@@ -528,6 +694,26 @@ fn classify_property(
             return r;
         }
         EKind::Label(_, _, b) => return classify_property(setup, cfg_name, name, b, owner, wraps, bound, depth + 1),
+        // Java: a formal parameter reached while analysing an inlined operator body is a LazyValue: continue with the
+        // argument expression (Github817c/d, LetDef1Boxed)
+        EKind::Apply(Callee::Param(p), args) if args.is_empty() => {
+            let arg = PROP_ENV.with(|env| env.borrow().iter().rev().find(|(id, _)| *id == p.id).map(|(_, x)| x.clone()));
+            if let Some(x) = arg {
+                return classify_property(setup, cfg_name, name, &x, owner, wraps, bound, depth + 1);
+            }
+        }
+        // an operator parameter bound to a definition: apply that definition to the arguments
+        EKind::Apply(Callee::Param(p), args) if !args.is_empty() => {
+            let od = PROP_OPS.with(|ops| ops.borrow().iter().rev().find(|(id, _)| *id == p.id).map(|(_, d)| d.clone()));
+            if let Some(od) = od {
+                let call = sem::Expr::new(EKind::Apply(Callee::Def(od), args.clone()), e.loc, e.level);
+                // Java names the property after the operator as written at the call site: the parameter
+                PROP_NAME.with(|n| *n.borrow_mut() = Some(p.name.to_string()));
+                let r = classify_property(setup, cfg_name, name, &call, owner, wraps, bound, depth + 1);
+                PROP_NAME.with(|n| *n.borrow_mut() = None);
+                return r;
+            }
+        }
         EKind::Apply(Callee::Def(d), args) if args.is_empty() && d.kind != sem::DefKind::ModuleInstance => {
             if let Some(b) = d.body() {
                 // a definition: recurse with its name
@@ -539,9 +725,16 @@ fn classify_property(
             if let Some(b) = d.body() {
                 let params = d.params.borrow().clone();
                 let mut vals: Vec<(Rc<sem::Param>, Value)> = vec![];
+                let mut lazy: Vec<(usize, sem::Expr)> = vec![];
+                let mut lazy_ops: Vec<(usize, Rc<sem::OpDef>)> = vec![];
                 let mut ok = true;
                 for (p, a) in params.iter().zip(args.iter()) {
                     match a {
+                        // an argument that is not a constant (a temporal formula, ...) is kept as an expression
+                        // (only a literal temporal formula: the other forms are handled by the translation of the property)
+                        sem::Arg::Expr(x) if x.level != sem::Level::Const && matches!(x.kind, EKind::Bi(B::Always, _)) => lazy.push((p.id, x.clone())),
+                        // a definition passed for an operator parameter
+                        sem::Arg::Op(sem::OpArg::Callee(Callee::Def(od), _)) => lazy_ops.push((p.id, od.clone())),
                         sem::Arg::Expr(x) if x.level == sem::Level::Const => {
                             let r = {
                                 let mut tr = crate::liveness::translate::Translator::new(setup);
@@ -565,7 +758,14 @@ fn classify_property(
                 if ok {
                     let n0 = bound.len();
                     bound.extend(vals);
-                    let r = classify_property(setup, cfg_name, &d.name.to_string(), &b, d, wraps, bound, depth + 1);
+                    let e0 = PROP_ENV.with(|env| env.borrow().len());
+                    PROP_ENV.with(|env| env.borrow_mut().extend(lazy));
+                    let o0 = PROP_OPS.with(|ops| ops.borrow().len());
+                    PROP_OPS.with(|ops| ops.borrow_mut().extend(lazy_ops));
+                    let shown = PROP_NAME.with(|n| n.borrow_mut().take()).unwrap_or_else(|| d.name.to_string());
+                    let r = classify_property(setup, cfg_name, &shown, &b, d, wraps, bound, depth + 1);
+                    PROP_OPS.with(|ops| ops.borrow_mut().truncate(o0));
+                    PROP_ENV.with(|env| env.borrow_mut().truncate(e0));
                     bound.truncate(n0);
                     return r;
                 }
@@ -653,6 +853,11 @@ fn classify_property(
 
 /// Port of `SpecProcessor.processConfigSpec`: split the temporal formula `Spec` into the initial predicate(s), the
 /// next-state relation and the remaining (fairness) conjuncts. INSTANCE substitutions met on the way wrap the parts.
+thread_local! {
+    /// the first formula `analyze_rec` found that TLC cannot handle in a SPECIFICATION (location text without the module)
+    static SPEC_ERR: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
 fn analyze_spec_formula(e: &sem::Expr, inits: &mut Vec<sem::Expr>, nexts: &mut Vec<(sem::Expr, String)>, temporals: &mut Vec<sem::Expr>, depth: usize) {
     let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
     let mut env: Vec<(usize, EnvVal)> = vec![];
@@ -681,7 +886,12 @@ fn analyze_apply(
     let n0 = env.len();
     for (p, a) in params.iter().zip(args.iter()) {
         match a {
-            sem::Arg::Expr(x) => env.push((p.id, EnvVal::Expr(x.clone()))),
+            sem::Arg::Expr(x) => {
+                // Java: `getOpContext` binds the argument to the parameter; the pieces of the specification found below are
+                // compiled outside of the call, where such a parameter is replaced by its argument (call by name)
+                INLINE_PARAMS.with(|m| m.borrow_mut().insert(p.id, x.clone()));
+                env.push((p.id, EnvVal::Expr(x.clone())))
+            }
             sem::Arg::Op(sem::OpArg::Callee(Callee::Def(od), _)) => env.push((p.id, EnvVal::Op(od.clone()))),
             sem::Arg::Op(sem::OpArg::Callee(Callee::Param(q), _)) => {
                 // pass an operator parameter on
@@ -754,11 +964,23 @@ fn analyze_rec(
             EKind::ActionSub { boxed: true, act, .. } => {
                 let name = match &act.kind {
                     EKind::Apply(Callee::Def(d), a) if a.is_empty() => d.name.to_string(),
-                    _ => "Next".to_string(),
+                    // Java: an action that is not a definition is named "Action"
+                    _ => "Action".to_string(),
                 };
                 nexts.push((wrap_all(act, wraps), name));
             }
-            _ => temporals.push(wrap_all(e, wraps)),
+            _ => {
+                // Java: processConfigSpec: TLC cannot handle []S where S is a constant- or state-level formula
+                if args[0].level <= sem::Level::State {
+                    let l = args[0].loc;
+                    SPEC_ERR.with(|c| {
+                        if c.borrow().is_none() {
+                            *c.borrow_mut() = Some(format!("line {}, col {} to line {}, col {} of module {}", l.bl, l.bc, l.el, l.ec, "")); 
+                        }
+                    });
+                }
+                temporals.push(wrap_all(e, wraps))
+            }
         },
         _ => {
             if e.level <= sem::Level::State {
@@ -839,4 +1061,113 @@ impl Setup {
             anti
         )))
     }
+}
+
+/// Java: `SpecProcessor.processConfigPossible`: every `_POSSIBLE` predicate is tracked by a generated
+/// `_Track(P, "P")` definition (state-level predicates become model constraints, action-level ones action
+/// constraints) and checked after the state space has been explored by `_CheckName("P")`.
+fn process_config_possible(setup: &mut Setup, root: &Rc<sem::ModuleNode>, cfg: &ModelConfig, analyze: ModuleAnalyzer) -> Result<(), SetupErr> {
+    if cfg.possible.is_empty() {
+        return Ok(());
+    }
+    let mut user: Vec<Rc<sem::OpDef>> = Vec::new();
+    for name in &cfg.possible {
+        match root.lookup(name) {
+            None => {
+                return serr(
+                    ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
+                    format!("The possible {} specified in the configuration file
+is not defined in the specification.", name),
+                )
+            }
+            Some(sem::Sym::Def(d)) => {
+                if d.arity() != 0 {
+                    return serr(ec::TLC_CONFIG_ID_REQUIRES_NO_ARG, format!("TLC requires possible {} not to take any argument.", name));
+                }
+                // https://github.com/tlaplus/tlaplus/issues/827
+                if d.level.get() >= sem::Level::Temporal {
+                    return serr(
+                        ec::TLC_CONFIG_ID_HAS_VALUE,
+                        format!("The possible of {} is equal to a temporal formula; only state- and action-level predicates are supported", name),
+                    );
+                }
+                user.push(d);
+            }
+            Some(_) => return serr(ec::TLC_CONFIG_ID_MUST_NOT_BE_CONSTANT, format!("The possible {} cannot be a constant.", name)),
+        }
+    }
+    // Java: ModuleNode.generateUnusedName: the suffix is the current time in milliseconds
+    let unused = |pattern: &str| -> String {
+        let mut suffix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0);
+        loop {
+            let n = pattern.replace("%s", &suffix.to_string());
+            if root.lookup(&n).is_none() {
+                return n;
+            }
+            suffix += 1;
+        }
+    };
+    let root_name = root.name.to_string();
+    let mod_name = unused("_PossibleModule_%s");
+    let mut ac_names = Vec::new();
+    let mut ac_defs = String::new();
+    let mut pc_names = Vec::new();
+    let mut pc_defs = String::new();
+    for name in &cfg.possible {
+        let ac = unused(&format!("_PossibleAC_{}_%s", name));
+        ac_defs.push_str(&format!("{} == _Track({}, \"{}\")
+
+", ac, name, name));
+        ac_names.push(ac);
+    }
+    for name in &cfg.possible {
+        let pc = unused(&format!("_PossiblePC_{}_%s", name));
+        pc_defs.push_str(&format!("{} == _CheckName(\"{}\")
+
+", pc, name));
+        pc_names.push(pc);
+    }
+    let src = format!("---- MODULE {} ----
+EXTENDS {}, _Possible
+
+{}{}
+
+====", mod_name, root_name, ac_defs, pc_defs);
+    let module = match analyze(&src) {
+        Ok(m) => m,
+        Err(e) => return serr(ec::TLC_PARSING_FAILED2, format!("_POSSIBLE: {}", e)),
+    };
+    let def_of = |n: &str| -> Result<Rc<sem::OpDef>, SetupErr> {
+        match module.lookup(n) {
+            Some(sem::Sym::Def(d)) => Ok(d),
+            _ => Err(SetupErr { code: ec::TLC_PARSING_FAILED2, text: format!("_POSSIBLE: generated definition {} is missing", n) }),
+        }
+    };
+    // state-level predicates -> model constraints, action-level ones -> action constraints
+    let (mut state_c, mut action_c) = (Vec::new(), Vec::new());
+    for (i, u) in user.iter().enumerate() {
+        let def = def_of(&ac_names[i])?;
+        // The wrapper is evaluated for every state / transition (Java never folds the generated definitions): it
+        // takes the level of the predicate it tracks, which SANY does not propagate through `TLCSet(k, v) == TRUE`.
+        def.level.set(sem::Level::max(def.level.get(), u.level.get()));
+        let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
+        let (ex, n) = setup.comp.compile_top(&e);
+        let top = Top { name: ac_names[i].clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
+        if u.level.get() <= sem::Level::State {
+            state_c.push(top);
+        } else {
+            action_c.push(top);
+        }
+    }
+    setup.action_constraints.extend(action_c);
+    setup.constraints.extend(state_c);
+    for (i, u) in user.iter().enumerate() {
+        let def = def_of(&pc_names[i])?;
+        let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
+        let (ex, n) = setup.comp.compile_top(&e);
+        let loc = sem_body_loc(u);
+        let text = format!("line {}, col {} to line {}, col {} of module {}", loc.bl, loc.bc, loc.el, loc.ec, u.original().module);
+        setup.postconditions.push((Top { name: cfg.possible[i].clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] }, text, true));
+    }
+    Ok(())
 }

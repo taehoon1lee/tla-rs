@@ -593,3 +593,180 @@ pub fn find_counterexample(ev: &Ev, store: &dyn States, graphs: &[Graph], oss: &
     }
     Ok(None)
 }
+
+/// Where Java's incremental liveness checking reports a counterexample of a safety-like property (`LiveCheck`,
+/// `addNextState` with `oos.hasEmptyPEM()`): the processed BFS state and the finite behavior to the node.
+pub struct Shortcut {
+    /// index (in processing order) of the state whose successors were being added
+    pub k: usize,
+    /// the states of the behavior from an initial state to the violating state
+    pub states: Vec<u32>,
+}
+
+/// Port of `LiveCheck.TableauLiveChecker.addInitState` / `addNextState` (and the recursive `addNextState` for states that
+/// are done already): the behavior graph is built incrementally in BFS order; when a node `<s, t>` whose tableau successor
+/// `t1` is accepting and consistent with `s` is created, the finite path to it is a counterexample (no cycle needed).
+pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32], oos: &Oos) -> R<Option<Shortcut>> {
+    let tb = match &oos.tableau {
+        Some(t) if oos.has_empty_pem() => t,
+        _ => return Ok(None),
+    };
+    struct Ctx<'a> {
+        ev: &'a Ev,
+        store: &'a dyn States,
+        succ: &'a [Vec<u32>],
+        tb: &'a tlc_core::liveness::tableau::TbGraph,
+        recorded: std::collections::HashSet<(u32, usize)>,
+        nodes_of: HashMap<u32, Vec<usize>>,
+        done: Vec<bool>,
+        edges: HashMap<(u32, usize), Vec<(u32, usize)>>,
+        edge_set: std::collections::HashSet<((u32, usize), (u32, usize))>,
+        cons: HashMap<(u32, usize), bool>,
+        err: Option<(u32, usize)>,
+    }
+    impl<'a> Ctx<'a> {
+        fn consistent(&mut self, s: u32, t: usize) -> R<bool> {
+            if let Some(&b) = self.cons.get(&(s, t)) {
+                return Ok(b);
+            }
+            let b = self.tb.nodes[t].is_consistent(self.ev, self.store.vals(s))?;
+            self.cons.insert((s, t), b);
+            Ok(b)
+        }
+        fn record(&mut self, s: u32, t: usize) {
+            if self.recorded.insert((s, t)) {
+                self.nodes_of.entry(s).or_default().push(t);
+            }
+        }
+        fn add_edge(&mut self, from: (u32, usize), to: (u32, usize)) {
+            if self.edge_set.insert((from, to)) {
+                self.edges.entry(from).or_default().push(to);
+            }
+        }
+        /// the private `addNextState(tool, s, fp, tnode, oos, dgraph)`: the node `<s, t>` is new and `s` is done
+        fn rec(&mut self, s: u32, t: usize) -> R<()> {
+            let nexts = self.tb.nodes[t].nexts.clone();
+            // edges induced by s -> s (self-loop) coming from the tableau graph
+            for &t1 in &nexts {
+                if self.consistent(s, t1)? {
+                    if self.tb.nodes[t1].is_accepting(t1) && self.err.is_none() {
+                        self.err = Some((s, t));
+                        return Ok(());
+                    }
+                    let rec1 = self.recorded.contains(&(s, t1));
+                    if !rec1 || !self.edge_set.contains(&((s, t), (s, t1))) {
+                        self.add_edge((s, t), (s, t1));
+                        if !rec1 {
+                            self.record(s, t1);
+                            self.rec(s, t1)?;
+                        }
+                    }
+                }
+            }
+            // edges induced by s -> s1 (s1 a successor of s in the state graph)
+            let succs = self.succ[s as usize].clone();
+            for &s1 in &succs {
+                let is_done = self.done[s1 as usize];
+                for &t1 in &nexts {
+                    if self.consistent(s1, t1)? {
+                        let rec1 = self.recorded.contains(&(s1, t1));
+                        if !rec1 || !self.edge_set.contains(&((s, t), (s1, t1))) {
+                            self.add_edge((s, t), (s1, t1));
+                            if !rec1 {
+                                self.record(s1, t1);
+                                if is_done {
+                                    self.rec(s1, t1)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+    let n = succ.len();
+    let mut cx = Ctx {
+        ev,
+        store,
+        succ,
+        tb,
+        recorded: Default::default(),
+        nodes_of: HashMap::new(),
+        done: vec![false; n],
+        edges: HashMap::new(),
+        edge_set: Default::default(),
+        cons: HashMap::new(),
+        err: None,
+    };
+    // addInitState: (state, tnode) is a root node if tnode is an initial tableau node consistent with the state
+    let mut roots: Vec<(u32, usize)> = vec![];
+    for &s in inits {
+        for t in 0..tb.init_cnt {
+            if cx.consistent(s, t)? {
+                roots.push((s, t));
+                cx.record(s, t);
+            }
+        }
+    }
+    for k in 0..n as u32 {
+        cx.done[k as usize] = true;
+        let snapshot = cx.nodes_of.get(&k).cloned().unwrap_or_default();
+        let succs = succ[k as usize].clone();
+        for &t0 in &snapshot {
+            let nexts = tb.nodes[t0].nexts.clone();
+            for &s1 in &succs {
+                let is_done = cx.done[s1 as usize];
+                for &t1 in &nexts {
+                    if cx.consistent(s1, t1)? {
+                        let rec1 = cx.recorded.contains(&(s1, t1));
+                        if !rec1 || !cx.edge_set.contains(&((k, t0), (s1, t1))) {
+                            cx.add_edge((k, t0), (s1, t1));
+                            if !rec1 {
+                                cx.record(s1, t1);
+                                if is_done {
+                                    cx.rec(s1, t1)?;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if let Some(target) = cx.err {
+            // the path (breadth-first over the behavior graph built so far) from a root node to the violating node
+            let mut parent: HashMap<(u32, usize), (u32, usize)> = HashMap::new();
+            let mut seen: std::collections::HashSet<(u32, usize)> = roots.iter().copied().collect();
+            let mut q: VecDeque<(u32, usize)> = roots.iter().copied().collect();
+            while let Some(cur) = q.pop_front() {
+                if cur == target {
+                    break;
+                }
+                if let Some(ns) = cx.edges.get(&cur) {
+                    for &nx in ns {
+                        if seen.insert(nx) {
+                            parent.insert(nx, cur);
+                            q.push_back(nx);
+                        }
+                    }
+                }
+            }
+            let mut path = vec![target];
+            let mut cur = target;
+            while let Some(&p) = parent.get(&cur) {
+                path.push(p);
+                cur = p;
+            }
+            path.reverse();
+            // finite stuttering is dropped
+            let mut states: Vec<u32> = vec![];
+            for (s, _) in path {
+                if states.last() != Some(&s) {
+                    states.push(s);
+                }
+            }
+            return Ok(Some(Shortcut { k: k as usize, states }));
+        }
+    }
+    Ok(None)
+}

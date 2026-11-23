@@ -60,3 +60,9 @@ gate: no regressions (verdict 304/364, trace 250, perf 302).
 KVS-like model with SYMMETRY (TxId of size 2): 96.3 -> 77.0 s CPU (Java 61.3 s), same counts (25,867,108 / 1,700,595). exhaustive canonical form only for a group with 1 non-identity perm; per-perm image cache; closed-domain reorder; `Fcn.has_model` memo.
 gate (-j 2): no regressions (verdict 304/364, trace 250, perf 302; the two perf misses SlidingPuzzles / BugzillaBug279Test pass when timed sequentially: x0.78 / x1.10).
 next: KVS Medium (Java 874 s) and Elevator Medium (Java 589 s) with a 14 GB cap; lean state storage (fp/parent/level only).
+
+## 2026-11-23 tt/ pass: 40 more models match Java (Sonnet 5.5)
+gate (-j 2): verdict 304 -> 344/364, trace 250 -> 282, perf 344 (all 150 + 13 heavy ex/ unchanged). Done: `_POSSIBLE`/POSTCONDITION, 2102/2103 init-state errors,
+safety-like liveness shortcut (exit 12), typed model values, constant operator tables, config/spec validation (2236, 2213, 5007), `-continue` at init,
+ENABLED over INSTANCE, unicode string fingerprints, `\cdot`, incomplete successor text, `_format` alias exception, TLCGet("spec") (no coverage).
+open: 20 tt/ models (see NOTES.md "Still open in tt/"); the two Java-timeout tt/ models are unscored.

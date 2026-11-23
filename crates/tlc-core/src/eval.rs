@@ -144,6 +144,11 @@ pub struct Ev {
     pub set_bound: Cell<i64>,
     /// counters exposed through TLCGet
     pub tlc_registers: RefCell<HashMap<i32, Value>>,
+    /// Java: `IdThread.namedRegisters`: `TLCSet("s:...", v)` / `TLCGet("s:...")` (one worker)
+    pub named_regs: RefCell<std::collections::BTreeMap<String, Value>>,
+    /// Java: `OpRcdValue`: a constant operator given by the configuration file (`CONSTANT F(0) = 1`): declaration id ->
+    /// (argument values, value) in the order of the file
+    pub const_tables: RefCell<HashMap<usize, Rc<Vec<(Vec<Value>, Value)>>>>,
     /// `-seed`: the generator behind `RandomElement` (Java: `RandomEnumerableValues`), created on first use
     pub seed: Cell<i64>,
     pub rng: RefCell<Option<crate::jrandom::JRandom>>,
@@ -165,6 +170,9 @@ pub struct Ev {
     pub slot_pool: RefCell<Vec<Vec<Slot>>>,
     /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
     pub counters: Cell<[i64; 6]>,
+    /// true while the specification is processed (Java: `TLCGlobals.mainChecker == null`): the model checker's counters
+    /// are not available yet
+    pub setup_phase: Cell<bool>,
     pub no_frame: Rc<Vec<Slot>>,
     pub no_state: Rc<Vec<Value>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
@@ -218,6 +226,8 @@ impl Ev {
             var_names: RefCell::new(vec![]),
             set_bound: Cell::new(1_000_000),
             tlc_registers: RefCell::new(HashMap::new()),
+            named_regs: RefCell::new(std::collections::BTreeMap::new()),
+            const_tables: RefCell::new(HashMap::new()),
             seed: Cell::new(0),
             rng: RefCell::new(None),
             stats: RefCell::new(HashMap::new()),
@@ -230,6 +240,7 @@ impl Ev {
             epoch: Cell::new(1),
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
+            setup_phase: Cell::new(false),
             no_frame: Rc::new(Vec::new()),
             no_state: Rc::new(Vec::new()),
             warn: Cell::new(true),
@@ -1199,6 +1210,35 @@ impl Ev {
                         }
                     }
                 }
+                let table = self.const_tables.borrow().get(&dr.id).cloned();
+                if let Some(table) = table {
+                    // Java: OpRcdValue.eval
+                    let mut vals = Vec::with_capacity(args.len());
+                    for a in args {
+                        let sl = self.eval_arg(a, s0, s1)?;
+                        vals.push(self.force_slot(sl, s0, s1)?);
+                    }
+                    for (dom, v) in table.iter() {
+                        if dom.len() != vals.len() {
+                            return fail(format!("Attempted to apply the operator {}
+with wrong number of arguments.", dr.name));
+                        }
+                        let mut matched = true;
+                        for (x, y) in dom.iter().zip(vals.iter()) {
+                            if !x.eq_val(y)? {
+                                matched = false;
+                                break;
+                            }
+                        }
+                        if matched {
+                            return Ok(v.clone());
+                        }
+                    }
+                    let shown: Vec<String> = vals.iter().map(|v| v.to_tla()).collect();
+                    return fail(format!("Attempted to apply operator:
+{}
+to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
+                }
                 let d = self.const_ops.borrow().get(&dr.id).cloned();
                 match d {
                     Some(d) => self.call_def(&d, args, s0, s1),
@@ -1511,6 +1551,10 @@ impl Ev {
     }
 
     fn eval_bi(&self, b: B, es: &[Ex], s0: &[Value], s1: &[Value]) -> R<Value> {
+        if b == B::Cdot {
+            // Java: Tool.getNextStates / eval / enabled, OPCODE_cdot without `-Dtlc2.tool.impl.Tool.cdot=true`
+            return fail("The current version of TLC does not support action composition.  An incomplete implementation can be enabled via the tlc2.tool.impl.Tool.cdot=true java property.");
+        }
         if b == B::Enabled {
             return Ok(Value::Bool(self.enabled(&es[0], s0)?));
         }
@@ -1664,7 +1708,10 @@ in a quantifier or set constructor.",
         let sub = match cur.apply(arg) {
             Ok(v) => Some(v),
             Err(e) => {
-                if k + 1 == idx.len() {
+                // only a miss in the domain leaves the function unchanged; other errors (e.g. comparing differently-typed
+                // model values while searching the domain) are raised
+                let miss = e.msg.contains("which is not in the domain of the function") || e.msg.contains("which is out of domain");
+                if k + 1 == idx.len() && miss {
                     None
                 } else {
                     return Err(e);

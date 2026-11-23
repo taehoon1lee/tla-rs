@@ -203,3 +203,30 @@
   (CheckpointCoordinationFailure, MultiPaxos_small got slower with the exhaustive form). Top-level function images are cached per perm
   (`ImgCache`, cap 512); a function over a closed domain permuted onto itself keeps the `dom` Rc and only reorders values (binary search);
   `Fcn.has_model` memoizes `contains_model`. Remaining profile is flat (eval_inner, permute_opt ~10 %, hash_into, cmp_val_slow, clone/alloc).
+- tt/ pass (verdict 304 -> 344/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
+  `SpecProcessor.processConfigPossible` and analyses it with `tla_sany::analyze_generated_module` (loads `_Possible` + its LOCAL INSTANCEs);
+  state-level predicates become model constraints, action-level ones action constraints (the generated defs get the level of the tracked predicate,
+  otherwise the compiler folds them: SANY gives `_Track(P, n)` constant level). `bfs::check_postconditions` runs after the BFS (2404/2405/2780, exit 10).
+  Named registers `TLCSet("s:..", v)` / `TLCGet("all:named")` / `TLCExt!TLCGetOrDefault`; native `_Possible!_Counts` (Java override).
+- Init-state errors: an exception while an initial state is checked (constraints, fingerprint, invariants) prints 2102 ("While working on the initial
+  state") + 2103 and exits 75 (`report_init_state_error`); the call-stack positions of 2103 are NOT reproduced ("The error call stack is empty").
+  `-continue` reports every violated invariant of every initial state (DoInitFunctor). No next-state action with states in the queue -> 2115.
+  Incomplete successor (2109): single action -> text without the action name; the failing successor is printed as the last state (`y = null`).
+- Safety-like temporal properties (`oos.has_empty_pem()`): Java finds the counterexample while building the behavior graph (`LiveCheck`, recursive
+  `addNextState` when a node of a done state is created and a tableau successor is accepting) => exit 12 + finite trace + stats at that moment.
+  `live::safety_shortcut` replays that incremental construction over the finished state graph (processing order = BFS order; `proc_log` keeps the
+  generated/distinct/depth numbers after each state).  Successor order inside a state is still Java's hash-set order (not reproducible).
+- Typed model values (`A_x`: second char `_`, name > 2 chars): comparing/equating two different types or a typed one with a non-model value raises
+  Java's error (`value::model_type`); `TLCExt!TLCModelValue` is a native.  `[f EXCEPT ![x] = v]` only swallows a domain miss, not other errors.
+- Config: constant operators given as tables (`CONSTANT F(0) = 1 ...` -> `Ev.const_tables`, Java OpRcdValue); unterminated cfg string = lexical error 5007;
+  SPECIFICATION naming a state variable = 2236; `[]S` with state-level S in a SPEC = 2213; unnamed next-state actions are called `Action`.
+- Fingerprints of strings only see the low byte of each UTF-16 char (`FP64.Extend(fp, String)`): "é" and "ǩ" are one state (`str_fp_class`).
+- ENABLED / primed INSTANCE access: `actions::target_var` and `var_of` follow SubstIn and nullary definitions (Java `getPrimedVar` / `getVar`).
+- Still open in tt/ (20): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
+  Java classes (UserModuleOverride), `Randomization` natives, TLCGet("spec") coverage + level (TLCGetLevel), parameterized INSTANCE in
+  SPECIFICATION (Github687specA/D), op-argument properties in the liveness translation (Github1161Violated), 2102/2103 call stacks and the
+  exit-255 variants (Github696b, CyclicRedefine*, FingerprintException*), config constant `A <- diameter` evaluated at startup (TLCGetNamedUndefined).
+- Tooling quirk: doubled backslashes in my tool input arrive halved - patch Rust text with raw strings / chr(92) (see memory note).
+- Also: a constant substituted by a definition that reads variables/TLCGet is evaluated at startup (`Ev.setup_phase`: TLCGet("distinct") etc. are undefined
+  then) -> 2281; a constant-Boolean conjunct of a SPECIFICATION that is FALSE -> 2237; arguments of operators met while the SPECIFICATION / a temporal
+  property is analysed are inlined by name (`spec::INLINE_PARAMS/INLINE_OPS`, used by the compiler for otherwise unbound parameters).

@@ -834,7 +834,16 @@ impl Compiler {
             Callee::Param(p) => {
                 let slot = match self.fc().locals.get(&p.id).copied() {
                     Some(s) => s,
-                    None => return self.unsupported(format!("unbound parameter {}", p.name)),
+                    None => {
+                        if args.is_empty() && p.arity == 0 {
+                            if let Some(x) = crate::spec::inline_param(p.id) {
+                                return self.expr(&x);
+                            }
+                        } else if let Some(od) = crate::spec::inline_op(p.id) {
+                            return self.apply(&Callee::Def(od), args, loc);
+                        }
+                        return self.unsupported(format!("unbound parameter {}", p.name));
+                    }
                 };
                 self.fc().events += 1;
                 if args.is_empty() && p.arity == 0 {

@@ -109,6 +109,24 @@ impl Ev {
                     None => None,
                 }
             }
+            // Java: getPrimedVar follows a SubstInNode (`I!F` with `x <- a` where `F == x'`): the substitutions are in scope
+            // for the body.  Only substitutions that need no state to be captured (lazy / closed arguments) are followed.
+            (Node::SubstIn(subs, body, _, _), _) => {
+                let outer = self.substs.borrow().clone();
+                let mut cur = outer.clone();
+                let empty = self.empty();
+                for (decl, a) in subs {
+                    if !matches!(a, Arg::State(..) | Arg::ValClosed(_)) {
+                        return None;
+                    }
+                    let slot = self.eval_arg_pub(a, &empty, &empty).ok()?;
+                    cur = cur.push(SubstEntry { decl: *decl, slot });
+                }
+                *self.substs.borrow_mut() = cur;
+                let r = self.target_var(body, mode);
+                *self.substs.borrow_mut() = outer;
+                r
+            }
             // a parameter bound (by name) to a primed variable, e.g. `Send(p, d, memInt, memInt')`: `new = ...`
             (Node::Local(s), Mode::Init) => match self.get_slot(*s) {
                 Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
@@ -134,6 +152,42 @@ impl Ev {
                     Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
                     _ => None,
                 },
+                // Java: getVar follows definitions without parameters and SubstInNodes: `(I!F)'` with `F == x`
+                Node::Call(..) | Node::SubstIn(..) => self.var_of(inner),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Java: `SymbolNodeValueLookupProvider.getVar`: the state variable `ex` stands for, looking through definitions without
+    /// parameters and INSTANCE substitutions
+    fn var_of(&self, ex: &Ex) -> Option<u32> {
+        match &**ex {
+            Node::Var(i) => Some(*i),
+            Node::Decl(dr) => self.decl_target(dr.id, dr.is_var, dr.var_index, &self.substs.borrow()),
+            Node::Call(d, args, _) if args.is_empty() && d.native.get().is_none() => {
+                let body = d.body.borrow().clone();
+                body.and_then(|b| self.var_of(&b))
+            }
+            Node::SubstIn(subs, body, _, _) => {
+                let outer = self.substs.borrow().clone();
+                let mut cur = outer.clone();
+                let empty = self.empty();
+                for (decl, a) in subs {
+                    if !matches!(a, Arg::State(..) | Arg::ValClosed(_)) {
+                        return None;
+                    }
+                    let slot = self.eval_arg_pub(a, &empty, &empty).ok()?;
+                    cur = cur.push(SubstEntry { decl: *decl, slot });
+                }
+                *self.substs.borrow_mut() = cur;
+                let r = self.var_of(body);
+                *self.substs.borrow_mut() = outer;
+                r
+            }
+            Node::Local(s) => match self.get_slot(*s) {
+                Slot::Lazy(l) => self.code_target(&l.code, &l.substs),
                 _ => None,
             },
             _ => None,

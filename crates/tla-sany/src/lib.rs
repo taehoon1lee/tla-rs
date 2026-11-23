@@ -99,6 +99,62 @@ pub fn frontend_opts(
     Ok(Spec { obj, sem: outcome.spec })
 }
 
+/// Java: the SANY half of `SpecProcessor.processConfigPossible`: parse a module generated at run time, load the
+/// modules it depends on that are not part of the analysed specification yet (`TLCDebuggerExpression.resolveDependencies`),
+/// analyse it against the specification's module table and level-check it.
+pub fn analyze_generated_module(spec: &Spec, resolver: &Resolver, src: &str) -> Result<std::rc::Rc<sem::ModuleNode>, String> {
+    let sem_spec = spec.sem.as_ref().ok_or_else(|| "the specification has not been analysed".to_string())?;
+    let parsed = parser::parse_source(src).map_err(|e| e.text)?;
+    let mut an = analyze::Analyzer::new(&spec.obj, true);
+    an.table = sem_spec.modules.clone();
+    // dependencies in dependency order (post-order walk), each analysed once
+    fn collect(
+        resolver: &Resolver,
+        table: &std::collections::HashMap<String, std::rc::Rc<sem::ModuleNode>>,
+        deps: &[ast::Name],
+        done: &mut Vec<(String, parser::ParsedModule, bool)>,
+        visiting: &mut Vec<String>,
+    ) -> Result<(), String> {
+        for d in deps {
+            let name: &str = d;
+            if table.contains_key(name) || done.iter().any(|(n, _, _)| n == name) || visiting.iter().any(|n| n == name) {
+                continue;
+            }
+            let loc = resolver.locate(name).ok_or_else(|| format!("Cannot find source file for module {}", name))?;
+            let pm = parser::parse_source(&loc.source).map_err(|e| e.text)?;
+            visiting.push(name.to_string());
+            collect(resolver, table, &pm.deps, done, visiting)?;
+            visiting.pop();
+            done.push((name.to_string(), pm, matches!(loc.origin, Origin::Standard)));
+        }
+        Ok(())
+    }
+    let mut order: Vec<(String, parser::ParsedModule, bool)> = Vec::new();
+    collect(resolver, &sem_spec.modules, &parsed.deps, &mut order, &mut Vec::new())?;
+    for (name, pm, standard) in order.iter() {
+        an.scopes.clear();
+        an.mod_depth_stack.clear();
+        an.cur = None;
+        match an.gen_module(&pm.module, None) {
+            Ok(m) => {
+                m.is_standard.set(*standard);
+                an.table.insert(name.clone(), m);
+            }
+            Err(()) => return Err(format!("semantic analysis of module {} failed", name)),
+        }
+    }
+    an.scopes.clear();
+    an.mod_depth_stack.clear();
+    an.cur = None;
+    let nerr = an.errors.errors.len();
+    let m = an.gen_module(&parsed.module, None).map_err(|_| "semantic analysis of the generated module failed".to_string())?;
+    if an.errors.errors.len() > nerr {
+        return Err(an.errors.errors.iter().map(|e| e.render()).collect::<Vec<_>>().join("
+"));
+    }
+    Ok(m)
+}
+
 /// `java tla2sany.SANY -error-codes FILE` (the CLI passes the other SANY flags through `args`).
 /// Writes SANY's output to `out` and returns the exit code the process must exit with.
 pub fn sany_main(file: &Path, args: &[String], resolver: &Resolver, out: &mut dyn Write) -> i32 {

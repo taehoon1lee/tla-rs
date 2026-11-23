@@ -758,6 +758,13 @@ impl Value {
         if let (Value::Interval(a, b), Value::Interval(c, d)) = (self, other) {
             return Ok(b < a || (c <= a && b <= d));
         }
+        // Java: SubsetValue.isSubsetEq: (SUBSET A subseteq SUBSET B) is reduced to (A subseteq B) to avoid the exponential
+        // blowup of generating the power set
+        if let (Value::Subset(a), Value::Subset(b)) = (self, other) {
+            if a.is_finite() {
+                return a.subseteq(b);
+            }
+        }
         if !self.is_finite() {
             return fail(format!("Attempted to check whether the infinite set\n{}\nis a subset of another set.", self.to_tla()));
         }
@@ -945,8 +952,26 @@ impl Value {
             (Int(a), Int(b)) => Ok(a.cmp(b)),
             (Str(a), Str(b)) => Ok(a.cmp(b)),
             (Bool(a), Bool(b)) => Ok(a.cmp(b)),
-            (Model(a), Model(b)) => Ok(a.cmp(b)),
-            (Model(_), _) => Ok(Ordering::Less),
+            // Java: ModelValue.compareTo: a typed model value (`A_x`) is comparable only with model values of the same
+            // type or untyped ones
+            (Model(a), Model(b)) => {
+                if let (Some(x), Some(y)) = (model_type(*a), model_type(*b)) {
+                    if x != y {
+                        return fail(format!(
+                            "Attempted to compare the differently-typed model values {} and {}",
+                            intern::name_of(*a),
+                            intern::name_of(*b)
+                        ));
+                    }
+                }
+                Ok(a.cmp(b))
+            }
+            (Model(a), o) => {
+                if model_type(*a).is_some() {
+                    return fail(format!("Attempted to compare the typed model value {} and non-model value\n{}", intern::name_of(*a), o.to_tla()));
+                }
+                Ok(Ordering::Less)
+            }
             (_, Model(_)) => Ok(Ordering::Greater),
             (Tuple(a), Tuple(b)) => {
                 if a.len() != b.len() {
@@ -1061,8 +1086,29 @@ impl Value {
             (Int(a), Int(b)) => Ok(a == b),
             (Str(a), Str(b)) => Ok(a == b),
             (Bool(a), Bool(b)) => Ok(a == b),
-            (Model(a), Model(b)) => Ok(a == b),
-            (Model(_), _) | (_, Model(_)) => Ok(false),
+            // Java: ModelValue.equals
+            (Model(a), Model(b)) => {
+                if a == b {
+                    return Ok(true);
+                }
+                if let (Some(x), Some(y)) = (model_type(*a), model_type(*b)) {
+                    if x != y {
+                        return fail(format!(
+                            "Attempted to check equality of the differently-typed model values {} and {}",
+                            intern::name_of(*a),
+                            intern::name_of(*b)
+                        ));
+                    }
+                }
+                Ok(false)
+            }
+            (Model(a), o) => {
+                if model_type(*a).is_some() {
+                    return fail(format!("Attempted to check equality of typed model value {} and non-model value\n{}", intern::name_of(*a), o.to_tla()));
+                }
+                Ok(false)
+            }
+            (_, Model(_)) => Ok(false),
             (Tuple(a), Tuple(b)) => {
                 if a.len() != b.len() {
                     return Ok(false);
@@ -1221,7 +1267,7 @@ impl Value {
             }
             Value::Str(id) => {
                 h.write_u64(0x30);
-                h.write_u64(*id as u64);
+                h.write_u64(str_fp_class(*id));
             }
             Value::Model(id) => {
                 h.write_u64(0x40);
@@ -1336,6 +1382,70 @@ impl Value {
             _ => true,
         }
     }
+}
+
+/// Java: `ModelValue` constructor: a model value whose name has more than two characters and `_` as its second one is
+/// typed by its first character (`A_x` has type `A`); any other model value is untyped.
+pub fn model_type(id: u32) -> Option<char> {
+    thread_local! {
+        /// per interned name: 0 = not computed, 1 = untyped, otherwise the type character + 2
+        static TYPES: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
+    }
+    let i = id as usize;
+    let cached = TYPES.with(|t| t.borrow().get(i).copied().unwrap_or(0));
+    let code = if cached != 0 {
+        cached
+    } else {
+        let name = intern::name_of(id);
+        let mut cs = name.chars();
+        let code = match cs.next() {
+            Some(first) if name.chars().count() > 2 && cs.next() == Some('_') => first as u32 + 2,
+            _ => 1,
+        };
+        TYPES.with(|t| {
+            let mut t = t.borrow_mut();
+            if t.len() <= i {
+                t.resize(i + 1, 0);
+            }
+            t[i] = code;
+        });
+        code
+    };
+    if code == 1 {
+        None
+    } else {
+        char::from_u32(code - 2)
+    }
+}
+
+/// What TLC's fingerprint of a string value sees of it: `FP64.Extend(fp, String)` mixes only the low byte of each UTF-16
+/// char (`(c ^ fp) & 0xFF`), so strings of the same length whose chars differ only in the high byte ("é" and
+/// "ǩ") have equal fingerprints.  The class is computed once per interned string.
+fn str_fp_class(id: u32) -> u64 {
+    thread_local! {
+        static CLASSES: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+    }
+    CLASSES.with(|c| {
+        let mut c = c.borrow_mut();
+        let i = id as usize;
+        if i < c.len() && c[i] != 0 {
+            return c[i];
+        }
+        let name = intern::name_of(id);
+        let mut h = Hasher::new();
+        let mut n = 0u64;
+        for u in name.encode_utf16() {
+            h.write_u64((u & 0xFF) as u64);
+            n += 1;
+        }
+        h.write_u64(n);
+        let k = h.finish() | 1;
+        if c.len() <= i {
+            c.resize(i + 1, 0);
+        }
+        c[i] = k;
+        k
+    })
 }
 
 /// 64-bit hasher for fingerprints (FP64 stand-in; collisions are as unlikely as with TLC's FP64)

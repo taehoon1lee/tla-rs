@@ -107,7 +107,8 @@ pub fn run(opts: &TlcOptions, resolver: &Resolver, rep: &mut Reporter) -> i32 {
         }
     };
     // ---- spec processing
-    let mut setup = match spec::setup(sem, &cfg, opts.max_set_size, opts.seed) {
+    let analyze = |src: &str| tla_sany::analyze_generated_module(&spec, resolver, src);
+    let mut setup = match spec::setup(sem, &cfg, opts.max_set_size, opts.seed, &analyze) {
         Ok(s) => s,
         Err(e) => {
             rep.error(e.code, &e.text);

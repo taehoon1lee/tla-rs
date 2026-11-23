@@ -58,7 +58,49 @@ struct Lx {
     line: usize,
 }
 
+/// JavaCC `TokenMgrError.addEscapes`
+fn add_escapes(s: &str) -> String {
+    let mut out = String::new();
+    for c in s.chars() {
+        match c {
+            '\u{8}' => out.push_str("\\b"),
+            '\t' => out.push_str("\\t"),
+            '\n' => out.push_str("\\n"),
+            '\u{c}' => out.push_str("\\f"),
+            '\r' => out.push_str("\\r"),
+            '"' => out.push_str("\\\""),
+            '\'' => out.push_str("\\'"),
+            '\\' => out.push_str("\\\\"),
+            c if (c as u32) < 0x20 || (c as u32) > 0x7e => out.push_str(&format!("\\u{:04x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out
+}
+
 impl Lx {
+    /// Java: `TokenMgrError.LexicalError`: the token starting at char index `start` cannot be completed at `self.i`
+    fn lexical_error(&self, start: usize, cur: Option<char>) -> CfgError {
+        let mut line_start = self.i.min(self.chars.len());
+        while line_start > 0 && self.chars[line_start - 1] != '\n' {
+            line_start -= 1;
+        }
+        let column = self.i - line_start + 1;
+        let after: String = self.chars[start..self.i.min(self.chars.len())].iter().collect();
+        let encountered = match cur {
+            None => "<EOF> ".to_string(),
+            Some(c) => format!("\"{}\" ({}), ", add_escapes(&c.to_string()), c as u32),
+        };
+        let text = format!(
+            "Lexical error at line {}, column {}.  Encountered: {}after : \"{}\"",
+            self.line,
+            column,
+            encountered,
+            add_escapes(&after)
+        );
+        cfg_err(ec::CFG_LEXICAL_ERROR, self.line, &text)
+    }
+
     fn next(&mut self) -> Result<T, CfgError> {
         loop {
             while self.i < self.chars.len() && self.chars[self.i].is_whitespace() {
@@ -124,10 +166,17 @@ impl Lx {
                 let s = self.i;
                 self.i += 1;
                 while self.i < self.chars.len() && self.chars[self.i] != '"' {
+                    // Java (TokenMgrError): a string literal that is not closed before the end of the line is a lexical error
+                    if self.chars[self.i] == '\n' {
+                        return Err(self.lexical_error(s, Some('\n')));
+                    }
                     if self.chars[self.i] == '\\' {
                         self.i += 1;
                     }
                     self.i += 1;
+                }
+                if self.i >= self.chars.len() {
+                    return Err(self.lexical_error(s, None));
                 }
                 self.i += 1;
                 let end = self.i.min(self.chars.len());

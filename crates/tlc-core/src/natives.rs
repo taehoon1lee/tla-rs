@@ -627,10 +627,37 @@ fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
                 _ => None,
             };
             if let Some(i) = idx {
+                // Java: `TLCGlobals.mainChecker` is null while the spec is processed: all but "duration" are undefined
+                if ev.setup_phase.get() && (1..=4).contains(&i) {
+                    return fail_code(ec::TLC_MODULE_TLCGET_UNDEFINED, format!("TLCGet({}) was undefined.", name));
+                }
                 let v = ev.counters.get()[i];
                 return match i32::try_from(v) {
                     Ok(n) => Ok(Value::Int(n)),
                     Err(_) => fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}", v)),
+                };
+            }
+            // Java: TLCGetSet.TLCGet: "all" / "all:named" give the register values of every worker (there is one)
+            if &*name == "all" {
+                let regs = ev.tlc_registers.borrow();
+                let mut keys: Vec<i32> = regs.keys().copied().collect();
+                keys.sort_unstable();
+                let pairs = keys.into_iter().map(|i| (Value::Int(i), Value::tuple(vec![regs[&i].clone()]))).collect();
+                return Value::fcn_from(pairs);
+            }
+            if &*name == "all:named" {
+                let pairs = ev
+                    .named_regs
+                    .borrow()
+                    .iter()
+                    .map(|(k, v)| (Value::str(k), Value::tuple(vec![v.clone()])))
+                    .collect();
+                return Value::fcn_from(pairs);
+            }
+            if name.starts_with("s:") {
+                return match ev.named_regs.borrow().get(&*name) {
+                    Some(v) => Ok(v.clone()),
+                    None => fail_code(ec::TLC_MODULE_TLCGET_UNDEFINED, format!("TLCGet({}) is undefined.", name)),
                 };
             }
             match ev.stats.borrow().get(&*name) {
@@ -648,9 +675,74 @@ fn tlc_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     if let Value::Int(i) = k {
         ev.tlc_registers.borrow_mut().insert(i, v);
         Ok(Value::Bool(true))
+    } else if let Value::Str(id) = &k {
+        // Java: TLCGetSet.TLCSet: named registers ("s:" prefix) are kept per worker
+        let name = intern::name_of(*id);
+        if name.starts_with("s:") {
+            ev.named_regs.borrow_mut().insert(name.to_string(), v);
+            return Ok(Value::Bool(true));
+        }
+        fail(format!("TLCSet was applied to the unsupported argument {}", k.to_tla()))
     } else {
         fail(format!("TLCSet was applied to the unsupported argument {}", k.to_tla()))
     }
+}
+
+/// Java: TLCExt.tlcModelValue: `ModelValue.add(str)`
+fn tlc_model_value(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    match arg(ev, a, 0, s0, s1)? {
+        Value::Str(id) => Ok(Value::Model(id)),
+        v => fail_code(
+            ec::TLC_MODULE_ARGUMENT_ERROR,
+            format!("The argument of ModelValue should be a string, but instead it is:\n{}", v.to_tla()),
+        ),
+    }
+}
+
+/// Java: TLCExt.tlcGetOrDefault
+fn tlc_get_or_default(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let k = arg(ev, a, 0, s0, s1)?;
+    let def = arg(ev, a, 1, s0, s1)?;
+    Ok(match &k {
+        Value::Int(i) => ev.tlc_registers.borrow().get(i).cloned().unwrap_or(def),
+        Value::Str(id) => {
+            let name = intern::name_of(*id);
+            if name.starts_with("s:") {
+                ev.named_regs.borrow().get(&*name).cloned().unwrap_or(def)
+            } else {
+                def
+            }
+        }
+        _ => def,
+    })
+}
+
+/// Java: tlc2.module._Possible.counts: the per-name counts of `_Track`, summed over the workers
+fn possible_counts(ev: &Ev, _a: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Value> {
+    let rec = ev.named_regs.borrow().get("s:_possible").cloned();
+    let mut totals: Vec<(Value, i32)> = Vec::new();
+    if let Some(rec) = rec {
+        if let Some((dom, vals)) = rec.fcn_parts() {
+            for (d, v) in dom.into_iter().zip(vals.into_iter()) {
+                let n = match v {
+                    Value::Int(n) => n,
+                    _ => return fail("Java ClassCastException: a _Possible count is not an integer"),
+                };
+                let mut found = false;
+                for t in totals.iter_mut() {
+                    if t.0.cmp_val(&d)? == std::cmp::Ordering::Equal {
+                        t.1 = t.1.wrapping_add(n);
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    totals.push((d, n));
+                }
+            }
+        }
+    }
+    Value::fcn_from(totals.into_iter().map(|(d, n)| (d, Value::Int(n))).collect())
 }
 
 // ------------------------------------------------------------------ community modules (tlc2.overrides.*)
@@ -1788,6 +1880,9 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("TLC", "RandomElement") => random_element,
         ("TLC", "TLCGet") => tlc_get,
         ("TLC", "TLCSet") => tlc_set,
+        ("TLCExt", "TLCGetOrDefault") => tlc_get_or_default,
+        ("TLCExt", "TLCModelValue") => tlc_model_value,
+        ("_Possible", "_Counts") => possible_counts,
         ("Functions", "FoldFunctionOnSet") => fold_function_on_set,
         ("Functions", "FoldFunction") => fold_function,
         ("Functions", "IsInjective") => is_injective,
