@@ -188,7 +188,7 @@ impl Walk {
                 self.bounds(bs) && self.node(body)
             }
             Node::RcdCons(fs, ..) | Node::SetOfRcds(fs) => fs.iter().all(|(_, x)| self.node(x)),
-            Node::Except(x, specs) => {
+            Node::Except(x, specs, _) => {
                 for sp in specs.iter() {
                     self.bind(sp.at_slot, 1);
                 }

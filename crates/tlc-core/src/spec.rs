@@ -46,6 +46,8 @@ pub struct Setup {
     pub action_constraints: Vec<Top>,
     pub assumes: Vec<(Top, String)>,
     pub view: Option<Top>,
+    /// Java: `allParams` of the VIEW expression: the variables (by declaration index) and the number of constants it depends on
+    pub view_params: (Vec<u32>, usize),
     /// Java: `ALIAS`: the record printed instead of the state variables in error traces
     pub alias: Option<Top>,
     pub symmetry: Option<Top>,
@@ -284,6 +286,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyz
         action_constraints: vec![],
         assumes: vec![],
         view: None,
+        view_params: (vec![], 0),
         alias: None,
         symmetry: None,
         symmetry_def: None,
@@ -349,7 +352,14 @@ cannot be used as a spec",
             }
             SPEC_ERR.with(|c| *c.borrow_mut() = None);
             SUBSCRIPTS.with(|v| v.borrow_mut().clear());
+            SPEC_STACK.with(|v| v.borrow_mut().clear());
+            SPEC_TAGS.with(|v| v.borrow_mut().clear());
+            SPEC_WARNINGS.with(|v| v.borrow_mut().clear());
+            SPEC_PROPS.with(|v| *v.borrow_mut() = cfg.properties.clone());
             analyze_spec_formula(&b, &mut inits, &mut nexts, &mut temporals, 0);
+            for (code, text) in SPEC_WARNINGS.with(|v| v.borrow_mut().drain(..).collect::<Vec<_>>()) {
+                pending_warning(code, text);
+            }
             // Java: processConfigSpec: the subscript collector follows definitions (and the definitions configured for them); a cycle through `<-` overrides ends in a StackOverflowError
             let subs: Vec<sem::Expr> = SUBSCRIPTS.with(|v| v.borrow().clone());
             if subs.iter().any(|x| subscript_overflows(&setup.comp.overrides, x, 0)) {
@@ -470,7 +480,22 @@ cannot be used as a spec",
         }
         let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
         let (ex, n) = setup.comp.compile_top(&e);
-        setup.invariants.push(Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] });
+        let top = Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
+        // Java: processConfigInvariants: a constant-level definition is a value; TRUE is only worth a warning, anything else is an error
+        if def.level.get() == sem::Level::Const {
+            let undef = vec![Value::Undef; setup.vars.len()];
+            match setup.run_top(&top, &undef, &setup.ev.empty()) {
+                Ok(Value::Bool(true)) => {
+                    pending_warning(ec::TLC_INVARIANT_CONSTANT_LEVEL, format!("The invariant {} is a constant-level formula (i.e., it contains no variables, primes, or temporal operators) and evaluates to {}. To assert constant-level formulas in your spec, use ASSUME ConstInv. If you optionally want to give the assumption a name, write ASSUME YourAssumption == ConstInv instead. See https://explain.tlapl.us/assumptions-and-invariants for additional details.", name, "TRUE"));
+                    continue;
+                }
+                Ok(v) => {
+                    return serr(ec::TLC_CONFIG_ID_HAS_VALUE, format!("The invariant of {} is equal to {}", name, v.to_tla()));
+                }
+                Err(_) => {}
+            }
+        }
+        setup.invariants.push(top);
     }
     for src in [&cfg.constraints, &cfg.action_constraints] {
         let is_action = std::ptr::eq(src, &cfg.action_constraints);
@@ -503,6 +528,15 @@ cannot be used as a spec",
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
             setup.view = Some(Top { name: cfg.view.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] });
+            let mut vs: Vec<u32> = vec![];
+            let mut nconst = 0usize;
+            let mut seen: Vec<usize> = vec![];
+            if let Some(b) = def.body() {
+                collect_params(&b, &setup.vars, &mut vs, &mut nconst, &mut seen, 0);
+            }
+            vs.sort_unstable();
+            vs.dedup();
+            setup.view_params = (vs, nconst);
         } else {
             return serr(
                 ec::TLC_CONFIG_SPECIFIED_NOT_DEFINED,
@@ -544,10 +578,25 @@ is not defined in the specification.", name),
         if def.arity() != 0 {
             return serr(ec::TLC_CONFIG_ID_REQUIRES_NO_ARG, format!("TLC requires property {} not to take any argument.", name));
         }
+        // Java: processConfig: a state-level formula is only checked in the initial states
+        if def.level.get() == sem::Level::State {
+            pending_warning(ec::TLC_LIVE_FORMULA_STATE_LEVEL, format!("The formula {0} is a state-level formula, but it was used as a PROPERTY (or PROPERTIES), where a temporal formula is typically expected. State-level formulas used as PROPERTY or PROPERTIES are only checked in the initial state. To verify that the formula {0} holds in all states of every behavior, use INVARIANT {0} instead. Alternatively, applying the \"always\" temporal operator ([]) to the state-level formula {0} changes it into a temporal formula, asserting that {0} holds in all states of every behavior. See https://explain.tlapl.us/invariants-and-properties for additional details.", name));
+        }
         if let Some(b) = def.body() {
             let mut wraps: Vec<Rc<Vec<sem::Subst>>> = vec![];
             let mut bound: Vec<(Rc<sem::Param>, Value)> = vec![];
             classify_property(&mut setup, name, name, &b, &def, &mut wraps, &mut bound, 0)?;
+        }
+    }
+    // Java: processConfig: `PROPERTY L` with a SPECIFICATION whose temporal conjuncts all come from `L` checks `S /\ L => L`
+    if !cfg.spec.is_empty() && cfg.properties.len() == 1 {
+        let tags: Vec<bool> = SPEC_TAGS.with(|t| t.borrow().clone());
+        if !tags.is_empty() && tags.iter().all(|&b| b) {
+            if let (Some(ldef), Some(sdef)) = (lookup_def(&root, &cfg.properties[0]), lookup_def(&root, &cfg.spec)) {
+                let loc = |d: &Rc<sem::OpDef>| format!("line {}, col {} to line {}, col {} of module {}", d.loc.bl, d.loc.bc, d.loc.el, d.loc.ec, d.original().module);
+                let text = format!("Implied-temporal checking is a tautology.\nThe temporal formula {0} at {1} equals\nthe fairness constraints of the behavior specification {2} at {3}.\nTherefore, checking whether {2} => {0} using TLC will never result in a violation of {0}.", cfg.properties[0], loc(&ldef), cfg.spec, loc(&sdef));
+                pending_warning(ec::TLC_LIVE_FORMULA_AND_FAIRNESS_TAUTOLOGY, text);
+            }
         }
     }
     // ---- postconditions
@@ -612,7 +661,58 @@ is not defined in the specification.", name),
     ev.setup_phase.set(false);
     // source info for action labels
     *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info).into_iter().collect();
+    setup.ev.warnings.borrow_mut().extend(take_pending_warnings());
     Ok(setup)
+}
+
+/// the variables and constants an expression depends on, through the definitions it applies (Java: `SemanticNode.getAllParams`)
+fn collect_params(e: &sem::Expr, vars: &[Rc<sem::OpDecl>], out: &mut Vec<u32>, nconst: &mut usize, seen: &mut Vec<usize>, depth: u32) {
+    if depth > 60 {
+        return;
+    }
+    match &e.kind {
+        EKind::Apply(Callee::Decl(d), _) => {
+            match vars.iter().position(|v| v.id == d.id) {
+                Some(i) => out.push(i as u32),
+                None => {
+                    if !seen.contains(&d.id) {
+                        seen.push(d.id);
+                        *nconst += 1;
+                    }
+                }
+            }
+            return;
+        }
+        EKind::Apply(Callee::Def(d), args) => {
+            for a in args {
+                if let sem::Arg::Expr(x) = a {
+                    collect_params(x, vars, out, nconst, seen, depth + 1);
+                }
+            }
+            if !seen.contains(&d.id) {
+                seen.push(d.id);
+                if let Some(b) = d.body() {
+                    collect_params(&b, vars, out, nconst, seen, depth + 1);
+                }
+            }
+            return;
+        }
+        _ => {}
+    }
+    for c in e.children() {
+        collect_params(&c, vars, out, nconst, seen, depth + 1);
+    }
+}
+
+/// does `e` refer to a formal parameter of an operator?
+fn mentions_param(e: &sem::Expr, depth: u32) -> bool {
+    if depth > 40 {
+        return false;
+    }
+    if matches!(&e.kind, EKind::Apply(Callee::Param(_), _)) {
+        return true;
+    }
+    e.children().iter().any(|c| mentions_param(c, depth + 1))
 }
 
 /// does `e` (or a definition it calls) apply `TLC!TLCGet`? (Java: `TLCGet` has `minLevel = 1`, i.e. it is not constant)
@@ -648,6 +748,36 @@ fn mentions_tlcget(e: &sem::Expr, seen: &mut Vec<usize>, depth: u32) -> bool {
 /// (`[][A]_v`), implied initial predicates and temporal formulas.  `bound` is the Java `Context`: the constant arguments
 /// operators were called with and the elements of unrolled `\A` quantifiers.
 #[allow(clippy::too_many_arguments)]
+thread_local! {
+    /// the names of the operators applied on the way to the formula being analysed by `analyze_rec` (Java: the `stack` of `processConfigSpec`)
+    static SPEC_STACK: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// the PROPERTY names of the configuration (for the tautology warning) and, per temporal conjunct of the specification, whether it was
+    /// reached through an application of one of them
+    static SPEC_PROPS: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+    static SPEC_TAGS: std::cell::RefCell<Vec<bool>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// warnings found while the specification is analysed
+    static SPEC_WARNINGS: std::cell::RefCell<Vec<(i32, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+thread_local! {
+    /// warnings of the setup that is running (they are printed even when the setup fails later)
+    static PENDING_WARNINGS: std::cell::RefCell<Vec<(i32, String)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn pending_warning(code: i32, text: String) {
+    PENDING_WARNINGS.with(|w| w.borrow_mut().push((code, text)));
+}
+
+pub fn take_pending_warnings() -> Vec<(i32, String)> {
+    PENDING_WARNINGS.with(|w| w.borrow_mut().drain(..).collect())
+}
+
+fn push_temporal(temporals: &mut Vec<sem::Expr>, e: sem::Expr) {
+    let tagged = SPEC_STACK.with(|s| SPEC_PROPS.with(|p| s.borrow().iter().any(|n| p.borrow().contains(n))));
+    SPEC_TAGS.with(|t| t.borrow_mut().push(tagged));
+    temporals.push(e);
+}
+
 thread_local! {
     /// formal parameters of operators inlined by `classify_property` that stand for a non-constant argument formula
     static PROP_ENV: std::cell::RefCell<Vec<(usize, sem::Expr)>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -865,14 +995,27 @@ fn classify_property(
                 EKind::ActionSub { boxed: false, .. } => (ec::TLC_CONFIG_PROPERTY_ACTION_LEVEL_ANGLE_A_SUB_V, 2),
                 _ => (ec::TLC_CONFIG_PROPERTY_ACTION_LEVEL, 0),
             };
-            let _ = kind;
-            return serr(
-                code,
-                format!(
-                    "The formula {} at line {}, col {} to line {}, col {} of module {} is an action-level formula.",
-                    name, e.loc.bl, e.loc.bc, e.loc.el, e.loc.ec, owner.module
-                ),
+            // Java: MP: the three texts share their first sentences and differ in the advice
+            let at = format!("line {}, col {} to line {}, col {} of module {}", e.loc.bl, e.loc.bc, e.loc.el, e.loc.ec, owner.module);
+            let head = format!(
+                "The formula {} at {} is an action-level formula (i.e., it contains no temporal operators). Only temporal-level (or state-level) formulas are allowed under PROPERTY or PROPERTIES. ",
+                name, at
             );
+            let advice = match kind {
+                1 => format!(
+                    "To check that action {} holds in *every* step of the behavior, define a temporal property by applying the \"always\" temporal operator ([]) to the formula at {} (compare page 90 of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).",
+                    name, at
+                ),
+                2 => format!(
+                    "To check that infinitely many {} steps occur, define a temporal property by applying the \"always eventually\" temporal operator combination ([]<>) to the formula at {} (compare page 91 of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).",
+                    name, at
+                ),
+                _ => format!(
+                    "To check that action {} holds in *every* step of the behavior, define a temporal property: Let A be the formula at {}; rewrite A as [][A]_v, where v is a state function (typically the tuple of variables) (compare page 90 of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).",
+                    name, at
+                ),
+            };
+            return serr(code, format!("{}{}", head, advice));
         }
     }
     Ok(())
@@ -988,16 +1131,18 @@ fn analyze_rec(
         // a parameter standing for a formula (`id(Init /\ [][Next]_vars)`): continue with the argument
         EKind::Apply(Callee::Param(p), args) if args.is_empty() => match env.iter().rev().find(|(id, _)| *id == p.id).map(|(_, v)| v.clone()) {
             Some(EnvVal::Expr(a)) => analyze_rec(&a, inits, nexts, temporals, depth + 1, wraps, env),
-            _ => temporals.push(wrap_all(e, wraps)),
+            _ => push_temporal(temporals, wrap_all(e, wraps)),
         },
         // an operator parameter applied to arguments: continue with the operator bound to it
         EKind::Apply(Callee::Param(p), args) if !args.is_empty() => match env.iter().rev().find(|(id, _)| *id == p.id).map(|(_, v)| v.clone()) {
             Some(EnvVal::Op(d)) => analyze_apply(&d, args, inits, nexts, temporals, depth, wraps, env),
-            _ => temporals.push(wrap_all(e, wraps)),
+            _ => push_temporal(temporals, wrap_all(e, wraps)),
         },
         EKind::Apply(Callee::Def(d), args) if args.is_empty() && e.level >= sem::Level::Temporal => {
             if let Some(b) = d.body() {
+                SPEC_STACK.with(|s| s.borrow_mut().push(d.name.to_string()));
                 analyze_rec(&b, inits, nexts, temporals, depth + 1, wraps, env);
+                SPEC_STACK.with(|s| s.borrow_mut().pop());
             }
         }
         EKind::Apply(Callee::Def(d), args) if !args.is_empty() && e.level >= sem::Level::Temporal => {
@@ -1013,6 +1158,14 @@ fn analyze_rec(
         EKind::Bi(B::Always, args) => match &args[0].kind {
             EKind::ActionSub { boxed: true, act, sub } => {
                 SUBSCRIPTS.with(|v| v.borrow_mut().push(sub.clone()));
+                // Java: processConfigSpec evaluates the substitutions of the enclosing INSTANCEs in the context of the specification, where the
+                // parameters of a parameterized instance are not bound: the subscript cannot be examined (a warning, then the check is skipped)
+                if wraps.iter().any(|w| w.iter().any(|s| match &s.value {
+                    sem::Arg::Expr(x) => mentions_param(x, 0),
+                    _ => false,
+                })) {
+                    SPEC_WARNINGS.with(|w| w.borrow_mut().push((crate::ec::TLC_COULD_NOT_DETERMINE_SUBSCRIPT, "TLC could not determine if the subscript of the next-state relation contains\nall state variables. Proceed with fingers crossed.".to_string())));
+                }
                 let name = match &act.kind {
                     EKind::Apply(Callee::Def(d), a) if a.is_empty() => d.name.to_string(),
                     // Java: an action that is not a definition is named "Action"
@@ -1030,14 +1183,14 @@ fn analyze_rec(
                         }
                     });
                 }
-                temporals.push(wrap_all(e, wraps))
+                push_temporal(temporals, wrap_all(e, wraps))
             }
         },
         _ => {
             if e.level <= sem::Level::State {
                 inits.push(wrap_all(e, wraps));
             } else {
-                temporals.push(wrap_all(e, wraps));
+                push_temporal(temporals, wrap_all(e, wraps));
             }
         }
     }

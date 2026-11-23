@@ -299,7 +299,8 @@ pub enum Node {
     /// `[a |-> e1, b |-> e2]`: the fields as written; the shared sorted domain; `pos[i]` = index of field `i` in the sorted domain
     RcdCons(Vec<(u32, Ex)>, Rc<Vec<Value>>, Vec<usize>),
     SetOfRcds(Vec<(u32, Ex)>),
-    Except(Ex, Vec<ExceptIr>),
+    /// `[f EXCEPT ...]`; the source position of `f` is shown by the warning about an update outside the domain
+    Except(Ex, Vec<ExceptIr>, Rc<str>),
     ActionSub { boxed: bool, act: Ex, sub: Ex },
     If(Ex, Ex, Ex),
     Case(Vec<(Ex, Ex)>, Option<Ex>),

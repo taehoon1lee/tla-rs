@@ -619,7 +619,8 @@ impl Compiler {
                     self.fc().at_slots.pop();
                     out.push(ExceptIr { path, at_slot: at, val });
                 }
-                Rc::new(Node::Except(fe, out))
+                let floc = format!("line {}, col {} to line {}, col {} of module {}", f.loc.bl, f.loc.bc, f.loc.el, f.loc.ec, self.cur_module);
+                Rc::new(Node::Except(fe, out, Rc::from(floc.as_str())))
             }
             EKind::ActionSub { boxed, act, sub } => {
                 let a = self.expr(act);

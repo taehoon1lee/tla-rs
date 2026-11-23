@@ -125,7 +125,19 @@ pub fn run(opts: &TlcOptions, resolver: &Resolver, rep: &mut Reporter) -> i32 {
     let mut setup = match spec::setup(sem, &cfg, opts.max_set_size, opts.seed, &analyze) {
         Ok(s) => s,
         Err(e) => {
-            rep.error(e.code, &e.text);
+            for (code, text) in spec::take_pending_warnings() {
+                rep.warning(code, &text);
+            }
+            // Java: a StackOverflowError is reported with the text of `ModelChecker`
+            let text = if e.code == ec::SYSTEM_STACK_OVERFLOW {
+                "This was a Java StackOverflowError. It was probably the result
+of an incorrect recursive function definition that caused TLC to enter
+an infinite loop when trying to compute the function or its application
+to an element in its putative domain.".to_string()
+            } else {
+                e.text.clone()
+            };
+            rep.error(e.code, &text);
             return finish(rep, start, ec::error_constant_to_exit_status(e.code));
         }
     };

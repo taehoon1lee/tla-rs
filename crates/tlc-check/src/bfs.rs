@@ -137,6 +137,13 @@ struct Checker<'a> {
     /// a Java exception the alias `_format` of the state being printed would throw (`String.format`), printed after the error
     fmt_exc: Option<(String, String)>,
     /// per processed state (in BFS order): (states generated, distinct states, depth) once its successors were added
+    /// Java: `printSummary(false, ..)` after a failure while the initial states were processed: how many were handled
+    init_fail: Option<u64>,
+    /// the exception escaped `modelCheckImpl`: `TLC.process` reports it and no summary follows
+    no_summary: bool,
+    /// the state being expanded (an error then ends the run with the summary of `printSummary(false, ..)`)
+    cur_head: Option<usize>,
+    stats_done: bool,
     proc_log: Vec<(u64, usize, u32)>,
 }
 
@@ -211,10 +218,33 @@ The postcondition evaluated to the non-boolean value
         for l in lines {
             self.rep.raw(&l);
         }
+        let warns: Vec<(i32, String)> = self.setup.ev.warnings.borrow_mut().drain(..).collect();
+        for (code, text) in warns {
+            self.rep.warning(code, &text);
+        }
     }
 
     /// Java: TLCStateMut.toString: `/\ var = ppr(value)` lines (a lone variable prints without the `/\`)
     fn state_text(&self, vals: &[Value]) -> String {
+        // Java: TLCStateMut.toString with `-view`: the value of the VIEW is printed (`OpApplNode.toString(IValue)`: a tuple with one
+        // component per variable the VIEW depends on prints them as `/\ var = value` in declaration order)
+        if self.opts.use_view {
+            if let Some(view) = &self.setup.view {
+                if let Ok(v) = self.setup.run_top(view, vals, &self.setup.ev.empty()) {
+                    let (vs, nconst) = &self.setup.view_params;
+                    if let Value::Tuple(t) = &v {
+                        if t.len() == vs.len() + nconst {
+                            let mut s = String::new();
+                            for (i, var) in vs.iter().enumerate() {
+                                s.push_str(&format!("/\\ {} = {}\n", self.setup.vars[*var as usize].name, tlc_core::pprint::ppr(&t[i].to_tla())));
+                            }
+                            return s;
+                        }
+                    }
+                    return format!("{}\n", tlc_core::pprint::ppr(&v.to_tla()));
+                }
+            }
+        }
         let mut s = String::new();
         let single = self.setup.vars.len() == 1;
         for (i, v) in self.setup.vars.iter().enumerate() {
@@ -431,6 +461,7 @@ Reason:
     /// it as an unexpected exception (the `TLCRuntimeException` shown as a `RuntimeException`)
     fn state_not_printable(&mut self, st: &[Value]) -> Option<i32> {
         let err = st.iter().find_map(|v| v.check_printable().err())?;
+        self.no_summary = true;
         self.flush_output();
         self.rep.error(
             ec::GENERAL,
@@ -500,6 +531,7 @@ Reason:
     }
 
     fn print_trace(&mut self, idx: u32) {
+        self.replay_init();
         let mut chain = vec![];
         let mut i = idx;
         while i != NONE {
@@ -592,6 +624,22 @@ Reason:
         Ok(None)
     }
 
+    /// Java: `Tool.getState(fp)`: the states of a trace are recreated from their fingerprints, starting with the initial states,
+    /// which evaluates the initial predicate again (with its side effects: `TLCSet` registers, `Print` output)
+    fn replay_init(&mut self) {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        let nvars = setup.vars.len();
+        for top in &setup.init {
+            let buf = RefCell::new(vec![Value::Undef; nvars]);
+            let _ = ev.with_frame(top.nslots.get(), |ev| {
+                ev.epoch.set(ev.epoch.get() + 1);
+                ev.enum_action(&top.ex, Mode::Init, &ev.empty(), &buf, &mut || Ok(()))
+            });
+        }
+        self.flush_output();
+    }
+
     /// the behavior leading to `parent`, followed by the state `vals` reached by `label`
     fn print_trace_ext(&mut self, parent: u32, vals: &[Value]) {
         self.print_trace_ext_l(parent, vals, None)
@@ -599,6 +647,7 @@ Reason:
 
     /// like `print_trace_ext`; `last_label` names the action that produced `vals` when it cannot be recomputed from its fingerprint
     fn print_trace_ext_l(&mut self, parent: u32, vals: &[Value], last_label: Option<String>) {
+        self.replay_init();
         let mut chain = vec![];
         let mut i = parent;
         while i != NONE {
@@ -644,6 +693,7 @@ Reason:
     }
 
     fn stats(&mut self, left: usize) {
+        self.stats_done = true;
         let dist = self.states.len();
         self.rep.info(
             ec::TLC_PROGRESS_STATS,
@@ -819,9 +869,11 @@ Reason:
                         ec::TLC_NESTED_EXPRESSION,
                         "The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\nThe error call stack is empty.",
                     );
+                    self.init_fail = Some(0);
                     return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_NESTED_EXPRESSION)));
                 }
                 let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
+                self.init_fail = Some(0);
                 return Err(Stop::Exit(code));
             }
             for st in produced {
@@ -858,6 +910,7 @@ Reason:
                 Ok(false) => continue,
                 Err(e) => {
                     let code = self.report_init_state_error(&e, &st);
+                    self.init_fail = Some(k_init as u64 + 1);
                     return Err(Stop::Exit(code));
                 }
             }
@@ -865,6 +918,7 @@ Reason:
                 Ok(f) => f,
                 Err(e) => {
                     let code = self.report_init_state_error_fp(&e, &st);
+                    self.init_fail = Some(k_init as u64 + 1);
                     return Err(Stop::Exit(code));
                 }
             };
@@ -910,13 +964,14 @@ Reason:
                             Ok(Value::Bool(true)) => {}
                             Ok(Value::Bool(false)) => {
                                 self.flush_output();
-                                let st = self.state_text(&vals);
+                                let st = self.state_text_at(1, &vals, &vals);
                                 self.rep.error(ec::TLC_INVARIANT_VIOLATED_INITIAL, &format!("Invariant {} is violated by the initial state:
 {}", name, st));
                             }
                             Ok(_) => {}
                             Err(e) => {
                                 let code = self.report_init_state_error(&e, &vals);
+                                self.init_fail = Some(k_init as u64 + 1);
                                 return Err(Stop::Exit(code));
                             }
                         }
@@ -930,12 +985,14 @@ Reason:
                             Ok(Some(name)) => first_violation = Some((idx, name, true)),
                             Err((e, _name)) => {
                                 let code = self.report_init_state_error(&e, &vals);
+                                self.init_fail = Some(k_init as u64 + 1);
                                 return Err(Stop::Exit(code));
                             }
                         },
                         Ok(Some(name)) => first_violation = Some((idx, name, false)),
                         Err((e, _name)) => {
                             let code = self.report_init_state_error(&e, &vals);
+                            self.init_fail = Some(k_init as u64 + 1);
                             return Err(Stop::Exit(code));
                         }
                     }
@@ -944,6 +1001,20 @@ Reason:
         }
         self.generated = init_generated;
         self.max_level = if self.states.is_empty() { 0 } else { 1 };
+        if let Some((idx, name, is_prop)) = first_violation {
+            // Java: `tool.evalAlias(curState, curState)`
+            let iv = self.states[idx].vals.clone();
+            let st = self.state_text_at(1, &iv, &iv);
+            if is_prop {
+                self.rep.error(ec::TLC_PROPERTY_VIOLATED_INITIAL, &format!("Property {} is violated by the initial state:
+{}", name, st));
+            } else {
+                self.rep.error(ec::TLC_INVARIANT_VIOLATED_INITIAL, &format!("Invariant {} is violated by the initial state:
+{}", name, st));
+            }
+            // Java: `modelCheckImpl` returns after a failed `doInit` without `printSummary`
+            return Err(Stop::Exit(ec::error_constant_to_exit_status(if is_prop { ec::TLC_PROPERTY_VIOLATED_INITIAL } else { ec::TLC_INVARIANT_VIOLATED_INITIAL })));
+        }
         let plural = |n: u64| if n == 1 { "" } else { "s" };
         if init_generated == distinct_init {
             self.rep.info(
@@ -962,18 +1033,6 @@ Reason:
                 ),
             );
         }
-        if let Some((idx, name, is_prop)) = first_violation {
-            let st = self.state_text(&self.states[idx].vals);
-            if is_prop {
-                self.rep.error(ec::TLC_PROPERTY_VIOLATED_INITIAL, &format!("Property {} is violated by the initial state:
-{}", name, st));
-            } else {
-                self.rep.error(ec::TLC_INVARIANT_VIOLATED_INITIAL, &format!("Invariant {} is violated by the initial state:
-{}", name, st));
-            }
-            self.stats(self.states.len());
-            return Err(Stop::Exit(ec::error_constant_to_exit_status(if is_prop { ec::TLC_PROPERTY_VIOLATED_INITIAL } else { ec::TLC_INVARIANT_VIOLATED_INITIAL })));
-        }
         // Java: ModelChecker.modelCheckImpl: finished if there is no next state predicate
         if setup.next.is_empty() && !self.states.is_empty() {
             self.flush_output();
@@ -984,6 +1043,7 @@ Reason:
         let next = setup.next.first();
         let mut head = 0usize;
         while head < self.states.len() {
+            self.cur_head = Some(head);
             let cur = self.states[head].vals.clone();
             ev.epoch.set(ev.epoch.get() + 1);
             let cur_level = self.states[head].level;
@@ -1443,6 +1503,7 @@ Reason:
 
     /// `finite`: a counterexample of a safety-like property found while exploring (no loop marker follows the states)
     fn print_lasso_ext(&mut self, lasso: &crate::live::Lasso, oos: &tlc_core::liveness::oos::Oos, finite: bool) {
+        self.replay_init();
         let setup = self.setup;
         let ev = setup.ev.clone();
         // the real behavior: every state is the successor of the previous printed state with the fingerprint of the node
@@ -1632,6 +1693,10 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         fp_index: HashMap::new(),
         fmt_exc: None,
         proc_log: Vec::new(),
+        init_fail: None,
+        no_summary: false,
+        cur_head: None,
+        stats_done: false,
     };
     #[cfg(feature = "prof")]
     let sampler = start_sampler();
@@ -1662,8 +1727,18 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
             finish(ck.rep, start, 0)
         }
         Err(Stop::Exit(code)) => {
-            if code != 199 {
-                // statistics were printed at the point of the violation
+            if let (Some(n), false) = (ck.init_fail, ck.no_summary) {
+                ck.generated = n;
+                ck.max_level = if n > 0 { 1 } else { 0 };
+                let left = ck.states.len();
+                ck.stats(left);
+            }
+            // Java: the failure ended the exploration of the state being expanded: `printSummary(false, ..)`
+            if !ck.stats_done && !ck.no_summary {
+                if let Some(h) = ck.cur_head {
+                    let left = ck.states.len().saturating_sub(h + 1);
+                    ck.stats(left);
+                }
             }
             finish(ck.rep, start, code)
         }

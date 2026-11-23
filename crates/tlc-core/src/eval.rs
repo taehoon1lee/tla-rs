@@ -139,6 +139,8 @@ pub struct Ev {
     pub depth: Cell<u32>,
     /// text printed by Print/PrintT/Assert etc. (flushed by the driver in order)
     pub out: RefCell<Vec<String>>,
+    /// warnings (`MP.printWarning`) raised while evaluating: `(code, text)`, flushed by the driver in order
+    pub warnings: RefCell<Vec<(i32, String)>>,
     pub nvars: Cell<usize>,
     pub var_names: RefCell<Vec<sem::Name>>,
     pub set_bound: Cell<i64>,
@@ -299,6 +301,7 @@ impl Ev {
             const_ops: RefCell::new(HashMap::new()),
             depth: Cell::new(0),
             out: RefCell::new(vec![]),
+            warnings: RefCell::new(vec![]),
             nvars: Cell::new(nvars),
             var_names: RefCell::new(vec![]),
             set_bound: Cell::new(1_000_000),
@@ -1565,13 +1568,13 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                 }
                 Ok(Value::SetOfRcds(Rc::new(v)))
             }
-            Node::Except(f, specs) => {
+            Node::Except(f, specs, floc) => {
                 let mut cur = self.eval(f, s0, s1)?;
                 // fast path: `[f EXCEPT ![i] = e]`
                 if specs.len() == 1 && specs[0].path.len() == 1 {
                     if let PathIr::Index(x) = &specs[0].path[0] {
                         let arg = self.eval(x, s0, s1)?;
-                        return self.except_path(&cur, std::slice::from_ref(&arg), 0, specs[0].at_slot, &specs[0].val, s0, s1);
+                        return self.except_path(&cur, std::slice::from_ref(&arg), 0, specs[0].at_slot, &specs[0].val, s0, s1, floc);
                     }
                 }
                 for sp in specs {
@@ -1582,7 +1585,7 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                             PathIr::Index(x) => idx.push(self.eval(x, s0, s1)?),
                         }
                     }
-                    cur = self.except_path(&cur, &idx, 0, sp.at_slot, &sp.val, s0, s1)?;
+                    cur = self.except_path(&cur, &idx, 0, sp.at_slot, &sp.val, s0, s1, floc)?;
                 }
                 Ok(cur)
             }
@@ -1812,7 +1815,8 @@ in a quantifier or set constructor.",
         }
     }
 
-    fn except_path(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
+    #[allow(clippy::too_many_arguments)]
+    fn except_path(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
         let arg = &idx[k];
         let sub = match cur.apply(arg) {
             Ok(v) => Some(v),
@@ -1820,13 +1824,21 @@ in a quantifier or set constructor.",
                 // only a miss in the domain leaves the function unchanged; other errors (e.g. comparing differently-typed
                 // model values while searching the domain) are raised
                 let miss = e.msg.contains("which is not in the domain of the function") || e.msg.contains("which is out of domain");
-                if k + 1 == idx.len() && miss {
+                if miss {
                     None
                 } else {
                     return Err(e);
                 }
             }
         };
+        // Java: `result.select(lhs)` is null when a step of the path leaves the domain: warn and leave the value unchanged
+        if sub.is_none() {
+            self.warnings.borrow_mut().push((
+                crate::ec::TLC_EXCEPT_APPLIED_TO_UNKNOWN_FIELD,
+                format!("The EXCEPT was applied to non-existing fields of the value at\n{}", floc),
+            ));
+            return Ok(cur.clone());
+        }
         if k + 1 == idx.len() {
             // `@` is the current value at the path
             match &sub {
@@ -1840,7 +1852,7 @@ in a quantifier or set constructor.",
             let nv = self.eval(val, s0, s1)?;
             cur.except1(arg, nv)
         } else {
-            let inner = self.except_path(&sub.unwrap(), idx, k + 1, at_slot, val, s0, s1)?;
+            let inner = self.except_path(&sub.unwrap(), idx, k + 1, at_slot, val, s0, s1, floc)?;
             cur.except1(arg, inner)
         }
     }
