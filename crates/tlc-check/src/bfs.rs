@@ -131,6 +131,8 @@ struct Checker<'a> {
     live_succ: Vec<Vec<u32>>,
     /// per state: how many entries of `live_succ` are generated successors (the stuttering step is appended after them)
     live_gen_len: Vec<usize>,
+    /// per order of solution and state: the results of its state predicates, evaluated when the state was expanded
+    live_sc: Vec<Vec<Option<Vec<bool>>>>,
     /// with a VIEW: the successor state actually produced by each recorded transition (parallel to `live_succ`)
     live_edge: Vec<Vec<Rc<Vec<Value>>>>,
     live_inits: Vec<u32>,
@@ -662,16 +664,12 @@ Reason:
         }
         let text = format!("{}
 While working on the initial state:
-{}", e.msg, self.state_text(st));
+{}", e.java_message(), self.state_text(st));
         self.rep.error(ec::TLC_INITIAL_STATE, &text);
+        let fs = self.fp_stack_text(e);
         self.rep.error(
             ec::TLC_FINGERPRINT_EXCEPTION,
-            &format!("TLC was unable to fingerprint.
-
-Fingerprint Stack Trace:
-
-Reason:
-{}", e.msg),
+            &format!("TLC was unable to fingerprint.\n\nFingerprint Stack Trace:\n{}\nReason:\n{}", fs, e.java_message()),
         );
         ec::error_constant_to_exit_status(ec::TLC_FINGERPRINT_EXCEPTION)
     }
@@ -777,7 +775,7 @@ Reason:
                             not_ported: false,
                             trail: vec![],
                             fp_exc: false,
-                            frames: vec![],
+                            frames: vec![], vsrc: vec![],
                             pass: false,
                         }),
                         inv.name.clone(),
@@ -846,14 +844,33 @@ Reason:
         ec::exit_status::FAILURE_SPEC_EVAL
     }
 
-    /// the call stack of an error as the `Fingerprint Stack Trace` of 2147 (empty when it has no positions)
+    /// the `Fingerprint Stack Trace` of 2147 (Java: `cTool.hasCallStack() ? cTool.toString() : e.getTrace()`): the call stack followed by
+    /// the sources of the values the failure passed, or - when the failure did not happen inside an evaluation - the numbered list
+    /// of those sources, the innermost first
     fn fp_stack_text(&self, e: &TlcErr) -> String {
-        let t = self.setup.ev.call_stack_text(e);
-        if t.starts_with("    The error call stack is empty.") {
-            String::new()
-        } else {
-            t
+        let ev = &self.setup.ev;
+        let has_frames = {
+            let ni = ev.node_info.borrow();
+            e.frames.iter().any(|p| ni.get(p).map_or(false, |i| !i.synthetic))
+        };
+        if has_frames {
+            let extra: Vec<usize> = e.vsrc.iter().rev().copied().collect();
+            return ev.call_stack_text_ext(e, &extra);
         }
+        let ni = ev.node_info.borrow();
+        let mut nodes: Vec<usize> = vec![];
+        for p in &e.vsrc {
+            if nodes.last() != Some(p) && ni.get(p).is_some() {
+                nodes.push(*p);
+            }
+        }
+        let n = nodes.len();
+        let mut out = String::new();
+        for (i, p) in nodes.iter().enumerate() {
+            let l = &ni[p].loc;
+            out.push_str(&format!("{}) line {}, col {} to line {}, col {} of module {}\n", n - 1 - i, l.bl, l.bc, l.el, l.ec, ni[p].module));
+        }
+        out
     }
 
     /// Java: the replay with the call-stack tool names the nested expressions the failure passed (`TLC_NESTED_EXPRESSION`)
@@ -1499,14 +1516,15 @@ Reason:
                             self.flush_output();
                             let text = format!(
                                 "TLC threw an unexpected exception.\nThis was probably caused by an error in the spec or model.\nSee the User Output or TLC Console for clues to what happened.\nThe exception was a java.lang.RuntimeException : {}",
-                                e.msg
+                                e.java_message()
                             );
                             self.rep.error(ec::GENERAL, &text);
                             self.print_trace(head as u32);
                             self.rep.error(ec::GENERAL, &text);
+                            let fs = self.fp_stack_text(&e);
                             self.rep.error(
                                 ec::TLC_FINGERPRINT_EXCEPTION,
-                                &format!("TLC was unable to fingerprint.\n\nFingerprint Stack Trace:\n\nReason:\n{}", e.msg),
+                                &format!("TLC was unable to fingerprint.\n\nFingerprint Stack Trace:\n{}\nReason:\n{}", fs, e.java_message()),
                             );
                             let left = self.states.len() - head - 1;
                             self.stats(left);
@@ -1638,6 +1656,19 @@ Reason:
                     self.live_gen_len.resize(head + 1, 0);
                 }
                 self.live_gen_len[head] = self.live_succ[head].len();
+                // Java: `LiveCheck.addNextState` evaluates the state predicates of every order of solution on the expanded state
+                if self.live_sc.len() < setup.live.oss.len() {
+                    self.live_sc.resize(setup.live.oss.len(), Vec::new());
+                }
+                for (oi, o) in setup.live.oss.iter().enumerate() {
+                    if self.live_sc[oi].len() <= head {
+                        self.live_sc[oi].resize(head + 1, None);
+                    }
+                    if let Ok(r) = o.check_state_res(&ev, &self.states[head].vals) {
+                        self.live_sc[oi][head] = Some(r);
+                    }
+                }
+                self.flush_output();
                 if self.setup.view.is_some() || !self.perms.is_empty() {
                     let cur = &self.states[head].vals;
                     let dup = self.live_succ[head].iter().zip(self.live_edge[head].iter()).any(|(t, vals)| {
@@ -1885,7 +1916,7 @@ Reason:
                 left
             ),
         );
-        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, gen_lists.as_deref(), &self.live_inits, oss) {
+        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, gen_lists.as_deref(), &self.live_inits, oss, &self.live_sc) {
             Ok(g) => g,
             Err(e) => {
                 let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
@@ -1965,6 +1996,8 @@ Reason:
                 }
             }
         }
+        // Java: `Print` in the properties writes its output while they are evaluated
+        self.flush_output();
         let text = match violated.len() {
             0 => "Temporal properties were violated.\n".to_string(),
             1 => format!("Temporal property {} was violated.\n", violated[0]),
@@ -2139,6 +2172,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         live: !setup.live.oss.is_empty(),
         live_succ: Vec::new(),
         live_gen_len: Vec::new(),
+        live_sc: Vec::new(),
         live_edge: Vec::new(),
         live_inits: Vec::new(),
         fp_index: HashMap::new(),

@@ -85,3 +85,11 @@ gate: no regressions (verdict 364/364, trace 351 -> 353, perf 363). `ENABLED` re
 2147 prints the call stack of a `FingerprintException` (FingerprintExceptionHang / EmptySubsetEq: Java also appends the sources of the lazily built sets on the failing path, which values do not carry here).
 Still different (11, all tt/): symmetry + tableau liveness (3: model-value fingerprints use `UniqueString` tokens of the JVM run), 2147 value-source chains (Init/Next/NextCallstack/Hang/EmptySubsetEq: need `Value.source`),
 liveness `Print` evaluation count (UserModuleOverrideAnnotation: Java evaluates tableau consistency per successor, un-memoized), ValueSemanticsAssume (order of three 2144 warnings), StringDeserialize (localized OS error text).
+
+## 2026-11-23 tt/ trace pass 5: 361/364 check models identical at trace level (tt/ 211/214) (Sonnet 5.5)
+gate (-j 2, --update-best): no regressions (verdict 364/364, trace 353 -> 361, perf 363). Done: value sources (`TlcErr.vsrc`, ring buffer of the nodes that built the lazy sets, `Value::tag_err` on enumerate/size/member/subseteq) for the
+2147 `Fingerprint Stack Trace` (FingerprintExceptionInit/Next/Hang, EmptySubsetEq); `SUBSET x` of a non-set is lazy like `SubsetValue`; `IODeserialize` (file-not-found message) and `TLCGet("-D...")`; INSTANCE copies are made in the order of
+the instancee's `Hashtable` (`sem::java_hashtable_order`) and every constant-level definition is evaluated once at startup in the order of the root context (`SpecProcessor.processConstantDefns`: ValueSemanticsAssume's warning order);
+the liveness state predicates are evaluated when a state is expanded and the `Print` output of the violated-property attribution is flushed (UserModuleOverrideAnnotation).
+Still different (3, all tt/): ChooseTableauSymmetry, TableauSymmetry, SymmetryTableauModelChecker: with SYMMETRY the successors of a state reach liveness in `SetOfStates` slot order, which needs the fingerprint of model values;
+Java hashes a model value by the `UniqueString` token, i.e. by how many strings the JVM interned (SANY identifiers, built-ins, config) before it: not derivable without replaying the JVM's interning.

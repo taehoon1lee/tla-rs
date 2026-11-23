@@ -473,7 +473,14 @@ impl<'a> Analyzer<'a> {
         };
         let subs = Rc::new(self.process_subst(&inst.subs, &instancee, loc)?);
         let items: Vec<(Name, Sym, Loc)> = instancee.ctx.borrow().items.clone();
-        for (_n, sym, _l) in items {
+        // Java: `Generator.processInstance` takes the definitions from `instanceeCtxt.getByClass(OpDefNode.class)`, which lists the
+        // `Hashtable` of the context: the copies are made (and later evaluated) in that order
+        let order = {
+            let keys: Vec<&str> = items.iter().map(|(n, _, _)| &**n).collect();
+            crate::sem::java_hashtable_order(&keys, 72)
+        };
+        for oi in order {
+            let sym = items[oi].1.clone();
             let odn = match sym {
                 Sym::Def(d) => d,
                 _ => continue,
@@ -565,7 +572,13 @@ impl<'a> Analyzer<'a> {
         let subs = Rc::new(subs?);
         let items: Vec<(Name, Sym, Loc)> = instancee.ctx.borrow().items.clone();
         let mut new_defs: Vec<Rc<OpDef>> = Vec::new();
-        for (_n, sym, _l) in items {
+        // Java: `instanceeCtxt.getByClass(OpDefNode.class)` lists the `Hashtable` of the context
+        let order = {
+            let keys: Vec<&str> = items.iter().map(|(n, _, _)| &**n).collect();
+            crate::sem::java_hashtable_order(&keys, 72)
+        };
+        for oi in order {
+            let sym = items[oi].1.clone();
             let odn = match sym {
                 Sym::Def(x) => x,
                 _ => continue,

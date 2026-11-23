@@ -848,12 +848,8 @@ impl Ev {
 
     fn set_builtin(&self, b: B, vals: Vec<Value>) -> R<Value> {
         match b {
-            B::Subset => {
-                if !vals[0].is_set_like() {
-                    return fail(format!("Attempted to compute the powerset of the non-set value\n{}", vals[0].to_tla()));
-                }
-                Ok(Value::Subset(Rc::new(vals[0].clone())))
-            }
+            // Java: `new SubsetValue(arg)` does not look at the argument
+            B::Subset => Ok(Value::Subset(Rc::new(vals[0].clone()))),
             B::UnionAll => {
                 if !vals[0].is_set_like() {
                     return fail(format!("Attempted to apply UNION to the non-set value\n{}", vals[0].to_tla()));
@@ -956,6 +952,11 @@ impl Ev {
     /// Java: `CallStack.toString`: `0. Line .., column .. to line .., column .. in Module` for the expressions the error passed, outermost first;
     /// consecutive identical nodes are skipped
     pub fn call_stack_text(&self, e: &TlcErr) -> String {
+        self.call_stack_text_ext(e, &[])
+    }
+
+    /// like `call_stack_text` with more nodes after the frames (Java: `CallStack.freeze(FingerprintException)` pushes the sources of the values)
+    pub fn call_stack_text_ext(&self, e: &TlcErr, extra: &[usize]) -> String {
         let ni = self.node_info.borrow();
         let mut out = String::new();
         let mut last: Option<String> = None;
@@ -968,7 +969,7 @@ impl Ev {
                 }
             }
         }
-        for p in e.frames.iter().rev() {
+        for p in e.frames.iter().rev().chain(extra.iter()) {
             if let Some(i) = ni.get(p).filter(|i| !i.synthetic) {
                 let l = format!("Line {}, column {} to line {}, column {} in {}", i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module);
                 if last.as_deref() == Some(l.as_str()) {
@@ -1131,7 +1132,15 @@ impl Ev {
                 self.set_slot(*slot, Slot::Memo(Rc::new(MemoVal { v: v.clone(), ptr: p, len: n, epoch: self.epoch.get() })));
                 Ok(v)
             }
-            Node::Bi(b, es) => self.eval_bi(*b, es, s0, s1),
+            Node::Bi(b, es) => {
+                let r = self.eval_bi(*b, es, s0, s1);
+                if matches!(b, B::Subset | B::Times) {
+                    if let Ok(v) = &r {
+                        note_source(v, Rc::as_ptr(e) as usize);
+                    }
+                }
+                r
+            }
             Node::And(es) => {
                 for x in es {
                     if !self.eval(x, s0, s1)?.as_bool()? {
@@ -1441,7 +1450,9 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                     }
                     v.push(s);
                 }
-                Ok(Value::SetOfTuples(Rc::new(v)))
+                let r = Value::SetOfTuples(Rc::new(v));
+                note_source(&r, Rc::as_ptr(e) as usize);
+                Ok(r)
             }
             Node::SubsetOf { bound, pred, .. } => {
                 let base = self.eval(&bound.set, s0, s1)?;
@@ -1605,7 +1616,9 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                 if !d.is_set_like() || !r.is_set_like() {
                     return fail("Attempted to construct a set of functions [S -> T] where S or T is not a set.");
                 }
-                Ok(Value::SetOfFcns(Rc::new((d, r))))
+                let v = Value::SetOfFcns(Rc::new((d, r)));
+                note_source(&v, Rc::as_ptr(e) as usize);
+                Ok(v)
             }
             Node::RcdCons(fields, dom, pos) => {
                 // the fields are evaluated in the order written; the values are stored in the order of the shared domain
@@ -1627,7 +1640,9 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                     }
                     v.push((*n, s));
                 }
-                Ok(Value::SetOfRcds(Rc::new(v)))
+                let r = Value::SetOfRcds(Rc::new(v));
+                note_source(&r, Rc::as_ptr(e) as usize);
+                Ok(r)
             }
             Node::Except(f, specs, floc) => {
                 let mut cur = self.eval(f, s0, s1)?;
@@ -1904,7 +1919,7 @@ in a quantifier or set constructor.",
             // `@` is the current value at the path
             match &sub {
                 Some(old) => self.set_slot(at_slot, Slot::V(old.clone())),
-                None => self.set_slot(at_slot, Slot::Poison(Box::new(TlcErr { code: crate::ec::GENERAL, msg: "Attempted to evaluate @ for a function argument outside the domain.".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))),
+                None => self.set_slot(at_slot, Slot::Poison(Box::new(TlcErr { code: crate::ec::GENERAL, msg: "Attempted to evaluate @ for a function argument outside the domain.".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], vsrc: vec![], pass: false }))),
             }
             if sub.is_none() {
                 // outside the domain: TLC leaves the function unchanged

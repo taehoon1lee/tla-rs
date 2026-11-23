@@ -121,7 +121,7 @@ impl<'a> Translator<'a> {
                     not_ported: false,
                     trail: vec![],
                     fp_exc: false,
-                    frames: vec![],
+                    frames: vec![], vsrc: vec![],
                     pass: false,
                 }))),
             };

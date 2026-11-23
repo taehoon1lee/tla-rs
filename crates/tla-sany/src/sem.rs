@@ -447,6 +447,57 @@ impl Sym {
     }
 }
 
+/// Java: the order in which `Hashtable.elements()` lists the values of `keys` put into a default `Hashtable` (11 buckets, load factor
+/// 0.75, `String.hashCode()`) in this order, after `builtins` other entries (the context of a module holds the built-in operators):
+/// buckets from the last to the first, the newest entry of a bucket first.  Returns indexes into `keys`.
+pub fn java_hashtable_order(keys: &[&str], builtins: usize) -> Vec<usize> {
+    fn hash(s: &str) -> i32 {
+        s.encode_utf16().fold(0i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32))
+    }
+    // entries: (hash, index into keys or usize::MAX for a built-in)
+    let mut cap = 11usize;
+    let mut tab: Vec<Vec<(i32, usize)>> = vec![vec![]; cap];
+    let mut count = 0usize;
+    let mut put = |h: i32, id: usize, cap: &mut usize, tab: &mut Vec<Vec<(i32, usize)>>, count: &mut usize| {
+        let idx = ((h & 0x7FFF_FFFF) as usize) % *cap;
+        if tab[idx].iter().any(|e| e.0 == h && (id == usize::MAX || e.1 == id)) && id != usize::MAX {
+            return;
+        }
+        let mut idx = idx;
+        if *count >= (*cap as f64 * 0.75) as usize {
+            let old = std::mem::take(tab);
+            let oc = *cap;
+            *cap = oc * 2 + 1;
+            *tab = vec![vec![]; *cap];
+            for i in (0..oc).rev() {
+                for e in old[i].iter() {
+                    let j = ((e.0 & 0x7FFF_FFFF) as usize) % *cap;
+                    tab[j].insert(0, *e);
+                }
+            }
+            idx = ((h & 0x7FFF_FFFF) as usize) % *cap;
+        }
+        tab[idx].insert(0, (h, id));
+        *count += 1;
+    };
+    for i in 0..builtins {
+        let h = hash(&format!("\u{1}builtin{}", i));
+        put(h, usize::MAX, &mut cap, &mut tab, &mut count);
+    }
+    for (i, k) in keys.iter().enumerate() {
+        put(hash(k), i, &mut cap, &mut tab, &mut count);
+    }
+    let mut out = vec![];
+    for b in tab.iter().rev() {
+        for e in b {
+            if e.1 != usize::MAX {
+                out.push(e.1);
+            }
+        }
+    }
+    out
+}
+
 /// ordered symbol context (Java `Context`)
 #[derive(Default, Debug, Clone)]
 pub struct Ctx {

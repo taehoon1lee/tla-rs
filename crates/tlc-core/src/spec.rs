@@ -700,6 +700,34 @@ is not defined in the specification.", name),
             );
         }
     }
+    // Java: SpecProcessor.processConstantDefns: every definition without parameters whose level is constant is evaluated once at startup, in
+    // the order the context of the root module lists them (an INSTANCE contributes its copies in the order of a `Hashtable`); a failure
+    // is swallowed and the definition is evaluated again where it is used
+    {
+        fn collect(m: &Rc<sem::ModuleNode>, out: &mut Vec<Rc<sem::OpDef>>, seen: &mut HashSet<usize>) {
+            for e in m.extends.borrow().iter() {
+                if !e.is_standard.get() && seen.insert(Rc::as_ptr(e) as usize) {
+                    collect(e, out, seen);
+                }
+            }
+            out.extend(m.defs.borrow().iter().cloned());
+        }
+        let mut defs: Vec<Rc<sem::OpDef>> = vec![];
+        collect(&root, &mut defs, &mut HashSet::new());
+        for def in defs {
+            if def.arity() != 0 || def.level.get() != sem::Level::Const || def.kind != sem::DefKind::User || def.in_let.get() {
+                continue;
+            }
+            match def.body() {
+                Some(b) if !mentions_tlcget(&b, &mut vec![], 0) => {}
+                _ => continue,
+            }
+            let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
+            let (ex, n) = setup.comp.compile_top(&e);
+            let top = Top { name: def.name.to_string(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
+            let _ = setup.run_top(&top, &ev.empty(), &ev.empty());
+        }
+    }
     ev.setup_phase.set(false);
     // source info for action labels
     *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info).into_iter().collect();
@@ -778,7 +806,9 @@ fn mentions_tlcget(e: &sem::Expr, seen: &mut Vec<usize>, depth: u32) -> bool {
         return false;
     }
     if let EKind::Apply(Callee::Def(d), args) = &e.kind {
-        if &*d.module == "TLC" && &*d.name == "TLCGet" {
+        // Java: the `@Evaluation(minLevel = 1)` operators: their level bound is that of a state expression
+        let o = d.original();
+        if (&*o.module == "TLC" && &*o.name == "TLCGet") || (&*o.module == "TLCExt" && matches!(&*o.name, "Trace" | "CounterExample")) {
             return true;
         }
         for a in args {

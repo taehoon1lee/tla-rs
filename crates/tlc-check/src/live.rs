@@ -50,14 +50,15 @@ pub struct Lasso {
 }
 
 /// build the behavior graph of one order of solution (Java: `LiveChecker` / `TableauLiveChecker` fed by `addNextState`)
-pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oos: &Oos) -> R<Graph> {
+pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
     if let (Some(gen), true) = (gen, oos.tableau.is_some()) {
-        return build_graph_incr(ev, store, succ, gen, inits, oos);
+        return build_graph_incr(ev, store, succ, gen, inits, oos, pre);
     }
     let alen = oos.check_action.len();
     let nstates = succ.len();
     // per state: results of the state predicates
-    let mut state_checks: Vec<Option<Vec<bool>>> = vec![None; nstates];
+    // the state predicates were evaluated when the state was expanded (`pre`)
+    let mut state_checks: Vec<Option<Vec<bool>>> = (0..nstates).map(|i| pre.get(i).cloned().flatten()).collect();
     let mut ensure_state = |s: u32, state_checks: &mut Vec<Option<Vec<bool>>>| -> R<()> {
         if state_checks[s as usize].is_none() {
             state_checks[s as usize] = Some(oos.check_state_res(ev, store.vals(s))?);
@@ -163,7 +164,7 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&
 /// slot order of its `SetOfStates` (`slot`); a node `<s, t>` that is created after `s` was processed is expanded at once by the
 /// recursive variant, which adds the self-loops first and then the successors in generation order (`gen`).  The order of the
 /// edges of a node decides which counterexample the SCC search finds.
-fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u32>], inits: &[u32], oos: &Oos) -> R<Graph> {
+fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u32>], inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
     use std::collections::HashSet;
     struct B<'a> {
         ev: &'a Ev,
@@ -290,7 +291,7 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
         done: vec![false; n],
         texist: HashSet::new(),
         cons: HashMap::new(),
-        sc: vec![None; n],
+        sc: (0..n).map(|i| pre.get(i).cloned().flatten()).collect(),
         bits: HashMap::new(),
         leaf: HashMap::new(),
     };
@@ -774,8 +775,8 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
 }
 
 /// the behavior graphs of all orders of solution (Java: the `LiveChecker`s after the state space has been explored)
-pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oss: &[Oos]) -> R<Vec<Graph>> {
-    oss.iter().map(|oos| build_graph(ev, store, succ, gen, inits, oos)).collect()
+pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oss: &[Oos], pre: &[Vec<Option<Vec<bool>>>]) -> R<Vec<Graph>> {
+    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]))).collect()
 }
 
 /// `LiveWorker.call` over all orders of solution: the first counterexample found

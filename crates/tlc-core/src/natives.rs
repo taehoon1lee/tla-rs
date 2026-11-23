@@ -798,6 +798,10 @@ fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
                     Err(_) => fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}", v)),
                 };
             }
+            // Java: TLCGetSet.TLCGet("-Dname"): `System.getProperty(name, "-Dname")`; no JVM properties are set here
+            if name.starts_with("-D") {
+                return Ok(Value::Str(*id));
+            }
             // Java: TLCGetSet.TLCGet: "all" / "all:named" give the register values of every worker (there is one)
             if &*name == "all" {
                 let regs = ev.tlc_registers.borrow();
@@ -1661,6 +1665,22 @@ fn json_path(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value], sig: &str) 
     }
 }
 
+const IO_DESERIALIZE: &str =
+    "public static final tlc2.value.IValue tlc2.overrides.IOUtils.ioDeserialize(tlc2.value.impl.StringValue,tlc2.value.impl.BoolValue) throws java.io.IOException";
+
+// Java: IOUtils.ioDeserialize: the value stored in a file (`ValueInputStream`); only the failure to open the file is reproduced
+fn io_deserialize(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let p = match arg(ev, a, 0, s0, s1)? {
+        Value::Str(id) => intern::name_of(id).to_string(),
+        v => return override_error(IO_DESERIALIZE, &format!("class {} cannot be cast to class tlc2.value.impl.StringValue", v.to_tla())),
+    };
+    let _compress = arg(ev, a, 1, s0, s1)?;
+    match std::fs::File::open(&p) {
+        Err(e) => override_error(IO_DESERIALIZE, &file_not_found_message(&p, &e)),
+        Ok(_) => not_ported("IODeserialize of an existing file"),
+    }
+}
+
 // Java: Json.ndDeserialize: a tuple of the newline delimited JSON values of a file
 fn json_nd_deserialize(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let (_, bytes) = json_path(ev, a, s0, s1, ND_DESERIALIZE)?;
@@ -2330,6 +2350,7 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("UndirectedGraphs", "ConnectedComponents") => ugraphs_connected_components,
         ("IOUtils", "atoi") => atoi,
         ("IOUtils", "Serialize") => io_serialize,
+        ("IOUtils", "IODeserialize") => io_deserialize,
         ("SequencesExt", "SetToSeq") => set_to_seq,
         ("SVG", "SVGElemToString") => svg_elem_to_string,
         ("Json", "ndJsonDeserialize") => json_nd_deserialize,

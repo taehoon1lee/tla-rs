@@ -1288,7 +1288,7 @@ impl Ev {
             if cur.eq_val(&nxt)? {
                 Ok(())
             } else {
-                Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
+                Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], vsrc: vec![], pass: false }))
             }
         });
         *self.cur_label.borrow_mut() = saved_label;
@@ -1322,7 +1322,7 @@ impl Ev {
         self.enabled_depth.set(saved_virt.0 + 1);
         self.virt_ptr.set(buf.borrow().as_ptr() as usize);
         let r = self.enum_action(ex, Mode::Next, s0, &buf, &mut || {
-            Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
+            Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], vsrc: vec![], pass: false }))
         });
         *self.cur_label.borrow_mut() = saved_label;
         self.splitting.set(was);

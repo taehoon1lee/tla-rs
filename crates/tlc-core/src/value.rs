@@ -32,6 +32,9 @@ pub struct TlcErr {
     pub frames: Vec<usize>,
     /// the failure was raised while an argument was evaluated, not by the Java method of an override: it is not wrapped by it
     pub pass: bool,
+    /// Java: `FingerprintException.asTrace`: the nodes (by address, innermost first) that built the lazy values whose methods the
+    /// failure passed (`Value.getSource`)
+    pub vsrc: Vec<usize>,
 }
 
 impl TlcErr {
@@ -47,8 +50,41 @@ impl TlcErr {
 
 pub type R<T> = Result<T, Box<TlcErr>>;
 
+// ---- sources of values (Java: `Value.getSource`, set by `Tool.setSource` for the lazily built sets)
+thread_local! {
+    static SRC_RING: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
+}
+
+/// the address of the payload of a lazily built set (identifies the value while it is alive)
+fn source_payload(v: &Value) -> Option<usize> {
+    match v {
+        Value::Subset(r) => Some(Rc::as_ptr(r) as *const u8 as usize),
+        Value::SetOfFcns(r) => Some(Rc::as_ptr(r) as *const u8 as usize),
+        Value::SetOfRcds(r) => Some(Rc::as_ptr(r) as *const u8 as usize),
+        Value::SetOfTuples(r) => Some(Rc::as_ptr(r) as *const u8 as usize),
+        _ => None,
+    }
+}
+
+/// remember the node that built `v` (the last 64 lazy sets: a failure shows the sets that were just built)
+pub fn note_source(v: &Value, node: usize) {
+    if let Some(p) = source_payload(v) {
+        SRC_RING.with(|r| {
+            let mut r = r.borrow_mut();
+            if r.len() >= 64 {
+                r.remove(0);
+            }
+            r.push((p, node));
+        });
+    }
+}
+
+fn lookup_source(p: usize) -> Option<usize> {
+    SRC_RING.with(|r| r.borrow().iter().rev().find(|(q, _)| *q == p).map(|(_, n)| *n))
+}
+
 pub fn fail_code<T>(code: i32, msg: impl Into<String>) -> R<T> {
-    Err(Box::new(TlcErr { code, msg: msg.into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
+    Err(Box::new(TlcErr { code, msg: msg.into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], vsrc: vec![], pass: false }))
 }
 
 /// `Assert.fail(msg)` -> EC.GENERAL
@@ -57,7 +93,7 @@ pub fn fail<T>(msg: impl Into<String>) -> R<T> {
 }
 
 pub fn not_ported<T>(what: impl Into<String>) -> R<T> {
-    Err(Box::new(TlcErr { code: crate::mp::NOT_PORTED, msg: what.into(), not_ported: true, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
+    Err(Box::new(TlcErr { code: crate::mp::NOT_PORTED, msg: what.into(), not_ported: true, trail: vec![], fp_exc: false, frames: vec![], vsrc: vec![], pass: false }))
 }
 
 // ---------------------------------------------------------------------------------------------- values
@@ -434,8 +470,17 @@ impl Value {
     /// `EnumerableValue.elements(NORMALIZED)` does (`toSetEnum`): in particular `{x \in S : P(x)}` evaluates `P` for ALL
     /// elements before the first one is visited (an error behind the witness is still raised).
     pub fn try_each(&self, f: &mut dyn FnMut(&Value) -> R<bool>) -> R<bool> {
+        let r = self.try_each_inner(f);
+        self.tag_err(r)
+    }
+
+    fn try_each_inner(&self, f: &mut dyn FnMut(&Value) -> R<bool>) -> R<bool> {
         match self {
             Value::Subset(s) => {
+                if !s.is_set_like() {
+                    // Java: `SubsetValue` is built without looking at its argument; asking for its elements fails
+                    return fail(format!("Attempted to compute the value of an expression of form\nSUBSET S, but S is a non-enumerable value:\n{}", crate::pprint::ppr(&s.to_tla())));
+                }
                 let base = s.enumerate()?;
                 let n = base.len();
                 if n >= 31 {
@@ -470,6 +515,11 @@ impl Value {
 
     /// normalized element list of a finite set-like value
     pub fn enumerate(&self) -> R<Rc<Vec<Value>>> {
+        let r = self.enumerate_inner();
+        self.tag_err(r)
+    }
+
+    fn enumerate_inner(&self) -> R<Rc<Vec<Value>>> {
         match self {
             Value::Set(v) => Ok(v.clone()),
             Value::Interval(lo, hi) => {
@@ -495,6 +545,10 @@ impl Value {
                 Ok(r)
             }
             Value::Subset(s) => {
+                if !s.is_set_like() {
+                    // Java: `SubsetValue` is built without looking at its argument; asking for its elements fails
+                    return fail(format!("Attempted to compute the value of an expression of form\nSUBSET S, but S is a non-enumerable value:\n{}", crate::pprint::ppr(&s.to_tla())));
+                }
                 let base = s.enumerate()?;
                 let n = base.len();
                 if n >= 31 {
@@ -776,6 +830,11 @@ impl Value {
 
     /// cardinality of a finite set
     pub fn size(&self) -> R<usize> {
+        let r = self.size_inner();
+        self.tag_err(r)
+    }
+
+    fn size_inner(&self) -> R<usize> {
         match self {
             Value::Set(v) => Ok(v.len()),
             Value::Interval(lo, hi) => Ok(if hi < lo { 0 } else { (*hi as i64 - *lo as i64 + 1) as usize }),
@@ -846,9 +905,26 @@ impl Value {
         match self.member_impl(e) {
             Err(mut err) if !matches!(self, Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet) => {
                 err.fp_exc = true;
-                Err(err)
+                self.tag_err(Err(err))
             }
             r => r,
+        }
+    }
+
+    /// Java: a method of a value that has a source rethrows a failure as a `FingerprintException` whose trace holds the source
+    fn tag_err<T>(&self, r: R<T>) -> R<T> {
+        match r {
+            Err(mut e) => {
+                if let Some(p) = source_payload(self) {
+                    if let Some(node) = lookup_source(p) {
+                        if e.vsrc.last() != Some(&node) {
+                            e.vsrc.push(node);
+                        }
+                    }
+                }
+                Err(e)
+            }
+            ok => ok,
         }
     }
 
@@ -1057,6 +1133,11 @@ impl Value {
     }
 
     pub fn subseteq(&self, other: &Value) -> R<bool> {
+        let r = self.subseteq_inner(other);
+        self.tag_err(r)
+    }
+
+    fn subseteq_inner(&self, other: &Value) -> R<bool> {
         if let (Value::Interval(a, b), Value::Interval(c, d)) = (self, other) {
             return Ok(b < a || (c <= a && b <= d));
         }
