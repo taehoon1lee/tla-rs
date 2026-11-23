@@ -400,6 +400,7 @@ fn is_finite_chk(v: &Value) -> R<bool> {
         Value::SetCap(p) => Ok(is_finite_chk(&p.0)? || is_finite_chk(&p.1)?),
         Value::SetDiff(p) => is_finite_chk(&p.0),
         Value::Subset(s) => is_finite_chk(s),
+        Value::KSubset(p) => Ok(p.0 <= 0 || is_finite_chk(&p.1)?),
         other => Ok(other.is_finite()),
     }
 }
@@ -424,11 +425,18 @@ fn cardinality1(s: &Value) -> R<Value> {
 {}", s.to_tla()),
         );
     }
-    if !s.is_finite() {
+    if !s.is_finite() && !matches!(s, Value::KSubset(_)) {
         return fail_code(ec::TLC_MODULE_COMPUTING_CARDINALITY, format!("Attempted to compute cardinality of the value
 {}", s.to_tla()));
     }
-    let n = s.size()?;
+    let n = match s.size() {
+        Ok(n) => n,
+        // Java: a runtime exception of the override (`k=32 and n=64`) is wrapped by MethodValue.eval
+        Err(e) if e.code == JAVA_RUNTIME_EXCEPTION => {
+            return override_error("public static tlc2.value.impl.IntValue tlc2.module.FiniteSets.Cardinality(tlc2.value.impl.Value)", &e.msg)
+        }
+        Err(e) => return Err(e),
+    };
     if n > i32::MAX as usize {
         return overflow("Cardinality".into());
     }
@@ -470,7 +478,16 @@ fn assert_(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 fn to_string(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     // Java: `v.toStringUnchecked()`: a product-like set is printed by its structure when it is too big to expand
     let v = arg(ev, a, 0, s0, s1)?;
-    let v = if matches!(v, Value::SetOfRcds(_) | Value::SetOfFcns(_) | Value::SetOfTuples(_)) { v } else { v.normalize()? };
+    // Java: `toStringUnchecked` does not swallow the failure of the size test of a product-like set
+    v.expand_size()?;
+    if let Value::KSubset(_) = &v {
+        if let Err(e) = v.size() {
+            if e.code == JAVA_RUNTIME_EXCEPTION {
+                return override_error("public static tlc2.value.impl.Value tlc2.module.TLC.ToString(tlc2.value.impl.Value)", &e.msg);
+            }
+        }
+    }
+    let v = if matches!(v, Value::SetOfRcds(_) | Value::SetOfFcns(_) | Value::SetOfTuples(_) | Value::KSubset(_)) { v } else { v.normalize()? };
     Ok(Value::str(&v.to_tla()))
 }
 
@@ -902,7 +919,16 @@ fn assert_error(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Val
     match arg(ev, a, 1, s0, s1) {
         Ok(_) => Ok(Value::Bool(false)),
         Err(e) if e.not_ported => Err(e),
-        Err(e) => Ok(Value::Bool(e.msg == expected)),
+        Err(e) => {
+            // Java: `EvalException(code, params)` / `Assert.fail(code, params)` build the message with `MP.getMessage`, which wraps it in
+            // tool-mode markers; only `Assert.fail(String)` (EC.GENERAL) leaves the plain text
+            let java_text = if e.code == ec::GENERAL || e.msg.starts_with("@!@!@STARTMSG") || e.code < 0 {
+                e.msg.clone()
+            } else {
+                format!("@!@!@STARTMSG {}:0 @!@!@\n{}\n@!@!@ENDMSG {} @!@!@", e.code, e.msg, e.code)
+            };
+            Ok(Value::Bool(java_text == expected))
+        }
     }
 }
 
@@ -1035,6 +1061,17 @@ fn fold_function(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Va
         acc = ev.apply_closure_slots(&op, vec![Slot::V(fx), Slot::V(acc)], s0, s1)?;
     }
     Ok(acc)
+}
+
+/// Java: FiniteSetsExt.kSubset
+fn k_subset(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let kv = arg(ev, a, 0, s0, s1)?;
+    let Value::Int(k) = kv else { return module_arg_err("first", "kSubset", "natural number", &kv) };
+    let set = arg(ev, a, 1, s0, s1)?;
+    if !set.is_set_like() {
+        return module_arg_err("second", "kSubset", "set", &set);
+    }
+    Ok(Value::ksubset(k, set))
 }
 
 /// Java: FiniteSetsExt.foldSet
@@ -2106,6 +2143,7 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("Functions", "IsInjective") => is_injective,
         ("Functions", "AntiFunction") => anti_function,
         ("FiniteSetsExt", "FoldSet") => fold_set,
+        ("FiniteSetsExt", "kSubset") => k_subset,
         ("FiniteSetsExt", "Quantify") => quantify,
         ("IOUtils", "IOEnv") => io_env,
         ("DyadicRationals", "Reduce") => dyadic_reduce,

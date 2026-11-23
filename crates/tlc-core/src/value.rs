@@ -90,6 +90,8 @@ pub enum Value {
     SetPred(Rc<SetPred>),
     FcnLam(Rc<FcnLam>),
     Subset(Rc<Value>),
+    /// `FiniteSetsExt!kSubset(k, S)`: Java's `KSubsetValue`
+    KSubset(Rc<(i32, Value)>),
     SetOfFcns(Rc<(Value, Value)>),
     SetOfRcds(Rc<Vec<(u32, Value)>>),
     SetOfTuples(Rc<Vec<Value>>),
@@ -173,6 +175,7 @@ impl Value {
                 | Value::Interval(..)
                 | Value::SetPred(_)
                 | Value::Subset(_)
+                | Value::KSubset(_)
                 | Value::SetOfFcns(_)
                 | Value::SetOfRcds(_)
                 | Value::SetOfTuples(_)
@@ -404,6 +407,7 @@ impl Value {
                 })?;
                 Ok(Rc::new(out))
             }
+            Value::KSubset(_) => self.ksub_enumerate(),
             Value::SetOfFcns(p) => {
                 if self.is_empty_set()? {
                     return Ok(Rc::new(vec![]));
@@ -562,6 +566,8 @@ impl Value {
             Value::SetCap(p) => p.0.is_finite() || p.1.is_finite(),
             Value::SetDiff(p) => p.0.is_finite(),
             Value::Subset(s) => s.is_finite(),
+            // Java: KSubsetValue.isFinite
+            Value::KSubset(p) => p.0 <= 0 || p.1.is_finite(),
             // Java: SetOfFcnsValue.isFinite: an empty domain or range makes the set finite whatever the other one is
             // (isEmpty is only asked of an argument that is finite: an undecidable emptiness would fail instead of answering)
             Value::SetOfFcns(p) => {
@@ -618,6 +624,7 @@ impl Value {
             // Naturals answers the emptiness of its sets without enumerating them
             Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_) => Ok(false),
             Value::Subset(_) => Ok(false),
+            Value::KSubset(_) => self.ksub_no_elements(),
             Value::SetOfFcns(p) => {
                 if p.0.is_empty_set()? {
                     return Ok(false);
@@ -673,6 +680,7 @@ impl Value {
                 }
                 Ok(1usize << n)
             }
+            Value::KSubset(_) => self.ksub_size(),
             Value::SetOfFcns(p) => {
                 // Java: SetOfFcnsValue.size: the domain is asked first, then the range
                 if p.0.is_empty_set()? {
@@ -790,6 +798,21 @@ impl Value {
                     return fail(format!("Attempted to check if the non-set value\n{}\nis in SUBSET", e.to_tla()));
                 }
                 e.subseteq(s)
+            }
+            // Java: KSubsetValue.member: the size is asked first, then every element has to be in the base set
+            Value::KSubset(p) => {
+                if self.ksub_no_elements()? {
+                    return Ok(false);
+                }
+                if p.0 as i64 != e.size()? as i64 {
+                    return Ok(false);
+                }
+                for x in e.enumerate()?.iter() {
+                    if !p.1.member(x)? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
             }
             Value::SetOfFcns(p) => {
                 let f = e.force_fcn()?;
@@ -1175,6 +1198,9 @@ impl Value {
                 }
                 Ok(Ordering::Equal)
             }
+            // Java: KSubsetValue.compareTo, SubsetValue.compareTo (a k-subset on either side)
+            (KSubset(_), b) if b.is_set_like() => self.ksub_cmp(b),
+            (a, KSubset(_)) if a.is_set_like() => Ok(o.ksub_cmp(a)?.reverse()),
             (a, b) if a.set_like_cmp_ready() && b.set_like_cmp_ready() => {
                 if let (Interval(a1, b1), Interval(a2, b2)) = (a, b) {
                     let (n1, n2) = (if b1 < a1 { 0 } else { *b1 as i64 - *a1 as i64 + 1 }, if b2 < a2 { 0 } else { *b2 as i64 - *a2 as i64 + 1 });
@@ -1281,6 +1307,13 @@ impl Value {
             (a, b) if a.is_set_like() && b.is_set_like() => {
                 if let (Interval(..), Interval(..)) = (a, b) {
                     return Ok(a.cmp_val(b)? == Ordering::Equal);
+                }
+                // Java: KSubsetValue.equals / SubsetValue.equals / SetEnumValue.equals (converts the other value)
+                if matches!(a, KSubset(_)) {
+                    return a.ksub_eq(b);
+                }
+                if matches!(b, KSubset(_)) {
+                    return b.ksub_eq(a);
                 }
                 if let Some(r) = set_eq_special(a, b)? {
                     return Ok(r);
@@ -1421,6 +1454,24 @@ impl Value {
                 out.push_str("SUBSET ");
                 s.write_tla(out);
             }
+            // Java: KSubsetValue.toString: expanded below 64 elements
+            Value::KSubset(p) => match self.ksub_size() {
+                Ok(n) if n < 64 => {
+                    if n == 0 {
+                        out.push_str("{}");
+                    } else {
+                        match self.ksub_enumerate() {
+                            Ok(e) => Value::Set(e).write_tla(out),
+                            Err(_) => out.push_str("<set>"),
+                        }
+                    }
+                }
+                _ => {
+                    out.push_str("{s \\in SUBSET (");
+                    p.1.write_tla(out);
+                    let _ = write!(out, ") : Cardinality(s) = {}}}", p.0);
+                }
+            },
             Value::SetOfRcds(fs) if !self.expands() => {
                 out.push('[');
                 for (i, (n, s)) in fs.iter().enumerate() {
@@ -1461,22 +1512,54 @@ impl Value {
         }
     }
 
+    /// Java: the size test of `toString` of `SetOfRcdsValue` / `SetOfFcnsValue` / `SetOfTuplesValue` (`TLCGlobals.expand`): the number of
+    /// elements, computed like Java does (an empty constituent stops the product before the others are asked); `None` for other values
+    pub fn expand_size(&self) -> R<Option<u128>> {
+        let product = |sizes: &mut dyn Iterator<Item = &Value>| -> R<u128> {
+            let mut sz = 1u128;
+            for s in sizes {
+                let n = s.size()?;
+                if n == 0 {
+                    return Ok(0);
+                }
+                if sz <= 2147483647 {
+                    sz *= n as u128;
+                }
+            }
+            Ok(sz)
+        };
+        Ok(match self {
+            Value::SetOfRcds(fs) => Some(product(&mut fs.iter().map(|(_, s)| s))?),
+            Value::SetOfTuples(ss) => Some(product(&mut ss.iter())?),
+            Value::SetOfFcns(p) => {
+                if p.0.is_empty_set()? {
+                    Some(1)
+                } else {
+                    let d = p.0.size()?;
+                    let r = p.1.size()?;
+                    Some(match (r, d) {
+                        (_, 0) | (1, _) => 1,
+                        (0, _) => 0,
+                        _ => {
+                            let mut sz = 1u128;
+                            for _ in 0..d {
+                                if sz > 2147483647 {
+                                    break;
+                                }
+                                sz *= r as u128;
+                            }
+                            sz
+                        }
+                    })
+                }
+            }
+            _ => None,
+        })
+    }
+
     /// Java: `TLCGlobals.expand` with `enumBound = 2000`: a product-like set is printed as its elements only if it has fewer
     fn expands(&self) -> bool {
-        let sz: Option<u128> = match self {
-            Value::SetOfRcds(fs) => fs.iter().try_fold(1u128, |sz, (_, s)| s.size().ok().map(|n| if n == 0 { 0 } else { sz.saturating_mul(n as u128) })),
-            Value::SetOfTuples(ss) => ss.iter().try_fold(1u128, |sz, s| s.size().ok().map(|n| if n == 0 { 0 } else { sz.saturating_mul(n as u128) })),
-            Value::SetOfFcns(p) => match p.0.is_empty_set() {
-                Ok(true) => Some(1),
-                Ok(false) => match (p.0.size(), p.1.size()) {
-                    (Ok(d), Ok(r)) => Some((0..d).fold(1u128, |sz, _| if sz <= 2147483647 { sz.saturating_mul(r as u128) } else { sz })),
-                    _ => None,
-                },
-                Err(_) => None,
-            },
-            _ => None,
-        };
-        matches!(sz, Some(n) if n < 2000)
+        matches!(self.expand_size(), Ok(Some(n)) if n < 2000)
     }
 
     // ------------------------------------------------------------------ fingerprints
@@ -1633,6 +1716,236 @@ impl Value {
             }
             _ => true,
         }
+    }
+}
+
+
+// ---------------------------------------------------------------------------------------------- KSubsetValue
+
+/// internal code of a Java runtime exception (`IllegalArgumentException`, ...) that is not a TLC error: a Java override wraps it
+pub const JAVA_RUNTIME_EXCEPTION: i32 = -1000;
+
+/// Java: `Combinatorics.bigChoose(n, m)` as far as it fits 128 bits
+fn choose_u128(n: u64, m: u64) -> Option<u128> {
+    let mut c: u128 = 1;
+    for i in 1..=m {
+        c = c.checked_mul((n - m + i) as u128)? / i as u128;
+    }
+    Some(c)
+}
+
+/// log2 of `n choose m`
+fn log2_choose(n: u64, m: u64) -> f64 {
+    (1..=m).map(|i| ((n - m + i) as f64 / i as f64).log2()).sum()
+}
+
+/// a `BigInteger` count of k-subsets: exact while it fits 128 bits, otherwise only its logarithm
+#[derive(Clone, Copy)]
+enum Cnt {
+    Exact(u128),
+    Huge(f64),
+}
+
+impl Cnt {
+    fn cmp(self, o: Cnt) -> Ordering {
+        match (self, o) {
+            (Cnt::Exact(a), Cnt::Exact(b)) => a.cmp(&b),
+            (Cnt::Exact(_), Cnt::Huge(_)) => Ordering::Less,
+            (Cnt::Huge(_), Cnt::Exact(_)) => Ordering::Greater,
+            (Cnt::Huge(a), Cnt::Huge(b)) => a.partial_cmp(&b).unwrap_or(Ordering::Equal),
+        }
+    }
+    /// compared with `2^n` (`BigInteger.ONE.shiftLeft(n)`)
+    fn cmp_pow2(self, n: usize) -> Ordering {
+        match self {
+            Cnt::Exact(c) => {
+                if n >= 128 {
+                    Ordering::Less
+                } else {
+                    c.cmp(&(1u128 << n))
+                }
+            }
+            Cnt::Huge(l) => l.partial_cmp(&(n as f64)).unwrap_or(Ordering::Equal),
+        }
+    }
+}
+
+impl Value {
+    pub fn ksubset(k: i32, set: Value) -> Value {
+        Value::KSubset(Rc::new((k, set)))
+    }
+
+    /// Java: `KSubsetValue.hasNoElements`
+    fn ksub_no_elements(&self) -> R<bool> {
+        match self {
+            Value::KSubset(p) => Ok(p.0 < 0 || (p.1.is_finite() && p.1.size()? < p.0 as usize)),
+            _ => Ok(false),
+        }
+    }
+
+    /// Java: `KSubsetValue.count`
+    fn ksub_count(&self) -> R<Cnt> {
+        let Value::KSubset(p) = self else { return Ok(Cnt::Exact(0)) };
+        if p.0 < 0 {
+            return Ok(Cnt::Exact(0));
+        }
+        if p.0 == 0 {
+            return Ok(Cnt::Exact(1));
+        }
+        let n = p.1.size()?;
+        let k = p.0 as usize;
+        if k > n {
+            return Ok(Cnt::Exact(0));
+        }
+        let m = k.min(n - k) as u64;
+        Ok(match choose_u128(n as u64, m) {
+            Some(c) => Cnt::Exact(c),
+            None => Cnt::Huge(log2_choose(n as u64, m)),
+        })
+    }
+
+    /// Java: `KSubsetValue.size`
+    fn ksub_size(&self) -> R<usize> {
+        let Value::KSubset(p) = self else { return Ok(0) };
+        match self.ksub_count()? {
+            Cnt::Exact(c) if c < (1u128 << 31) => Ok(c as usize),
+            _ => fail_code(JAVA_RUNTIME_EXCEPTION, format!("k={} and n={}", p.0, p.1.size()?)),
+        }
+    }
+
+    /// Java: `KSubsetValue.elements` (`SubsetValue.kElements`), in normalized order
+    fn ksub_enumerate(&self) -> R<Rc<Vec<Value>>> {
+        let Value::KSubset(p) = self else { return Ok(Rc::new(vec![])) };
+        let k = p.0;
+        if self.ksub_no_elements()? {
+            return Ok(Rc::new(vec![]));
+        }
+        if k == 0 {
+            return Ok(Rc::new(vec![Value::empty_set()]));
+        }
+        let n = p.1.size()?;
+        if n < k as usize {
+            return Ok(Rc::new(vec![]));
+        }
+        // Java: SubsetValue.numberOfKElements
+        match self.ksub_count()? {
+            Cnt::Exact(c) if c < (1u128 << 63) => {
+                if c > 50_000_000 {
+                    return fail_code(JAVA_RUNTIME_EXCEPTION, "Subset too large.");
+                }
+            }
+            _ => return fail_code(JAVA_RUNTIME_EXCEPTION, format!("k={} and n={}", k, n)),
+        }
+        let elems = p.1.enumerate()?;
+        let k = k as usize;
+        let mut out = Vec::new();
+        let mut idx: Vec<usize> = (0..k).collect();
+        loop {
+            out.push(Value::Set(Rc::new(idx.iter().map(|&i| elems[i].clone()).collect())));
+            let mut i = k;
+            while i > 0 && idx[i - 1] == n - k + i - 1 {
+                i -= 1;
+            }
+            if i == 0 {
+                break;
+            }
+            idx[i - 1] += 1;
+            for j in i..k {
+                idx[j] = idx[j - 1] + 1;
+            }
+        }
+        Ok(Rc::new(out))
+    }
+
+    /// Java: `KSubsetValue.compareCardinality`: `None` when a base set is infinite
+    fn ksub_compare_cardinality(&self, other_base: &Value) -> R<Option<Ordering>> {
+        let Value::KSubset(p) = self else { return Ok(None) };
+        if !p.1.is_finite() || !other_base.is_finite() {
+            return Ok(None);
+        }
+        let c = self.ksub_count()?;
+        Ok(Some(c.cmp_pow2(other_base.size()?)))
+    }
+
+    /// Java: `KSubsetValue.equals(obj)` for a set-like `obj`
+    fn ksub_eq(&self, other: &Value) -> R<bool> {
+        let Value::KSubset(p) = self else { return Ok(false) };
+        match other {
+            Value::KSubset(q) => {
+                let (n1, n2) = (self.ksub_no_elements()?, other.ksub_no_elements()?);
+                if n1 || n2 {
+                    return Ok(n1 && n2);
+                }
+                if p.0 == 0 && q.0 == 0 {
+                    return Ok(true);
+                }
+                return Ok(p.0 == q.0 && p.1.eq_val(&q.1)?);
+            }
+            Value::Subset(base) => {
+                if self.ksub_no_elements()? {
+                    return Ok(false);
+                }
+                if let Some(c) = self.ksub_compare_cardinality(base)? {
+                    if c != Ordering::Equal {
+                        return Ok(false);
+                    }
+                }
+                if p.0 == 0 && base.is_empty_set()? {
+                    return Ok(true);
+                }
+            }
+            _ => {}
+        }
+        Value::Set(self.ksub_enumerate()?).eq_val(other)
+    }
+
+    /// Java: `KSubsetValue.compareTo(obj)` for a set-like `obj`
+    fn ksub_cmp(&self, other: &Value) -> R<Ordering> {
+        let Value::KSubset(p) = self else { return Ok(Ordering::Equal) };
+        match other {
+            Value::KSubset(q) => {
+                let (n1, n2) = (self.ksub_no_elements()?, other.ksub_no_elements()?);
+                if n1 || n2 {
+                    return Ok(if n1 && n2 {
+                        Ordering::Equal
+                    } else if n1 {
+                        Ordering::Less
+                    } else {
+                        Ordering::Greater
+                    });
+                }
+                if p.0 == q.0 {
+                    if p.0 == 0 {
+                        return Ok(Ordering::Equal);
+                    }
+                    return p.1.cmp_val(&q.1);
+                }
+                if p.1.is_finite() && q.1.is_finite() {
+                    let c = self.ksub_count()?.cmp(other.ksub_count()?);
+                    if c != Ordering::Equal {
+                        return Ok(c);
+                    }
+                }
+                if p.1.eq_val(&q.1)? {
+                    return Ok(p.0.cmp(&q.0));
+                }
+            }
+            Value::Subset(base) => {
+                if self.ksub_no_elements()? {
+                    return Ok(Ordering::Less);
+                }
+                if let Some(c) = self.ksub_compare_cardinality(base)? {
+                    if c != Ordering::Equal {
+                        return Ok(c);
+                    }
+                }
+                if p.0 == 0 && base.is_empty_set()? {
+                    return Ok(Ordering::Equal);
+                }
+            }
+            _ => {}
+        }
+        Value::Set(self.ksub_enumerate()?).cmp_val(other)
     }
 }
 
@@ -1907,6 +2220,36 @@ mod tests {
             cache: RefCell::new(None),
         }));
         assert!(p.try_each(&mut |_| Ok(false)).is_err());
+    }
+
+    /// Java: KSubsetValue (`FiniteSetsExt!kSubset`)
+    #[test]
+    fn ksubset_follows_java() {
+        let k24 = Value::ksubset(2, Value::Interval(1, 4));
+        let all: Vec<String> = k24.enumerate().unwrap().iter().map(|v| v.to_tla()).collect();
+        assert_eq!(all, ["{1, 2}", "{1, 3}", "{1, 4}", "{2, 3}", "{2, 4}", "{3, 4}"]);
+        assert_eq!(k24.size().unwrap(), 6);
+        // a negative or too large k has no element, k = 0 is {{}} whatever the base set is
+        assert!(Value::ksubset(-1, Value::NatSet).is_empty_set().unwrap());
+        assert!(Value::ksubset(4, Value::Interval(1, 3)).is_empty_set().unwrap());
+        let k0 = Value::ksubset(0, Value::NatSet);
+        assert!(k0.is_finite());
+        assert_eq!(k0.size().unwrap(), 1);
+        assert!(!Value::ksubset(1, Value::NatSet).is_finite());
+        assert!(k0.eq_val(&Value::set_from(vec![Value::empty_set()]).unwrap()).unwrap());
+        assert!(Value::ksubset(0, Value::Interval(1, 3)).eq_val(&Value::ksubset(0, Value::Interval(1, 4))).unwrap());
+        assert!(!Value::ksubset(1, Value::Interval(1, 3)).eq_val(&Value::ksubset(2, Value::Interval(1, 3))).unwrap());
+        // membership: size first, then every element in the base set
+        assert!(k24.member(&Value::set_from(vec![Value::Int(1), Value::Int(4)]).unwrap()).unwrap());
+        assert!(!k24.member(&Value::set_from(vec![Value::Int(1)]).unwrap()).unwrap());
+        // comparison with the power set needs no enumeration of it
+        let big = Value::ksubset(2, Value::Interval(1, 64));
+        assert_eq!(big.size().unwrap(), 2016);
+        assert!(!big.eq_val(&Value::Subset(Rc::new(Value::Interval(1, 64)))).unwrap());
+        let e = Value::ksubset(32, Value::Interval(1, 64)).size().unwrap_err();
+        assert_eq!((e.code, e.msg.as_str()), (JAVA_RUNTIME_EXCEPTION, "k=32 and n=64"));
+        assert_eq!(k24.to_tla(), "{{1, 2}, {1, 3}, {1, 4}, {2, 3}, {2, 4}, {3, 4}}");
+        assert!(Value::ksubset(2, Value::Interval(1, 12)).to_tla().ends_with("in SUBSET (1..12) : Cardinality(s) = 2}"));
     }
 }
 
