@@ -264,7 +264,8 @@ pub enum Node {
     Local(u32),
     /// state variable (not substitutable)
     Var(u32),
-    PrimedVar(u32),
+    /// `x'`; the location of `x` and its module are for the error of an `ENABLED` that reads an unassigned `x'`
+    PrimedVar(u32, Option<Rc<(Loc, sem::Name)>>),
     /// constant / variable declaration that an enclosing INSTANCE may substitute
     Decl(Rc<DeclRef>),
     /// declared constant operator applied to arguments

@@ -475,7 +475,7 @@ impl Compiler {
 
     pub fn expr(&mut self, e: &sem::Expr) -> Ex {
         let n = self.expr_raw(e);
-        if !matches!(&*n, Node::Const(_) | Node::Local(_) | Node::Var(_) | Node::PrimedVar(_) | Node::Unsupported(_)) {
+        if !matches!(&*n, Node::Const(_) | Node::Local(_) | Node::Var(_) | Node::PrimedVar(..) | Node::Unsupported(_)) {
             let const_sub = match &e.kind {
                 EKind::BQuant { forall: false, bounds, .. } => bounds.iter().all(|b| b.set.level == sem::Level::Const),
                 EKind::Apply(Callee::Def(_), args) => args.iter().all(|a| match a {
@@ -766,7 +766,7 @@ impl Compiler {
                 if let EKind::Apply(Callee::Decl(d), args) = &es[0].kind {
                     if args.is_empty() && d.kind == sem::DeclKind::Variable && !self.substitutable.contains(&d.id) {
                         if let Some(&i) = self.var_index.get(&d.id) {
-                            return Rc::new(Node::PrimedVar(i));
+                            return Rc::new(Node::PrimedVar(i, Some(Rc::new((es[0].loc, self.cur_module.clone())))));
                         }
                     }
                 }

@@ -61,6 +61,10 @@ pub fn loc_text(e: &Expr, module: &str) -> String {
 impl<'a> Translator<'a> {
     pub fn new(setup: &'a mut Setup) -> Translator<'a> {
         let ev = setup.ev.clone();
+        // the leaves are compiled outside of a definition: their source positions are in the root module
+        if setup.comp.cur_module.is_empty() {
+            setup.comp.cur_module = std::sync::Arc::from(&*setup.root.name);
+        }
         Translator { setup, ev, bound: vec![], wraps: vec![], depth: 0 }
     }
 

@@ -363,6 +363,24 @@ The postcondition evaluated to the non-boolean value
         ec::error_constant_to_exit_status(ec::TLC_NESTED_EXPRESSION)
     }
 
+    /// Java: `ModelChecker.modelCheckImpl`, `catch (Throwable e)` around `doInit`, for an exception of `LiveCheck.addInitState`: the
+    /// state is reported, but the replay with the call-stack tool finds the initial state in the fingerprint set already, does not
+    /// evaluate the liveness predicates again and completes: the exit status stays the one of the original error
+    fn report_init_state_live_error(&mut self, e: &TlcErr, st: &[Value]) -> i32 {
+        self.flush_output();
+        if e.not_ported {
+            self.rep.error(mp::NOT_PORTED, &e.msg);
+            return 199;
+        }
+        let text = format!("{}\nWhile working on the initial state:\n{}", e.msg, self.state_text(st));
+        self.rep.error(ec::TLC_INITIAL_STATE, &text);
+        if is_eval_exception(e.code) {
+            ec::error_constant_to_exit_status(ec::GENERAL)
+        } else {
+            ec::error_constant_to_exit_status(e.code)
+        }
+    }
+
     /// the failure happened while the initial state was fingerprinted: the replay reports a `FingerprintException`
     fn report_init_state_error_fp(&mut self, e: &TlcErr, st: &[Value]) -> i32 {
         self.flush_output();
@@ -771,7 +789,7 @@ Reason:
         let mut first_violation: Option<(usize, String, bool)> = None;
         // Java: the initial states have level 1 (TLCGet("level") is 0 only while the initial predicate is evaluated)
         self.set_counters(1, 0);
-        for st in inits {
+        for (k_init, st) in inits.into_iter().enumerate() {
             // constraints are applied to the initial states as well
             match self.in_model(&st) {
                 Ok(true) => {}
@@ -797,6 +815,23 @@ Reason:
                     self.live_succ.push(Vec::new());
                     self.live_edge.push(Vec::new());
                     self.live_inits.push(idx);
+                    // Java: LiveCheck.addInitState -> TableauLiveChecker.addInitState: (state, tnode) is a root node if the initial
+                    // tableau node is consistent with the state, which evaluates the state predicates of the tableau node
+                    let vals = self.states[idx as usize].vals.clone();
+                    for o in &setup.live.oss {
+                        if let Some(tb) = &o.tableau {
+                            for t in 0..tb.init_cnt {
+                                if let Err(e) = tb.nodes[t].is_consistent(&ev, &vals) {
+                                    let code = self.report_init_state_live_error(&e, &vals);
+                                    // Java: `printSummary` of the failed initialization: the states processed so far are queued
+                                    self.generated = k_init as u64 + 1;
+                                    self.max_level = 1;
+                                    self.stats(self.states.len());
+                                    return Err(Stop::Exit(code));
+                                }
+                            }
+                        }
+                    }
                 }
                 if self.opts.continue_after_error && first_violation.is_none() {
                     // Java: DoInitFunctor.addElement with `-continue`: every violated invariant of every initial state is reported

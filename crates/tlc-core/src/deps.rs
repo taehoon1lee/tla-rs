@@ -158,11 +158,11 @@ impl Walk {
                 self.vars.push(*i);
                 true
             }
-            Node::PrimedVar(i) if self.allow_primed => {
+            Node::PrimedVar(i, _) if self.allow_primed => {
                 self.v1.push(*i);
                 true
             }
-            Node::PrimedVar(_) | Node::Prime(_) | Node::Unchanged(_) => false,
+            Node::PrimedVar(..) | Node::Prime(_) | Node::Unchanged(_) => false,
             // a constant declaration: its value is fixed by the configuration or by the INSTANCE substitutions in scope
             // (the cache is only used under the same substitution list); a variable declaration may be substituted
             Node::Decl(dr) => !dr.is_var,
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn rejects_whatever_depends_on_the_next_state_or_the_context() {
         // x' = 1
-        assert!(reads(n(Node::Eq(n(Node::PrimedVar(0)), n(Node::Const(Value::Int(1)))))).is_none());
+        assert!(reads(n(Node::Eq(n(Node::PrimedVar(0, None)), n(Node::Const(Value::Int(1)))))).is_none());
         assert!(reads(n(Node::Prime(n(Node::Var(0))))).is_none());
         assert!(reads(n(Node::Unchanged(n(Node::Var(0))))).is_none());
         // temporal / action-level builtins
@@ -292,7 +292,7 @@ mod pure_tests {
         // x + 1 = Local(0) is pure; anything primed is not
         let pure = Rc::new(Node::Eq(Rc::new(Node::Var(0)), Rc::new(Node::Local(0))));
         assert!(is_pure_state_expr(&pure));
-        assert!(!is_pure_state_expr(&Rc::new(Node::Eq(Rc::new(Node::PrimedVar(0)), c(1)))));
+        assert!(!is_pure_state_expr(&Rc::new(Node::Eq(Rc::new(Node::PrimedVar(0, None)), c(1)))));
         assert!(!is_pure_state_expr(&Rc::new(Node::Fail("x".into()))));
     }
 }
@@ -324,7 +324,7 @@ mod memo_tests {
 
     #[test]
     fn memo_spec_allows_primed_variables_but_not_unchanged_or_enabled() {
-        let primed = n(Node::Bi(B::Union, vec![n(Node::PrimedVar(1)), n(Node::Var(0))]));
+        let primed = n(Node::Bi(B::Union, vec![n(Node::PrimedVar(1, None)), n(Node::Var(0))]));
         let spec = memo_spec(&primed).expect("primed reads are keyed by the next state");
         assert_eq!((spec.v0, spec.v1), (vec![0], vec![1]));
         assert!(memo_spec(&n(Node::Bi(B::Union, vec![n(Node::Unchanged(n(Node::Var(0)))), n(Node::Var(0))]))).is_none());

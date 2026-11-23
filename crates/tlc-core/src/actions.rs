@@ -100,7 +100,7 @@ impl Ev {
 
     fn target_var(&self, ex: &Ex, mode: Mode) -> Option<u32> {
         match (&**ex, mode) {
-            (Node::PrimedVar(i), Mode::Next) => Some(*i),
+            (Node::PrimedVar(i, _), Mode::Next) => Some(*i),
             // Java: getPrimedVar follows definitions without parameters (`F == x'`)
             (Node::Call(d, args, _), Mode::Next) if args.is_empty() && d.native.get().is_none() && d.level >= tla_sany::sem::Level::Action => {
                 let body = d.body.borrow().clone();
@@ -134,7 +134,7 @@ impl Ev {
             },
             (Node::Local(s), Mode::Next) => match self.get_slot(*s) {
                 Slot::Lazy(l) => match &*l.code {
-                    Node::PrimedVar(i) => Some(*i),
+                    Node::PrimedVar(i, _) => Some(*i),
                     Node::Prime(inner) => match &**inner {
                         Node::Decl(dr) if dr.is_var => self.decl_target(dr.id, dr.is_var, dr.var_index, &l.substs),
                         _ => None,

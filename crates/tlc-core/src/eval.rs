@@ -25,7 +25,7 @@ pub fn node_kind(n: &Node) -> String {
         Node::Const(_) => "Const".into(),
         Node::Local(_) => "Local".into(),
         Node::Var(_) => "Var".into(),
-        Node::PrimedVar(_) => "PrimedVar".into(),
+        Node::PrimedVar(..) => "PrimedVar".into(),
         Node::Decl(d) => format!("Decl({})", d.name),
         Node::CallDecl(..) => "CallDecl".into(),
         Node::Prime(_) => "Prime".into(),
@@ -371,7 +371,7 @@ impl Ev {
             }
             Arg::Val(e, by_name) => {
                 if *by_name {
-                    if matches!(&**e, Node::Var(_) | Node::PrimedVar(_)) {
+                    if matches!(&**e, Node::Var(_) | Node::PrimedVar(..)) {
                         // a plain state variable does not depend on the frame or on substitutions
                         return Ok(Slot::Lazy(Rc::new(LazyArg { code: e.clone(), frame: self.no_frame.clone(), substs: Substs::default(), cacheable: false, cache: RefCell::new(Vec::new()) })));
                     }
@@ -438,7 +438,7 @@ impl Ev {
                             v => Ok(v.clone()),
                         }
                     }
-                    Node::PrimedVar(i) => {
+                    Node::PrimedVar(i, _) => {
                         return match s1.get(*i as usize) {
                             Some(Value::Undef) | None => fail(format!(
                                 "Attempted to evaluate the primed variable {}', which is not yet assigned a value.",
@@ -852,7 +852,19 @@ impl Ev {
                 Value::Undef => fail(format!("The variable {} is not assigned a value in the current state.", self.var_name(*i))),
                 v => Ok(v.clone()),
             },
-            Node::PrimedVar(i) => match s1.get(*i as usize) {
+            Node::PrimedVar(i, at) => match s1.get(*i as usize) {
+                // Java: `ENABLED` evaluates `x'` by evaluating `x` in the successor under construction; an unassigned `x` is an
+                // undefined identifier (Tool.evalApplImpl), not an error that says that the successor is not specified
+                Some(Value::Undef) | None if self.enabled_depth.get() > 0 => {
+                    let loc = match at {
+                        Some(a) => format!("line {}, col {} to line {}, col {} of module {}", a.0.bl, a.0.bc, a.0.el, a.0.ec, a.1),
+                        None => String::new(),
+                    };
+                    fail_code(
+                        crate::ec::TLC_CONFIG_UNDEFINED_OR_NO_OPERATOR,
+                        format!("@!@!@STARTMSG 2280:0 @!@!@\nIn evaluation, the identifier {} is either undefined or not an operator.\n{}\n@!@!@ENDMSG 2280 @!@!@", self.var_name(*i), loc),
+                    )
+                }
                 Some(Value::Undef) | None => fail(format!(
                     "Attempted to evaluate the primed variable {}', which is not yet assigned a value.",
                     self.var_name(*i)
