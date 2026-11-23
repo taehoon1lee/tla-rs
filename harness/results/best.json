@@ -4354,6 +4354,7 @@
 "tt/EmptySubsetEqTest",
 "tt/ErrorTraceConstructionTest",
 "tt/EvaluatingValueTest",
+"tt/FingerprintExceptionHangTest",
 "tt/FingerprintExceptionInitTest",
 "tt/FingerprintExceptionNextCallstackTest",
 "tt/FingerprintExceptionNextTest",
@@ -4496,6 +4497,7 @@
 "tt/UnicodeStringFingerprintTest",
 "tt/UserModuleOverrideAnnotationTest",
 "tt/UserModuleOverrideFromJarTest",
+"tt/UserModuleOverrideTest",
 "tt/ValueSemanticsAssumeTest",
 "tt/ViewMapTest"
 ],
@@ -4789,7 +4791,8 @@
 "tt/UnicodeFunctionFingerprintTest",
 "tt/UnicodeRecordFingerprintTest",
 "tt/UnicodeStringFingerprintTest",
-"tt/UserModuleOverrideFromJarTest"
+"tt/UserModuleOverrideFromJarTest",
+"tt/UserModuleOverrideTest"
 ],
 "perf": [
 "ex/Bakery-Boulangerie/MCBakery",
@@ -5010,6 +5013,7 @@
 "tt/EmptySubsetEqTest",
 "tt/ErrorTraceConstructionTest",
 "tt/EvaluatingValueTest",
+"tt/FingerprintExceptionHangTest",
 "tt/FingerprintExceptionInitTest",
 "tt/FingerprintExceptionNextCallstackTest",
 "tt/FingerprintExceptionNextTest",
@@ -5152,6 +5156,7 @@
 "tt/UnicodeStringFingerprintTest",
 "tt/UserModuleOverrideAnnotationTest",
 "tt/UserModuleOverrideFromJarTest",
+"tt/UserModuleOverrideTest",
 "tt/ValueSemanticsAssumeTest",
 "tt/ViewMapTest"
 ]

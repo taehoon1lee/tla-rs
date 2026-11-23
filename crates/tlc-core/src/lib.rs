@@ -14,6 +14,7 @@
 //!   CommunityModules tlc2.overrides.* (reference/community-modules/modules/tlc2/overrides) -> `community`
 
 pub mod actions;
+pub mod classfile;
 pub mod compile;
 pub mod config;
 pub mod deps;

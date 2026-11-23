@@ -106,6 +106,20 @@ pub fn run(opts: &TlcOptions, resolver: &Resolver, rep: &mut Reporter) -> i32 {
             return finish(rep, start, ec::error_constant_to_exit_status(ec::TLC_PARSING_FAILED));
         }
     };
+    // ---- the user's Java overrides of modules (Java: `SpecProcessor.processModuleOverrides`)
+    {
+        let dir = opts.spec_file().parent().map(|p| p.to_path_buf()).unwrap_or_default();
+        let dir = if dir.as_os_str().is_empty() { std::path::PathBuf::from(".") } else { dir };
+        let uo = tlc_core::classfile::load_user_overrides(&dir, sem);
+        for (warn, code, text) in &uo.messages {
+            if *warn {
+                rep.warning(*code, text);
+            } else {
+                rep.info(*code, text);
+            }
+        }
+        tlc_core::spec::set_user_overrides(uo.values);
+    }
     // ---- spec processing
     let analyze = |src: &str| tla_sany::analyze_generated_module(&spec, resolver, src);
     let mut setup = match spec::setup(sem, &cfg, opts.max_set_size, opts.seed, &analyze) {

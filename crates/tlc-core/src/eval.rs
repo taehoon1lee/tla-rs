@@ -222,10 +222,17 @@ fn reduce_unnormalized(b: B, l: &Value, r: &Value) -> Option<R<Value>> {
         return None;
     }
     let reducible = |v: &Value| matches!(v, Value::Set(_) | Value::Interval(..) | Value::SetU(_));
+    // the other operand of a set enumeration written in the specification is not normalized either: it is searched linearly
+    let member = |o: &Value, e: &Value| -> R<bool> {
+        match o {
+            Value::Set(v) => linear_member(v, e),
+            _ => o.member(e),
+        }
+    };
     let filter = |a: &Value, o: &Value, keep: bool| -> R<Value> {
         let mut out = vec![];
         for e in a.stored_elems()? {
-            if o.member(&e)? == keep {
+            if member(o, &e)? == keep {
                 out.push(e);
             }
         }
@@ -1824,7 +1831,7 @@ in a quantifier or set constructor.",
             // `@` is the current value at the path
             match &sub {
                 Some(old) => self.set_slot(at_slot, Slot::V(old.clone())),
-                None => self.set_slot(at_slot, Slot::Poison(Box::new(TlcErr { code: crate::ec::GENERAL, msg: "Attempted to evaluate @ for a function argument outside the domain.".into(), not_ported: false, trail: vec![] }))),
+                None => self.set_slot(at_slot, Slot::Poison(Box::new(TlcErr { code: crate::ec::GENERAL, msg: "Attempted to evaluate @ for a function argument outside the domain.".into(), not_ported: false, trail: vec![], fp_exc: false }))),
             }
             if sub.is_none() {
                 // outside the domain: TLC leaves the function unchanged

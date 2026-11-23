@@ -103,6 +103,15 @@ impl Setup {
 /// analyses a module generated at run time against the specification's module table (see `tla_sany::analyze_generated_module`)
 pub type ModuleAnalyzer<'a> = &'a dyn Fn(&str) -> Result<Rc<sem::ModuleNode>, String>;
 
+thread_local! {
+    /// operators replaced by the user's Java classes: `(module, operator, arity, value)` (see `classfile::load_user_overrides`)
+    static USER_OVERRIDES: std::cell::RefCell<Vec<(String, String, usize, Value)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+pub fn set_user_overrides(v: Vec<(String, String, usize, Value)>) {
+    USER_OVERRIDES.with(|u| *u.borrow_mut() = v);
+}
+
 pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyze: ModuleAnalyzer) -> Result<Setup, SetupErr> {
     let root = sem.root.clone();
     let vars: Vec<Rc<sem::OpDecl>> = root.variables();
@@ -114,6 +123,18 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyz
     for (i, v) in vars.iter().enumerate() {
         comp.var_index.insert(v.id, i as u32);
     }
+    // Java: `SpecProcessor.processModuleOverrides`: the user's Java methods replace the operators of the module they match
+    USER_OVERRIDES.with(|u| {
+        for (module, op, arity, value) in u.borrow().iter() {
+            if let Some(m) = sem.modules.get(module) {
+                for d in m.defs.borrow().iter() {
+                    if *d.module == **module && *d.name == **op && d.params.borrow().len() == *arity {
+                        comp.def_values.insert(d.id, value.clone());
+                    }
+                }
+            }
+        }
+    });
     // declarations substituted by some INSTANCE
     for m in sem.modules.values() {
         for inst in m.instances.borrow().iter() {

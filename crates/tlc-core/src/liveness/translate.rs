@@ -120,6 +120,7 @@ impl<'a> Translator<'a> {
                     msg: format!("TLC expected a value of type boolean, but found {}", other.to_tla()),
                     not_ported: false,
                     trail: vec![],
+                    fp_exc: false,
                 }))),
             };
         }

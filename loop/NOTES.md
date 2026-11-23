@@ -203,7 +203,7 @@
   (CheckpointCoordinationFailure, MultiPaxos_small got slower with the exhaustive form). Top-level function images are cached per perm
   (`ImgCache`, cap 512); a function over a closed domain permuted onto itself keeps the `dom` Rc and only reorders values (binary search);
   `Fcn.has_model` memoizes `contains_model`. Remaining profile is flat (eval_inner, permute_opt ~10 %, hash_into, cmp_val_slow, clone/alloc).
-- tt/ pass (verdict 304 -> 362/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
+- tt/ pass (verdict 304 -> 364/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
   `SpecProcessor.processConfigPossible` and analyses it with `tla_sany::analyze_generated_module` (loads `_Possible` + its LOCAL INSTANCEs);
   state-level predicates become model constraints, action-level ones action constraints (the generated defs get the level of the tracked predicate,
   otherwise the compiler folds them: SANY gives `_Track(P, n)` constant level). `bfs::check_postconditions` runs after the BFS (2404/2405/2780, exit 10).
@@ -222,7 +222,7 @@
   SPECIFICATION naming a state variable = 2236; `[]S` with state-level S in a SPEC = 2213; unnamed next-state actions are called `Action`.
 - Fingerprints of strings only see the low byte of each UTF-16 char (`FP64.Extend(fp, String)`): "é" and "ǩ" are one state (`str_fp_class`).
 - ENABLED / primed INSTANCE access: `actions::target_var` and `var_of` follow SubstIn and nullary definitions (Java `getPrimedVar` / `getVar`).
-- Still open in tt/ (2): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
+- Still open in tt/ (0 at verdict level): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
   Java classes (UserModuleOverride), `Randomization` natives, TLCGet("spec") coverage + level (TLCGetLevel), parameterized INSTANCE in
   SPECIFICATION (Github687specA/D), 2102/2103 call stacks and the
   exit-255 variants (Github696b, CyclicRedefine*, FingerprintException*), config constant `A <- diameter` evaluated at startup (TLCGetNamedUndefined).
@@ -252,4 +252,10 @@
 - NormalizationAssume / Github696b: `Value::SetU` is Java's unnormalized `SetEnumValue`: `Value::set_lit` (set enumerations) keeps the written elements when they cannot be compared (`{1, "a"}`), `member` is a linear `equals`
   search (`linear_member`; a normalized `Value::Set` falls back to it when the binary search fails), `\cup`/`\cap`/`\`/`UNION` with a SetU follow `Reducible.cup/cap/diff` and `UnionValue.union` (`reduce_unnormalized`, `union_unnormalized`),
   `{x \in S : P}` over it is computed at once, enumerate/size/compare/fingerprint normalize it (error from the sort). An error report that prints such a set fails again (`check_printable`, `state_not_printable`: generic 1000 + exit 255).
+- UserModuleOverride: `classfile.rs` reads `<Module>.class` next to the spec (Java: `SpecProcessor.processModuleOverrides`), reports `2400` (no operator of that name/arity) and `2168` (loaded) like Java and replaces the operator by the
+  value of a method it can interpret (constants only: `BoolValue.ValTrue/ValFalse`, `IntValue.gen(c)`). A method with another body keeps the TLA+ definition of the operator (the examples that ship such a class, `Bits.class`, compute the same);
+  there is no JVM, so a user override that computes anything else would silently differ.
+- FingerprintExceptionHang: `TlcErr.fp_exc` marks failures inside `Value::member` (Java rethrows them as `FingerprintException` because the set has a source). An invariant failing that way at a successor prints 2111 with the cause, the
+  trace, then the replay (`replay_failed_invariant`): the successors the first pass did not store are stored and evaluated, the first failure is the 2147; the stack positions of 2147 are not reproduced (no source positions on values).
+  Trace-level text (290/364) still differs for: 2147 positions, 2111 layout of the other evaluation failures (Java embeds the cause), the stats after such errors, JVM method order of override messages.
 

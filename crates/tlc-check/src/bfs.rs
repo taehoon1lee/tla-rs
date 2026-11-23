@@ -381,6 +381,51 @@ The postcondition evaluated to the non-boolean value
         }
     }
 
+    /// Java: `ModelChecker.doNextFailed` (after an invariant failed to evaluate on a successor): the state is expanded again with the
+    /// call-stack tool, in the same order.  The successors that were stored by the first pass are known; every other one is stored and
+    /// has its invariants evaluated, and the first failure there is the `FingerprintException` of the replay.  Returns the exit status.
+    fn replay_failed_invariant(&mut self, rest: &mut dyn Iterator<Item = (Vec<Value>, Option<LabelSpec>)>, head: usize, cur_level: u32) -> i32 {
+        let cur = self.states[head].vals.clone();
+        // the state whose invariants failed and every state stored by the replay are not queued
+        let mut not_queued = 1usize;
+        let mut status = ec::exit_status::FAILURE_SAFETY_EVAL;
+        for (st, label) in rest {
+            let in_model = self.in_model(&st).and_then(|m| if m { self.action_ok(&cur, &st) } else { Ok(false) });
+            if !matches!(in_model, Ok(true)) {
+                continue;
+            }
+            let Ok(fp) = self.fp(&st) else { continue };
+            if !self.fps.insert(fp) {
+                continue;
+            }
+            self.states.push(Rec { vals: st, parent: head as u32, label, level: cur_level + 1 });
+            not_queued += 1;
+            let vals = self.states.last().unwrap().vals.clone();
+            match self.check_invariants(&vals) {
+                Ok(None) => not_queued -= 1,
+                Ok(Some(_)) => break,
+                Err((e2, _)) => {
+                    self.flush_output();
+                    self.rep.error(
+                        ec::TLC_FINGERPRINT_EXCEPTION,
+                        &format!("TLC was unable to fingerprint.
+
+Fingerprint Stack Trace:
+
+
+Reason:
+{}", e2.msg),
+                    );
+                    status = ec::error_constant_to_exit_status(ec::TLC_FINGERPRINT_EXCEPTION);
+                    break;
+                }
+            }
+        }
+        let left = (self.states.len() - head - 1).saturating_sub(not_queued);
+        self.stats(left);
+        status
+    }
+
     /// Java: printing the state of the error report (`TLCState.toString`) normalizes its set enumerations: when their elements cannot be
     /// compared, that fails inside the exception handler of `modelCheckImpl`, so the exception escapes to `TLC.process` which reports
     /// it as an unexpected exception (the `TLCRuntimeException` shown as a `RuntimeException`)
@@ -512,6 +557,7 @@ Reason:
                             msg: format!("The invariant {} evaluated to the non-boolean value\n{}", inv.name, other.to_tla()),
                             not_ported: false,
                             trail: vec![],
+                            fp_exc: false,
                         }),
                         inv.name.clone(),
                     ))
@@ -1006,7 +1052,8 @@ Reason:
                 self.stats(self.states.len() - head - 1);
                 return Err(Stop::Exit(ec::exit_status::VIOLATION_DEADLOCK));
             }
-            for (st, label) in succs {
+            let mut succ_it = succs.into_iter();
+            while let Some((st, label)) = succ_it.next() {
                 self.generated += 1;
                 self.set_counters(cur_level as i64 + 1, (self.states.len() - head - 1) as i64);
                 prof_phase_on("constraint");
@@ -1133,6 +1180,15 @@ Reason:
                             }
                             Err((e, name)) => {
                                 self.flush_output();
+                                if e.fp_exc && !e.not_ported {
+                                    // Java: `doNextEvalFailed` reports the cause inside the message; the failure is a `FingerprintException`:
+                                    // the replay with the call-stack tool expands the state again
+                                    self.rep.error(ec::TLC_INVARIANT_EVALUATION_FAILED, &format!("Evaluating invariant {} failed.
+{}", name, e.msg));
+                                    self.print_trace(idx as u32);
+                                    let code = self.replay_failed_invariant(&mut succ_it, head, cur_level);
+                                    return Err(Stop::Exit(code));
+                                }
                                 self.rep.error(ec::TLC_INVARIANT_EVALUATION_FAILED, &format!("Evaluating invariant {} failed.", name));
                                 let code = self.report_err(&e, ec::exit_status::FAILURE_SAFETY_EVAL);
                                 self.print_trace(idx as u32);

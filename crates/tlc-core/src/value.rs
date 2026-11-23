@@ -25,12 +25,15 @@ pub struct TlcErr {
     pub not_ported: bool,
     /// additional context lines (TLC prints the location chain of nested evaluations)
     pub trail: Vec<String>,
+    /// Java: the failure happened inside a method of a value that has a source (`Value.member`, ...), which rethrows it as a
+    /// `FingerprintException` (`FingerprintException.getNewHead`) instead of letting the original exception through
+    pub fp_exc: bool,
 }
 
 pub type R<T> = Result<T, Box<TlcErr>>;
 
 pub fn fail_code<T>(code: i32, msg: impl Into<String>) -> R<T> {
-    Err(Box::new(TlcErr { code, msg: msg.into(), not_ported: false, trail: vec![] }))
+    Err(Box::new(TlcErr { code, msg: msg.into(), not_ported: false, trail: vec![], fp_exc: false }))
 }
 
 /// `Assert.fail(msg)` -> EC.GENERAL
@@ -39,7 +42,7 @@ pub fn fail<T>(msg: impl Into<String>) -> R<T> {
 }
 
 pub fn not_ported<T>(what: impl Into<String>) -> R<T> {
-    Err(Box::new(TlcErr { code: crate::mp::NOT_PORTED, msg: what.into(), not_ported: true, trail: vec![] }))
+    Err(Box::new(TlcErr { code: crate::mp::NOT_PORTED, msg: what.into(), not_ported: true, trail: vec![], fp_exc: false }))
 }
 
 // ---------------------------------------------------------------------------------------------- values
@@ -743,7 +746,19 @@ impl Value {
 
     // ------------------------------------------------------------------ membership
 
+    /// `e \in self`; a failure inside a set built from the specification is a `FingerprintException` in Java
+    #[inline]
     pub fn member(&self, e: &Value) -> R<bool> {
+        match self.member_impl(e) {
+            Err(mut err) if !matches!(self, Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet) => {
+                err.fp_exc = true;
+                Err(err)
+            }
+            r => r,
+        }
+    }
+
+    fn member_impl(&self, e: &Value) -> R<bool> {
         match self {
             Value::Set(v) => {
                 // binary search with the total order; errors on incomparable elements
@@ -755,10 +770,15 @@ impl Value {
                     let mid = (lo + hi) / 2;
                     let ord = match (&v[mid], e) {
                         (Value::Int(a), Value::Int(b)) => a.cmp(b),
-                        // Java: a set enumeration is searched linearly with `equals` until something normalizes it
+                        // Java: `elem.compareTo(elementData[mid])`: the element is the receiver of the failing comparison
                         (a, _) => match a.cmp_val(e) {
                             Ok(o) => o,
-                            Err(_) => return linear_member(v, e),
+                            Err(_) => {
+                                return match e.cmp_val(a) {
+                                    Err(err) => Err(err),
+                                    Ok(_) => linear_member(v, e),
+                                }
+                            }
                         },
                     };
                     match ord {
