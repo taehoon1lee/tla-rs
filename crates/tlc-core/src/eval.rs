@@ -49,6 +49,7 @@ pub fn node_kind(n: &Node) -> String {
         Node::SubsetOf { .. } => "SubsetOf".into(),
         Node::SetOfAll(..) => "SetOfAll".into(),
         Node::FcnCons(..) => "FcnCons".into(),
+        Node::Memo(m) => format!("Memo({})", node_kind(&m.inner)),
         Node::Except(..) => "Except".into(),
         Node::If(..) => "If".into(),
         Node::Exists(..) => "Exists".into(),
@@ -178,6 +179,14 @@ pub struct Ev {
 }
 
 const MAX_DEPTH: u32 = 3000;
+
+/// a frame slot value that may be part of a `Node::Memo` key: evaluated (no lazy set / function / operator)
+fn memo_key_value(v: &Value) -> bool {
+    matches!(
+        v,
+        Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) | Value::Interval(..) | Value::Set(_) | Value::Tuple(_) | Value::Fcn(_)
+    )
+}
 
 /// extend a frame stack to `len` slots with `Slot::Unset` (a plain tag-store loop; `Vec::resize` clones through `Slot::clone`)
 #[inline(always)]
@@ -1111,13 +1120,72 @@ impl Ev {
                 Ok(Value::Bool(result))
             }
             // large arms live in `eval_heavy` so that this hot, recursive function keeps a small stack frame
-            Node::CallDecl(..) | Node::LetRec(..) | Node::Times(..) | Node::SubsetOf{ .. } | Node::SetOfAll(..) | Node::FcnCons(..) | Node::SetOfFcns(..) | Node::RcdCons(..) | Node::SetOfRcds(..) | Node::Except(..) | Node::ActionSub { .. } | Node::Choose(..) | Node::SubstIn(..) | Node::Temporal(..) | Node::Unsupported(..) | Node::Fail(..) => self.eval_heavy(e, s0, s1),
+            Node::CallDecl(..) | Node::LetRec(..) | Node::Times(..) | Node::SubsetOf{ .. } | Node::SetOfAll(..) | Node::FcnCons(..) | Node::SetOfFcns(..) | Node::RcdCons(..) | Node::SetOfRcds(..) | Node::Except(..) | Node::ActionSub { .. } | Node::Choose(..) | Node::SubstIn(..) | Node::Temporal(..) | Node::Unsupported(..) | Node::Fail(..) | Node::Memo(..) => self.eval_heavy(e, s0, s1),
         }
+    }
+
+    /// `Node::Memo`: the value of a pure expression for the values of the variables / slots it reads
+    fn eval_memo(&self, m: &MemoNode, s0: &[Value], s1: &[Value]) -> R<Value> {
+        if m.off.get() {
+            return self.eval(&m.inner, s0, s1);
+        }
+        // the free slots must hold plain values (not call-by-name arguments, operators, lazy sets or functions)
+        let mut sl: [Value; 4] = [Value::Undef, Value::Undef, Value::Undef, Value::Undef];
+        {
+            let st = self.stack.borrow();
+            let b = self.base.get();
+            for (k, &s) in m.slots.iter().enumerate() {
+                match st.get(b + s as usize) {
+                    Some(Slot::V(v)) if memo_key_value(v) => sl[k] = v.clone(),
+                    _ => {
+                        drop(st);
+                        return self.eval(&m.inner, s0, s1);
+                    }
+                }
+            }
+        }
+        let nsl = m.slots.len();
+        let same = |a: &Value, b: &Value| a.eq_val(b).unwrap_or(false);
+        let cur_substs = self.substs.borrow().clone();
+        m.calls.set(m.calls.get() + 1);
+        {
+            let cache = m.cache.borrow();
+            for e in cache.iter() {
+                if e.substs.same(&cur_substs)
+                    && m.v0.iter().zip(e.a0.iter()).all(|(&i, v)| s0.get(i as usize).map_or(false, |x| same(x, v)))
+                    && m.v1.iter().zip(e.a1.iter()).all(|(&i, v)| s1.get(i as usize).map_or(false, |x| same(x, v)))
+                    && (0..nsl).all(|k| same(&sl[k], &e.sl[k]))
+                {
+                    m.hits.set(m.hits.get() + 1);
+                    return Ok(e.val.clone());
+                }
+            }
+        }
+        if m.calls.get() >= 64 && m.hits.get() * 4 < m.calls.get() {
+            // the values it reads hardly ever repeat: remembering them costs more than it saves
+            m.off.set(true);
+            m.cache.borrow_mut().clear();
+            return self.eval(&m.inner, s0, s1);
+        }
+        let v = self.eval(&m.inner, s0, s1)?;
+        let a0: Option<Vec<Value>> = m.v0.iter().map(|&i| s0.get(i as usize).cloned()).collect();
+        let a1: Option<Vec<Value>> = m.v1.iter().map(|&i| s1.get(i as usize).cloned()).collect();
+        if let (Some(a0), Some(a1)) = (a0, a1) {
+            if !a0.iter().chain(a1.iter()).any(|x| matches!(x, Value::Undef)) {
+                let mut cache = m.cache.borrow_mut();
+                if cache.len() >= 4 {
+                    cache.remove(0);
+                }
+                cache.push(MemoEntry { a0, a1, sl: sl[..nsl].to_vec(), substs: cur_substs, val: v.clone() });
+            }
+        }
+        Ok(v)
     }
 
     #[inline(never)]
     fn eval_heavy(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
         match &**e {
+            Node::Memo(m) => self.eval_memo(m, s0, s1),
             Node::CallDecl(dr, args) => {
                 {
                     let ss = self.substs.borrow();

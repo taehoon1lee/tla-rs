@@ -320,4 +320,28 @@ pub enum Node {
     LetScope(Vec<u32>, Ex),
     /// use of a memoized nullary LET definition: (memo slot, body of the definition)
     LetUse(u32, Ex),
+    /// a pure set-building expression whose value is remembered by the values it reads (`deps::memo_spec`)
+    Memo(Rc<MemoNode>),
+}
+
+/// see `Node::Memo`: `inner` is a function of the state variables `v0` (current state), `v1` (next state), the frame slots
+/// `slots` and the INSTANCE substitutions in scope
+pub struct MemoNode {
+    pub inner: Ex,
+    pub v0: Vec<u32>,
+    pub v1: Vec<u32>,
+    pub slots: Vec<u32>,
+    pub cache: RefCell<Vec<MemoEntry>>,
+    pub calls: Cell<u32>,
+    pub hits: Cell<u32>,
+    /// the hit rate is too low: evaluate `inner` directly
+    pub off: Cell<bool>,
+}
+
+pub struct MemoEntry {
+    pub a0: Vec<Value>,
+    pub a1: Vec<Value>,
+    pub sl: Vec<Value>,
+    pub substs: Substs,
+    pub val: Value,
 }

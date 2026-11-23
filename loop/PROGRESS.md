@@ -50,3 +50,8 @@ next: remaining ex/ >= 1.0x of Java: DijkstraMutex 1.10, MCLamportMutex 1.08, EW
 CPU (sequential, vs previous commit): MCLamportMutex 14.2 -> 12.6 s (Java 13.3), EWD998PCal 36.2 -> 31.7 s (Java 34.8), DijkstraMutex 3-proc bench -16 %.
 full corpus: verdict 304/364, trace 250, perf 301, gate: no regressions.
 next: confirm DijkstraMutex (4 proc, Java 430 s) sequentially; remaining ex/ ratios.
+
+## 2026-11-23 Java timeout 1200 s: the 5 golden-less ex/ models; Node::Memo (Sonnet 5.5)
+Java alone: bosco 530 s, EWD998Chan 708 s, Elevator Medium 589 s, KVS Medium 874 s, CoffeeCan 3000 741 s (all exit 0). tlc-rs: EWD998Chan 270 s, CoffeeCan 119 s, bosco 324 s (was 856 s): all levels pass.
+KVS Medium / Elevator Medium: tlc-rs exceeds memory (every state kept) -> state storage rework is next.
+gate: no regressions (verdict 304/364, trace 250, perf 302).

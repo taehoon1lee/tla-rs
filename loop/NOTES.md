@@ -184,3 +184,17 @@
   the division error in Java, we stay lazy). Pre-existing difference, not changed.
 - Tools: `tools/cpu_dir.py exe1,exe2 -n N <dir> Spec.tla Spec.cfg` (best-of-N CPU time on a scratch model), `tools/run_id.py <exe> <id> <secs>`
   (corpus model, stderr passed through), `tools/profnode_t.py`. Python on Windows reads files as cp949: pass `encoding='utf-8'` (and keep CRLF).
+
+## Java timeout 1200 s: the five ex/ models without a golden (2026-11-23)
+- `tools/long_compare.py java|rust|compare <id>...` runs Java (harness command line, -Xmx6g) / tlc-rs with a long timeout into tmp/long/ and scores
+  with the harness' own `check.score_check` (read-only import; nothing under harness/ is written). The 600 s goldens of bosco, EWD998Chan,
+  ElevatorSafetyMedium, MCKVSSafetyMedium, CoffeeCan3000Beans were timeouts only because 3-4 JVMs ran in parallel: alone Java needs 530 / 708 /
+  589 / 874 / 741 s and all five succeed (exit 0): bosco 29223200 gen / 1072452 distinct, EWD998Chan 12882257 / 1524022, Elevator 120792180 /
+  17997111, KVS Medium 365609473 / 17220672, CoffeeCan 18000002 / 4504500 (all 4.5M states are initial states).
+- tlc-rs: EWD998Chan 270 s (x0.38), CoffeeCan 119 s (x0.16, peak 7.4 GB!), bosco 856 -> 324 s (x0.61) after `Node::Memo`.
+  KVS Medium and Elevator Medium were killed at a 5 GB cap (490 s / 410 s): tlc-rs keeps every state (`Rec.vals`) in memory, Java keeps
+  fingerprints + the queue on disk. TODO: store only fp/parent/level per state and re-derive trace states by replay (Java `getState(fp, pred)`).
+- `Node::Memo` (deps::memo_spec): a pure set-building expression (`\cup \cap \ SUBSET UNION \X`, `{..: x \in S}`, `{x \in S : P}`, set of functions /
+  records) is remembered by the VALUES of the state variables (s0 and s1), the free frame slots and the substitution list it reads (<= 4 entries,
+  switched off when the hit rate is < 25 % after 64 calls). bosco: `\E r \in SUBSET (P \X M) : r \subseteq (sent \cup {..} \cup {..})` rebuilt the
+  invariant right-hand side for each of the 256 `r` (60 % of the run). Keys are values, not (pointer, epoch): no staleness question.

@@ -492,7 +492,33 @@ impl Compiler {
                 return Rc::new(Node::Fold(n, RefCell::new(None)));
             }
         }
-        n
+        self.maybe_memo(n)
+    }
+
+    /// A pure set-building expression (`A \cup B`, `{f(x) : x \in S}`, `{x \in S : P}`, `S \X T`, ...) is remembered by the values
+    /// it reads: inside a `\E r \in SUBSET S : r \subseteq (sent \cup {..})` loop the right-hand side is the same for every `r`.
+    fn maybe_memo(&mut self, n: Ex) -> Ex {
+        let candidate = match &*n {
+            Node::Bi(b, _) => matches!(b, sem::B::Union | sem::B::Intersect | sem::B::SetMinus | sem::B::UnionAll | sem::B::Subset),
+            Node::SetOfAll(..) | Node::SubsetOf { .. } | Node::Times(_) | Node::SetOfFcns(..) | Node::SetOfRcds(_) => true,
+            _ => false,
+        };
+        if !candidate {
+            return n;
+        }
+        match crate::deps::memo_spec(&n) {
+            Some(spec) => Rc::new(Node::Memo(Rc::new(MemoNode {
+                inner: n,
+                v0: spec.v0,
+                v1: spec.v1,
+                slots: spec.slots,
+                cache: RefCell::new(Vec::new()),
+                calls: Cell::new(0),
+                hits: Cell::new(0),
+                off: Cell::new(false),
+            }))),
+            None => n,
+        }
     }
 
     fn expr_raw(&mut self, e: &sem::Expr) -> Ex {
