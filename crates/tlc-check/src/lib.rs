@@ -134,7 +134,12 @@ pub fn run(opts: &TlcOptions, resolver: &Resolver, rep: &mut Reporter) -> i32 {
                     TrErr::Code(c, m) => (c, m),
                     TrErr::Eval(e) => (e.code, e.msg.clone()),
                     // a formula shape not translated by this port: the temporal properties are not checked
-                    TrErr::Unsupported(_) => (0, String::new()),
+                    TrErr::Unsupported(m) => {
+                        if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
+                            eprintln!("live: temporal formula not translated: {}", m);
+                        }
+                        (0, String::new())
+                    }
                 };
                 if code != 0 {
                     rep.error(code, &text);

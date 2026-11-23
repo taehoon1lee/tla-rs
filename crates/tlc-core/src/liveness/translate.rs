@@ -127,8 +127,31 @@ impl<'a> Translator<'a> {
         }
     }
 
+    /// the level of `e` once the parameters bound by name (see `appl`) are replaced by the arguments they stand for
+    fn inline_level(e: &Expr, depth: u32) -> Level {
+        if depth > 40 {
+            return e.level;
+        }
+        if let EKind::Apply(Callee::Param(q), a) = &e.kind {
+            if a.is_empty() {
+                if let Some(x) = crate::spec::inline_param(q.id) {
+                    return Level::max(e.level, Self::inline_level(&x, depth + 1));
+                }
+            }
+        }
+        // only a constant-level leaf can hide a parameter bound by name: the other levels are already right
+        if e.level != Level::Const {
+            return e.level;
+        }
+        let mut level = e.level;
+        for c in e.children() {
+            level = Level::max(level, Self::inline_level(&c, depth + 1));
+        }
+        level
+    }
+
     fn default_leaf(&mut self, e: &Expr) -> Res {
-        let level = lv(e.level);
+        let level = lv(Self::inline_level(e, 0));
         if level > LEVEL_ACTION {
             return self.handle(e);
         }
@@ -218,6 +241,10 @@ impl<'a> Translator<'a> {
                 let mut ok = true;
                 for (p, a) in params.iter().zip(args.iter()) {
                     match a {
+                        // a parameter of an enclosing inlined operator that is bound by name stays an expression
+                        Arg::Expr(x) if matches!(&x.kind, EKind::Apply(Callee::Param(q), a) if a.is_empty() && crate::spec::inline_param(q.id).is_some()) => {
+                            crate::spec::register_inline_param(p.id, x.clone())
+                        }
                         Arg::Expr(x) if x.level == Level::Const => match self.eval_const(x) {
                             Ok(v) => {
                                 self.bound.push((p.clone(), v));
@@ -241,7 +268,13 @@ impl<'a> Translator<'a> {
                                 break;
                             }
                         },
-                        _ => {
+                        other => {
+                            if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
+                                eprintln!("live: argument of {} not bound: {:?}", d.name, std::mem::discriminant(other));
+                                if let Arg::Op(o) = other {
+                                    eprintln!("live:   op arg: {}", match o { sem::OpArg::Callee(Callee::Param(_), _) => "Param", sem::OpArg::Callee(Callee::Def(_), _) => "Def", sem::OpArg::Callee(Callee::Decl(_), _) => "Decl", sem::OpArg::Lambda(_) => "Lambda", sem::OpArg::Builtin(..) => "Builtin" });
+                                }
+                            }
                             ok = false;
                             break;
                         }
