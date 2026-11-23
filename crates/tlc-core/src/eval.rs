@@ -960,6 +960,14 @@ impl Ev {
         let mut out = String::new();
         let mut last: Option<String> = None;
         let mut depth = 0;
+        if std::env::var_os("TLCRS_DBG_FRAMES").is_some() {
+            for p in e.frames.iter().rev() {
+                match ni.get(p) {
+                    Some(i) => eprintln!("FRAME {:x} {}:{}-{}:{} {} syn={}", p, i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module, i.synthetic),
+                    None => eprintln!("FRAME {:x} (no info)", p),
+                }
+            }
+        }
         for p in e.frames.iter().rev() {
             if let Some(i) = ni.get(p).filter(|i| !i.synthetic) {
                 let l = format!("Line {}, column {} to line {}, column {} in {}", i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module);

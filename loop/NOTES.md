@@ -264,3 +264,7 @@
   `Worker.doPostCondition` incl. ALIAS records; liveness: raw states + the closing action); `Ev.counter_example` / `Ev.alias_trace` back `TLCExt!CounterExample` / `Trace` (TLCExt definitions are not constant-folded).
   `step(pred, level, fp)` sets `TLCGet("level")`. `Subst.module` / `NodeInfo.module`: frames of instance copies are located in the module holding the `INSTANCE` statement. After a failed invariant/action-property evaluation the
   summary prints the outdegree (Java's replay is silent -> `printSummary(true)`).
+- Java-compatible randomness / liveness order (pass 3): `jfp.rs` = FP64 + `Value.fingerPrint` (ints, strings, booleans, tuples, functions/records, sets; model values are not portable: `UniqueString.tok` depends on the JVM run);
+  `RandomSubset` = `SubsetEnumerator` (`computeOptimalMandA`, `nextInt`, `nextPrime`) / `BigIntegerSubsetEnumerator`, the generator is re-seeded with `fingerprint(predecessor) ^ seed` once per expanded state (`Ev.pred_state`);
+  liveness successors are put in `SetOfStates` slot order (`java_set_order`, the worker's `multiplier` capacity) and the tableau graph is built like `TableauLiveChecker` (`live::build_graph_incr`: states in BFS order, nodes created for
+  already-processed states are expanded at once: self-loops first, then successors in generation order). Not available with SYMMETRY / VIEW / model values in the state (old reverse order is kept there).

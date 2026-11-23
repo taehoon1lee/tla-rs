@@ -79,3 +79,9 @@ gate: no regressions (verdict 364/364, trace 342 -> 351, perf 363). Java-compati
 `LiveCheck.TableauLiveChecker` (`live::build_graph_incr`: late nodes expand self-loops first, then successors in generation order). Also: Java's insertion-sort / `FcnRcdValue.sort` error order, `Arrays.binarySearch` midpoint.
 open (13): symmetry + tableau liveness (3, model-value fingerprints use `UniqueString` tokens), FingerprintException 2147 stacks + EmptySubsetEq (5, no value sources), `\cdot` ENABLED trail (2), liveness Print count (1),
 ValueSemanticsAssume warning order (1), StringDeserialize (localized OS message).
+
+## 2026-11-23 tt/ trace pass 4: 353/364 check models identical at trace level (tt/ 203/214) (Sonnet 5.5)
+gate: no regressions (verdict 364/364, trace 351 -> 353, perf 363). `ENABLED` resets `eval_only` (an enclosing assignment of all variables no longer leaks into it); the `UNCHANGED` operand is a frame (`\cdot` stacks of CdotWithContextB/D);
+2147 prints the call stack of a `FingerprintException` (FingerprintExceptionHang / EmptySubsetEq: Java also appends the sources of the lazily built sets on the failing path, which values do not carry here).
+Still different (11, all tt/): symmetry + tableau liveness (3: model-value fingerprints use `UniqueString` tokens of the JVM run), 2147 value-source chains (Init/Next/NextCallstack/Hang/EmptySubsetEq: need `Value.source`),
+liveness `Print` evaluation count (UserModuleOverrideAnnotation: Java evaluates tableau consistency per successor, un-memoized), ValueSemanticsAssume (order of three 2144 warnings), StringDeserialize (localized OS error text).

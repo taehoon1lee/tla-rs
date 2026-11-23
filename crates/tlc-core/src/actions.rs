@@ -432,7 +432,11 @@ impl Ev {
             Node::Unchanged(inner) if mode == Mode::Next => {
                 let mut vars = vec![];
                 if self.unchanged_vars(inner, &mut vars) {
-                    return self.assign_unchanged(&vars, 0, s0, buf, k);
+                    // Java: `CallStackTool.processUnchanged`: the operand is on the stack while the rest of the action is enumerated
+                    return self.assign_unchanged(&vars, 0, s0, buf, k).map_err(|mut e| {
+                        e.frames.push(Rc::as_ptr(inner) as usize);
+                        e
+                    });
                 }
                 // inside ENABLED: INSTANCE-substituted declarations are bound by name (Java: `enabledUnchanged`)
                 if self.enabled_depth.get() > 0 {
@@ -1310,6 +1314,8 @@ impl Ev {
     /// `ENABLED A` in the state `s0`: does the action have a successor?
     pub fn enabled(&self, ex: &Ex, s0: &[Value]) -> R<bool> {
         let buf: Buf = RefCell::new(vec![Value::Undef; self.nvars.get()]);
+        // the successor under construction is a new one: an enclosing enumeration that has assigned all variables does not apply
+        let was_eval_only = self.eval_only.replace(false);
         let was = self.splitting.replace(false);
         let saved_label = self.cur_label.borrow().clone();
         let saved_virt = (self.enabled_depth.get(), self.virt_ptr.get(), std::mem::take(&mut *self.virt.borrow_mut()));
@@ -1320,6 +1326,7 @@ impl Ev {
         });
         *self.cur_label.borrow_mut() = saved_label;
         self.splitting.set(was);
+        self.eval_only.set(was_eval_only);
         self.enabled_depth.set(saved_virt.0);
         self.virt_ptr.set(saved_virt.1);
         *self.virt.borrow_mut() = saved_virt.2;

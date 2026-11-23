@@ -793,6 +793,8 @@ impl Compiler {
             }
             B::Unchanged => {
                 let e = self.expr(&es[0]);
+                // Java: `processUnchanged(.., expr, ..)` is on the call stack with the operand: it needs a position even for a variable
+                self.node_info.entry(Rc::as_ptr(&e) as usize).or_insert(NodeInfo { loc: es[0].loc, module: self.cur_module.clone(), const_sub: false, synthetic: false });
                 Rc::new(Node::Unchanged(e))
             }
             B::Not => {

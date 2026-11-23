@@ -616,15 +616,15 @@ The postcondition evaluated to the non-boolean value
                 Ok(Some(_)) => break,
                 Err((e2, _)) => {
                     self.flush_output();
+                    let fs = self.fp_stack_text(&e2);
                     self.rep.error(
                         ec::TLC_FINGERPRINT_EXCEPTION,
                         &format!("TLC was unable to fingerprint.
 
 Fingerprint Stack Trace:
-
-
+{}
 Reason:
-{}", e2.msg),
+{}", fs, e2.msg),
                     );
                     status = ec::error_constant_to_exit_status(ec::TLC_FINGERPRINT_EXCEPTION);
                     break;
@@ -846,9 +846,30 @@ Reason:
         ec::exit_status::FAILURE_SPEC_EVAL
     }
 
+    /// the call stack of an error as the `Fingerprint Stack Trace` of 2147 (empty when it has no positions)
+    fn fp_stack_text(&self, e: &TlcErr) -> String {
+        let t = self.setup.ev.call_stack_text(e);
+        if t.starts_with("    The error call stack is empty.") {
+            String::new()
+        } else {
+            t
+        }
+    }
+
     /// Java: the replay with the call-stack tool names the nested expressions the failure passed (`TLC_NESTED_EXPRESSION`)
     fn print_nested_expressions(&mut self, e: &TlcErr) {
         let stack = self.setup.ev.call_stack_text(e);
+        if e.fp_exc {
+            // Java: a `FingerprintException` is reported as 2147 with the call stack (or the sources of the values) and its root cause
+            let fs = self.fp_stack_text(e);
+            self.rep.error(ec::TLC_FINGERPRINT_EXCEPTION, &format!("TLC was unable to fingerprint.
+
+Fingerprint Stack Trace:
+{}
+Reason:
+{}", fs, e.msg));
+            return;
+        }
         self.rep.error(
             ec::TLC_NESTED_EXPRESSION,
             &format!("The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\n{}", stack),
