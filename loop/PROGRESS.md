@@ -55,3 +55,8 @@ next: confirm DijkstraMutex (4 proc, Java 430 s) sequentially; remaining ex/ rat
 Java alone: bosco 530 s, EWD998Chan 708 s, Elevator Medium 589 s, KVS Medium 874 s, CoffeeCan 3000 741 s (all exit 0). tlc-rs: EWD998Chan 270 s, CoffeeCan 119 s, bosco 324 s (was 856 s): all levels pass.
 KVS Medium / Elevator Medium: tlc-rs exceeds memory (every state kept) -> state storage rework is next.
 gate: no regressions (verdict 304/364, trace 250, perf 302).
+
+## 2026-11-23 symmetry cost pass (Sonnet 5.5)
+KVS-like model with SYMMETRY (TxId of size 2): 96.3 -> 77.0 s CPU (Java 61.3 s), same counts (25,867,108 / 1,700,595). exhaustive canonical form only for a group with 1 non-identity perm; per-perm image cache; closed-domain reorder; `Fcn.has_model` memo.
+gate (-j 2): no regressions (verdict 304/364, trace 250, perf 302; the two perf misses SlidingPuzzles / BugzillaBug279Test pass when timed sequentially: x0.78 / x1.10).
+next: KVS Medium (Java 874 s) and Elevator Medium (Java 589 s) with a 14 GB cap; lean state storage (fp/parent/level only).

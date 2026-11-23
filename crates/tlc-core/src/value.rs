@@ -52,11 +52,13 @@ pub struct Fcn {
     pub fp: std::cell::Cell<u64>,
     /// memo: no lazily evaluated component remains (`needs_normalize` is false)
     pub norm_ok: std::cell::Cell<bool>,
+    /// memo of `symmetry::contains_model`: 0 = not computed, 1 = no model value inside, 2 = some
+    pub has_model: std::cell::Cell<u8>,
 }
 
 impl Fcn {
     pub fn new(dom: Rc<Vec<Value>>, vals: Vec<Value>) -> Fcn {
-        Fcn { dom, vals, fp: std::cell::Cell::new(0), norm_ok: std::cell::Cell::new(false) }
+        Fcn { dom, vals, fp: std::cell::Cell::new(0), norm_ok: std::cell::Cell::new(false), has_model: std::cell::Cell::new(0) }
     }
 }
 

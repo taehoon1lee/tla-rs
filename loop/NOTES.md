@@ -198,3 +198,8 @@
   records) is remembered by the VALUES of the state variables (s0 and s1), the free frame slots and the substitution list it reads (<= 4 entries,
   switched off when the hit rate is < 25 % after 64 calls). bosco: `\E r \in SUBSET (P \X M) : r \subseteq (sent \cup {..} \cup {..})` rebuilt the
   invariant right-hand side for each of the 256 `r` (60 % of the run). Keys are values, not (pointer, epoch): no staleness question.
+- Symmetry cost (KVS-like, Key 3/Val 2/TxId 2: 96 s -> 77 s CPU, Java 61 s): `SymGroup.canonical_state` uses the exhaustive canonical form (try every perm,
+  keep the smallest image) ONLY when the group has exactly 1 non-identity perm; with 2..5 perms the signature-based `canonical_fast` is faster
+  (CheckpointCoordinationFailure, MultiPaxos_small got slower with the exhaustive form). Top-level function images are cached per perm
+  (`ImgCache`, cap 512); a function over a closed domain permuted onto itself keeps the `dom` Rc and only reorders values (binary search);
+  `Fcn.has_model` memoizes `contains_model`. Remaining profile is flat (eval_inner, permute_opt ~10 %, hash_into, cmp_val_slow, clone/alloc).

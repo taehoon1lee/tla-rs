@@ -3,8 +3,12 @@
 
 use crate::value::{fail, Fcn, Value, R};
 use std::cmp::Ordering;
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
+
+/// images of function values under the single permutation of a group of two (see `SymGroup::img_cache`)
+type ImgCache = RefCell<std::collections::HashMap<usize, (Rc<Fcn>, Option<Value>)>>;
 
 /// A permutation of model values; only moved values are stored (sorted by source).
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -103,7 +107,15 @@ pub fn contains_model(v: &Value) -> bool {
         Value::Model(_) => true,
         Value::Set(s) => s.iter().any(contains_model),
         Value::Tuple(t) => t.iter().any(contains_model),
-        Value::Fcn(f) => f.dom.iter().any(contains_model) || f.vals.iter().any(contains_model),
+        Value::Fcn(f) => match f.has_model.get() {
+            1 => false,
+            2 => true,
+            _ => {
+                let r = f.dom.iter().any(contains_model) || f.vals.iter().any(contains_model);
+                f.has_model.set(if r { 2 } else { 1 });
+                r
+            }
+        },
         Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Interval(..) | Value::Undef => false,
         // lazily evaluated values: be conservative
         _ => true,
@@ -112,11 +124,30 @@ pub fn contains_model(v: &Value) -> bool {
 
 /// Java: `Value.permute(IMVPerm)`
 pub fn permute(v: &Value, p: &MvPerm) -> R<Value> {
-    Ok(permute_opt(v, p)?.unwrap_or_else(|| v.clone()))
+    Ok(permute_opt(v, p, None)?.unwrap_or_else(|| v.clone()))
 }
 
 /// `None` when the permutation leaves `v` unchanged (no copy, no re-sorting)
-fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
+fn permute_opt(v: &Value, p: &MvPerm, cache: Option<&ImgCache>) -> R<Option<Value>> {
+    // a function value seen before (the `Rc`s of a predecessor state are shared by its successors): its image is known
+    if let (Some(c), Value::Fcn(f)) = (cache, v) {
+        let key = Rc::as_ptr(f) as usize;
+        if let Some((_, img)) = c.borrow().get(&key) {
+            return Ok(img.clone());
+        }
+        let img = permute_opt_raw(v, p)?;
+        let mut m = c.borrow_mut();
+        if m.len() >= 512 {
+            m.clear();
+        }
+        // the entry keeps the original alive: its address cannot be reused while the entry exists
+        m.insert(key, (f.clone(), img.clone()));
+        return Ok(img);
+    }
+    permute_opt_raw(v, p)
+}
+
+fn permute_opt_raw(v: &Value, p: &MvPerm) -> R<Option<Value>> {
     Ok(match v {
         Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Interval(..) | Value::Undef => None,
         Value::Model(id) => {
@@ -130,7 +161,7 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
         Value::Set(s) => {
             let mut out: Option<Vec<Value>> = None;
             for (i, e) in s.iter().enumerate() {
-                if let Some(ne) = permute_opt(e, p)? {
+                if let Some(ne) = permute_opt(e, p, None)? {
                     let o = out.get_or_insert_with(|| s[..i].to_vec());
                     o.push(ne);
                 } else if let Some(o) = out.as_mut() {
@@ -145,7 +176,7 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
         Value::Tuple(t) => {
             let mut out: Option<Vec<Value>> = None;
             for (i, e) in t.iter().enumerate() {
-                if let Some(ne) = permute_opt(e, p)? {
+                if let Some(ne) = permute_opt(e, p, None)? {
                     let o = out.get_or_insert_with(|| t[..i].to_vec());
                     o.push(ne);
                 } else if let Some(o) = out.as_mut() {
@@ -161,7 +192,7 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
             if !f.dom.iter().all(|d| matches!(d, Value::Str(_) | Value::Int(_))) {
                 ndom.reserve(f.dom.len());
                 for d in f.dom.iter() {
-                    match permute_opt(d, p)? {
+                    match permute_opt(d, p, None)? {
                         Some(nd) => {
                             dom_changed = true;
                             ndom.push(nd);
@@ -173,7 +204,7 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
             let mut vals_changed = false;
             let mut nvals: Vec<Value> = Vec::with_capacity(f.vals.len());
             for x in f.vals.iter() {
-                match permute_opt(x, p)? {
+                match permute_opt(x, p, None)? {
                     Some(nx) => {
                         vals_changed = true;
                         nvals.push(nx);
@@ -186,10 +217,32 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
             } else if !dom_changed {
                 Some(Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), nvals))))
             } else {
-                Some(Value::fcn_from(ndom.into_iter().zip(nvals.into_iter()).collect())?)
+                // A domain that the permutation maps onto itself (`[t \in TxId |-> ..]`): keep the domain (shared `Rc`) and move the
+                // values to the position of their permuted argument instead of sorting new pairs.
+                let n = f.dom.len();
+                let mut pos: Vec<usize> = Vec::with_capacity(n);
+                let mut closed = true;
+                for nd in ndom.iter() {
+                    match f.dom.binary_search_by(|x| x.cmp_val(nd).unwrap_or(Ordering::Less)) {
+                        Ok(j) if !pos.contains(&j) => pos.push(j),
+                        _ => {
+                            closed = false;
+                            break;
+                        }
+                    }
+                }
+                if closed && pos.len() == n {
+                    let mut vals: Vec<Value> = vec![Value::Undef; n];
+                    for (i, x) in nvals.into_iter().enumerate() {
+                        vals[pos[i]] = x;
+                    }
+                    Some(Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), vals))))
+                } else {
+                    Some(Value::fcn_from(ndom.into_iter().zip(nvals.into_iter()).collect())?)
+                }
             }
         }
-        Value::FcnLam(_) => permute_opt(&v.force_fcn()?, p)?,
+        Value::FcnLam(_) => permute_opt(&v.force_fcn()?, p, None)?,
         v if v.is_set_like() => {
             let e = v.enumerate()?;
             let mut out = Vec::with_capacity(e.len());
@@ -205,6 +258,16 @@ fn permute_opt(v: &Value, p: &MvPerm) -> R<Option<Value>> {
 /// The lexicographically smallest image of `vals` under `perms`, or `None` when `vals` itself is the smallest.
 /// Java: the NEXT_PERM loop in `TLCStateMut.fingerPrint`.
 pub fn canonical(vals: &[Value], perms: &[MvPerm]) -> R<Option<Vec<Value>>> {
+    canonical_with(vals, perms, None)
+}
+
+/// the image of `v` under `p`; a function value is looked up in / added to `cache` (most variables of a successor state are the
+/// very `Rc`s of its predecessor, whose image has just been computed)
+fn permuted(v: &Value, p: &MvPerm, cache: Option<&ImgCache>) -> R<Value> {
+    Ok(permute_opt(v, p, cache)?.unwrap_or_else(|| v.clone()))
+}
+
+fn canonical_with(vals: &[Value], perms: &[MvPerm], cache: Option<&ImgCache>) -> R<Option<Vec<Value>>> {
     let sz = vals.len();
     let has: Vec<bool> = vals.iter().map(contains_model).collect();
     let mut min: Option<Vec<Value>> = None;
@@ -213,7 +276,7 @@ pub fn canonical(vals: &[Value], perms: &[MvPerm]) -> R<Option<Vec<Value>>> {
         buf.clear();
         let mut cmp = Ordering::Equal;
         for j in 0..sz {
-            let pv = if has[j] { permute(&vals[j], p)? } else { vals[j].clone() };
+            let pv = if has[j] { permuted(&vals[j], p, cache)? } else { vals[j].clone() };
             if cmp == Ordering::Equal {
                 let cur = match &min {
                     Some(m) => &m[j],
@@ -255,6 +318,8 @@ pub struct SymGroup {
     orbit_dense: Vec<u32>,
     /// the group is the full product of the symmetric groups of the orbits
     fast: bool,
+    /// with a single non-identity permutation: the images of the function values seen recently
+    img_cache: ImgCache,
 }
 
 fn mix(h: u64, x: u64) -> u64 {
@@ -316,7 +381,7 @@ impl SymGroup {
         for (&m, &o) in orbit_of.iter() {
             orbit_dense[m as usize] = o as u32;
         }
-        SymGroup { perms, orbits, orbit_of, orbit_dense, fast }
+        SymGroup { perms, orbits, orbit_of, orbit_dense, fast, img_cache: RefCell::new(std::collections::HashMap::new()) }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -527,9 +592,12 @@ impl SymGroup {
         if self.perms.is_empty() {
             return Ok(None);
         }
-        if self.fast && !exact {
+        // TLC tries every permutation.  With a single non-identity permutation (one orbit of two values: `Permutations({t1, t2})`)
+        // that is the cheaper way: one permuted image and a comparison; the signature-based form pays a full traversal of the state
+        // per model value and then permutes the tied values anyway.  (Measured: with 2..5 permutations the signature form wins.)
+        if self.fast && !exact && self.perms.len() > 1 {
             return Ok(Some(self.canonical_fast(vals)?));
         }
-        canonical(vals, &self.perms)
+        canonical_with(vals, &self.perms, if self.perms.len() == 1 { Some(&self.img_cache) } else { None })
     }
 }
