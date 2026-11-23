@@ -24,6 +24,7 @@ const POLYS: [u64; 11] = [
 ];
 
 // Java: ValueConstants
+const MODELVALUE: u8 = 21;
 const BOOLVALUE: u8 = 0;
 const INTVALUE: u8 = 1;
 const STRINGVALUE: u8 = 3;
@@ -113,6 +114,7 @@ impl Fp64 {
                 }
                 Some(fp)
             }
+            Value::Model(id) => Some(self.int(self.byte(fp, MODELVALUE), model_tok(*id)?)),
             Value::Set(s) => self.set(fp, s),
             Value::Interval(lo, hi) => {
                 let n = if hi < lo { 0 } else { (*hi as i64 - *lo as i64 + 1) as i32 };
@@ -158,6 +160,24 @@ impl Fp64 {
 
 thread_local! {
     static CACHE: RefCell<Option<(usize, Rc<Fp64>)>> = const { RefCell::new(None) };
+    /// Java: `UniqueString.tok` of the model values of the configuration file (the first strings the JVM interns, in the order the
+    /// file mentions them: 1, 2, ...), by intern id
+    static MODEL_TOKS: RefCell<std::collections::HashMap<u32, i32>> = RefCell::new(std::collections::HashMap::new());
+}
+
+/// register the tokens of the strings of the configuration file (`order`: see `ModelConfig::value_order`)
+pub fn set_model_toks(order: &[String]) {
+    MODEL_TOKS.with(|m| {
+        let mut m = m.borrow_mut();
+        m.clear();
+        for (i, s) in order.iter().enumerate() {
+            m.insert(tla_sany::intern::intern(s), i as i32 + 1);
+        }
+    });
+}
+
+fn model_tok(id: u32) -> Option<i32> {
+    MODEL_TOKS.with(|m| m.borrow().get(&id).copied())
 }
 
 /// the `FP64` of the polynomial `index` (built once)

@@ -93,3 +93,10 @@ the instancee's `Hashtable` (`sem::java_hashtable_order`) and every constant-lev
 the liveness state predicates are evaluated when a state is expanded and the `Print` output of the violated-property attribution is flushed (UserModuleOverrideAnnotation).
 Still different (3, all tt/): ChooseTableauSymmetry, TableauSymmetry, SymmetryTableauModelChecker: with SYMMETRY the successors of a state reach liveness in `SetOfStates` slot order, which needs the fingerprint of model values;
 Java hashes a model value by the `UniqueString` token, i.e. by how many strings the JVM interned (SANY identifiers, built-ins, config) before it: not derivable without replaying the JVM's interning.
+
+## 2026-11-23 tt/ trace pass 6: 364/364 check models identical at trace level (tt/ 214/214) (Sonnet 5.5)
+gate (-j 2, --update-best): no regressions, verdict 364/364, trace 364/364. Symmetry + tableau liveness now matches Java:
+the model values of the configuration file get Java's `UniqueString.tok` (the first strings the JVM interns, in the order `ModelConfig` mentions them: `ModelConfig.value_order`, `jfp::set_model_toks`) and Java's
+`ModelValue.index` order (`value::register_model`, creation order) for comparisons; `java_set_order` files each successor under the fingerprint of the exact smallest image of the actual successor state;
+`live::build_graph_incr` evaluates the predicates on the actual successor of each edge and expands a late node from the actual state it was reached with (`gen_successors` regenerates its successors in generation order).
+perf: SpanTreeRandom is borderline (the 250k evaluations of `<<Next>>_vars` of its `WF` dominate the graph build, 6 s vs Java 5.8 s): it passes or misses by noise, as before this pass.

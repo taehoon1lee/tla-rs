@@ -121,6 +121,7 @@ pub fn set_user_overrides(v: Vec<(String, String, usize, Value)>) {
 
 pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyze: ModuleAnalyzer) -> Result<Setup, SetupErr> {
     let root = sem.root.clone();
+    crate::jfp::set_model_toks(&cfg.value_order);
     // Java: `ModuleNode.getVariableDecls` lists the variables in the order of the `Hashtable` that holds the symbols of the module (reversed
     // enumeration order = ascending bucket index, `String.hashCode() % capacity`, oldest first within a bucket); the capacity follows
     // from the number of symbols (the 72 built-in operators of TLA+ are in every module's table)

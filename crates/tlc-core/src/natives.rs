@@ -1052,7 +1052,10 @@ fn to_trace(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> 
 /// Java: TLCExt.tlcModelValue: `ModelValue.add(str)`
 fn tlc_model_value(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     match arg(ev, a, 0, s0, s1)? {
-        Value::Str(id) => Ok(Value::Model(id)),
+        Value::Str(id) => {
+            crate::value::register_model(id);
+            Ok(Value::Model(id))
+        }
         v => fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR,
             format!("The argument of ModelValue should be a string, but instead it is:\n{}", v.to_tla()),

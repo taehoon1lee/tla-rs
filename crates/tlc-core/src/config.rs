@@ -41,6 +41,8 @@ pub struct ModelConfig {
     pub postconditions: Vec<String>,
     pub possible: Vec<String>,
     pub check_deadlock: Option<bool>,
+    /// the model values and strings of the values, in the order the parser met (and interned) them
+    pub value_order: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -244,12 +246,20 @@ fn tok_image(t: &T) -> String {
 struct P {
     lx: Lx,
     cur: T,
+    /// Java: `ModelValue.make` / `new StringValue` intern their text while the file is parsed: the distinct texts in that order
+    order: Vec<String>,
 }
 
 impl P {
     fn adv(&mut self) -> Result<T, CfgError> {
         let n = self.lx.next()?;
         Ok(std::mem::replace(&mut self.cur, n))
+    }
+
+    fn note(&mut self, s: &str) {
+        if !self.order.iter().any(|x| x == s) {
+            self.order.push(s.to_string());
+        }
     }
 
     fn parse_value(&mut self, t: &T) -> Result<Value, CfgError> {
@@ -267,7 +277,9 @@ impl P {
                         &format!("escape sequences are not supported in strings at line {}", self.lx.line),
                     ));
                 }
-                Ok(Value::str(inner))
+                let inner = inner.to_string();
+                self.note(&inner);
+                Ok(Value::str(&inner))
             }
             T::Id(s) if s == "TRUE" => Ok(Value::Bool(true)),
             T::Id(s) if s == "FALSE" => Ok(Value::Bool(false)),
@@ -290,7 +302,13 @@ impl P {
                 Value::set_from(elems).map_err(|e| cfg_err(ec::CFG_GENERAL, self.lx.line, &e.msg))
             }
             T::Eof => Err(cfg_err(ec::CFG_EXPECTED_SYMBOL, self.lx.line, "a value")),
-            other => Ok(Value::Model(intern::intern(&tok_image(other)))),
+            other => {
+                let img = tok_image(other);
+                self.note(&img);
+                let id = intern::intern(&img);
+                crate::value::register_model(id);
+                Ok(Value::Model(id))
+            }
         }
     }
 }
@@ -298,7 +316,7 @@ impl P {
 pub fn parse(text: &str) -> Result<ModelConfig, CfgError> {
     let mut src = text.to_string();
     src.push('\n');
-    let mut p = P { lx: Lx { chars: src.chars().collect(), i: 0, line: 1 }, cur: T::Eof };
+    let mut p = P { lx: Lx { chars: src.chars().collect(), i: 0, line: 1 }, cur: T::Eof, order: vec![] };
     p.cur = p.lx.next()?;
     let mut cfg = ModelConfig::default();
     let mut tt = p.adv()?;
@@ -468,6 +486,7 @@ pub fn parse(text: &str) -> Result<ModelConfig, CfgError> {
             _ => return Err(cfg_err(ec::CFG_EXPECTED_SYMBOL, p.lx.line, "a keyword")),
         }
     }
+    cfg.value_order = std::mem::take(&mut p.order);
     Ok(cfg)
 }
 

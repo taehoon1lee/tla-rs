@@ -3,6 +3,7 @@
 //! and the construction of the lasso (`LiveWorker.printTrace`: prefix, DFS/BFS postfix).
 
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 use tlc_core::eval::Ev;
 use tlc_core::liveness::oos::{Oos, Pem};
 use tlc_core::value::*;
@@ -50,9 +51,9 @@ pub struct Lasso {
 }
 
 /// build the behavior graph of one order of solution (Java: `LiveChecker` / `TableauLiveChecker` fed by `addNextState`)
-pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
+pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
     if let (Some(gen), true) = (gen, oos.tableau.is_some()) {
-        return build_graph_incr(ev, store, succ, gen, inits, oos, pre);
+        return build_graph_incr(ev, store, succ, gen, gen_fn, inits, oos, pre);
     }
     let alen = oos.check_action.len();
     let nstates = succ.len();
@@ -159,12 +160,27 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&
     Ok(g)
 }
 
+/// the successors of an actual state in generation order: (node, the actual successor state)
+pub type GenFn<'a> = &'a dyn Fn(&[Value]) -> R<Vec<(u32, Rc<Vec<Value>>)>>;
+
 /// Port of `LiveCheck.TableauLiveChecker.addNextState` (both variants): the behavior graph of a formula with a tableau is built the
 /// way Java builds it while the states are explored: the states are processed in BFS order; the successors of a state come in the
 /// slot order of its `SetOfStates` (`slot`); a node `<s, t>` that is created after `s` was processed is expanded at once by the
 /// recursive variant, which adds the self-loops first and then the successors in generation order (`gen`).  The order of the
 /// edges of a node decides which counterexample the SCC search finds.
-fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u32>], inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
+///
+/// With SYMMETRY a node stands for all the states of an orbit: the predicates are evaluated on the actual successor state of the edge
+/// (`store.edge_vals`), and the recursive variant expands the actual state it was reached with (`gen_fn` generates its successors).
+fn build_graph_incr(
+    ev: &Ev,
+    store: &dyn States,
+    slot: &[Vec<u32>],
+    gen: &[Vec<u32>],
+    gen_fn: Option<GenFn>,
+    inits: &[u32],
+    oos: &Oos,
+    pre: &[Option<Vec<bool>>],
+) -> R<Graph> {
     use std::collections::HashSet;
     struct B<'a> {
         ev: &'a Ev,
@@ -172,6 +188,7 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
         oos: &'a Oos,
         tb: &'a tlc_core::liveness::tableau::TbGraph,
         gen: &'a [Vec<u32>],
+        gen_fn: Option<GenFn<'a>>,
         g: Graph,
         index: HashMap<(u32, usize), u32>,
         rec: Vec<Vec<usize>>,
@@ -181,15 +198,22 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
         sc: Vec<Option<Vec<bool>>>,
         bits: HashMap<(u32, u32), Vec<bool>>,
         leaf: HashMap<(u32, u32), bool>,
+        fresh: u32,
     }
     impl<'a> B<'a> {
-        fn consistent(&mut self, s: u32, t: usize) -> R<bool> {
-            if let Some(&b) = self.cons.get(&(s, t)) {
-                return Ok(b);
+        /// does the tableau node `t` accept the state `s` (`vals`: the actual state when it is not the one the node stores)?
+        fn consistent(&mut self, s: u32, vals: Option<&[Value]>, t: usize) -> R<bool> {
+            match vals {
+                Some(v) => self.tb.nodes[t].is_consistent(self.ev, v),
+                None => {
+                    if let Some(&b) = self.cons.get(&(s, t)) {
+                        return Ok(b);
+                    }
+                    let b = self.tb.nodes[t].is_consistent(self.ev, self.store.vals(s))?;
+                    self.cons.insert((s, t), b);
+                    Ok(b)
+                }
             }
-            let b = self.tb.nodes[t].is_consistent(self.ev, self.store.vals(s))?;
-            self.cons.insert((s, t), b);
-            Ok(b)
         }
         fn state_checks(&mut self, s: u32) -> R<Vec<bool>> {
             if self.sc[s as usize].is_none() {
@@ -197,16 +221,16 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
             }
             Ok(self.sc[s as usize].clone().unwrap())
         }
-        fn action_bits(&mut self, s: u32, s1: u32) -> R<Vec<bool>> {
-            if let Some(v) = self.bits.get(&(s, s1)) {
+        /// the results of the action predicates on `v0 -> v1`; `mid` identifies the source state for the memo of the state-level leaves
+        fn action_bits(&mut self, mid: u32, key: u32, v0: &[Value], v1: &[Value]) -> R<Vec<bool>> {
+            if let Some(v) = self.bits.get(&(mid, key)) {
                 return Ok(v.clone());
             }
-            let (v0, v1) = (self.store.vals(s), self.store.vals(s1));
             let mut v = Vec::with_capacity(self.oos.check_action.len());
             for c in self.oos.check_action.iter() {
-                v.push(eval_memo(c, self.ev, s, v0, v1, &mut self.leaf)?);
+                v.push(eval_memo(c, self.ev, mid, v0, v1, &mut self.leaf)?);
             }
-            self.bits.insert((s, s1), v.clone());
+            self.bits.insert((mid, key), v.clone());
             Ok(v)
         }
         fn create(&mut self, s: u32, t: usize) -> u32 {
@@ -222,16 +246,32 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
             n.succ.push(to);
             n.check_action.extend_from_slice(bits);
         }
-        /// the recursive `addNextState(tool, s, fp, tnode, oos, dgraph)`: the node `<s, t>` is new and `s` is done
-        fn late(&mut self, s: u32, t: usize) -> R<()> {
+        /// the recursive `addNextState(tool, s, fp, tnode, oos, dgraph)`: the node `<s, t>` is new and `s` is done; `actual` is the state
+        /// the node was reached with when that is not the state the node stores
+        fn late(&mut self, s: u32, t: usize, actual: Option<Rc<Vec<Value>>>) -> R<()> {
             let n = self.index[&(s, t)];
-            let cs = self.state_checks(s)?;
+            let st: &'a dyn States = self.store;
+            let sv: &[Value] = match &actual {
+                Some(a) => &a[..],
+                None => st.vals(s),
+            };
+            let cs = match &actual {
+                Some(a) => self.oos.check_state_res(self.ev, a)?,
+                None => self.state_checks(s)?,
+            };
             self.g.nodes[n as usize].check_state = cs;
+            // the memo of the state-level leaves is keyed by the source state: an actual state of its own gets an id of its own
+            let mid = if actual.is_some() {
+                self.fresh += 1;
+                self.fresh
+            } else {
+                s
+            };
             let nexts = self.tb.nodes[t].nexts.clone();
             if !nexts.is_empty() {
-                let bits = self.action_bits(s, s)?;
+                let bits = self.action_bits(mid, 0x4000_0000, sv, sv)?;
                 for &t1 in &nexts {
-                    if self.consistent(s, t1)? {
+                    if self.consistent(s, actual.as_ref().map(|a| &a[..]), t1)? {
                         let exists = self.index.get(&(s, t1)).copied();
                         let missing = match exists {
                             None => true,
@@ -244,18 +284,30 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
                             };
                             self.add(n, d, &bits);
                             if exists.is_none() {
-                                self.late(s, t1)?;
+                                self.late(s, t1, actual.clone())?;
                             }
                         }
                     }
                 }
             }
-            let succs = self.gen[s as usize].clone();
-            for &s1 in &succs {
-                let bits = self.action_bits(s, s1)?;
+            // the successors in generation order (those of the actual state when SYMMETRY makes it differ from the stored one)
+            let succs: Vec<(u32, Option<Rc<Vec<Value>>>)> = match (&self.gen_fn, &actual) {
+                (Some(f), Some(a)) => f(a)?.into_iter().map(|(n, v)| (n, Some(v))).collect(),
+                (Some(f), None) => f(sv)?.into_iter().map(|(n, v)| (n, Some(v))).collect(),
+                _ => self.gen[s as usize].iter().map(|&n| (n, None)).collect(),
+            };
+            for (k, (s1, a1)) in succs.iter().enumerate() {
+                let s1 = *s1;
+                let bits = {
+                    let v1: &[Value] = match a1 {
+                        Some(v) => &v[..],
+                        None => st.vals(s1),
+                    };
+                    self.action_bits(mid, (k as u32) | 0x8000_0000, sv, v1)?
+                };
                 let is_done = self.done[s1 as usize];
                 for &t1 in &nexts {
-                    if self.consistent(s1, t1)? {
+                    if self.consistent(s1, a1.as_ref().map(|a| &a[..]), t1)? {
                         let exists = self.index.get(&(s1, t1)).copied();
                         let missing = match exists {
                             None => true,
@@ -268,7 +320,7 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
                             };
                             self.add(n, d, &bits);
                             if exists.is_none() && is_done {
-                                self.late(s1, t1)?;
+                                self.late(s1, t1, a1.clone())?;
                             }
                         }
                     }
@@ -285,6 +337,7 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
         oos,
         tb,
         gen,
+        gen_fn,
         g: Graph { nodes: vec![], init: vec![], alen: oos.check_action.len() },
         index: HashMap::new(),
         rec: vec![vec![]; n],
@@ -294,11 +347,12 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
         sc: (0..n).map(|i| pre.get(i).cloned().flatten()).collect(),
         bits: HashMap::new(),
         leaf: HashMap::new(),
+        fresh: n as u32,
     };
     // addInitState: (state, tnode) is a root node if tnode is an initial tableau node consistent with the state
     for &s in inits {
         for t in 0..tb.init_cnt {
-            if b.consistent(s, t)? {
+            if b.consistent(s, None, t)? {
                 let id = match b.index.get(&(s, t)).copied() {
                     Some(id) => id,
                     None => b.create(s, t),
@@ -311,29 +365,35 @@ fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u
         b.done[s0 as usize] = true;
         let snapshot = b.rec[s0 as usize].clone();
         let succs = slot[s0 as usize].clone();
+        let v0: &[Value] = store.vals(s0);
         for &t0 in &snapshot {
             let n0 = b.index[&(s0, t0)];
             let cs = b.state_checks(s0)?;
             b.g.nodes[n0 as usize].check_state = cs;
             let nexts = tb.nodes[t0].nexts.clone();
-            for &s1 in &succs {
+            for (i, &s1) in succs.iter().enumerate() {
+                let actual: Option<&[Value]> = store.edge_vals(s0, i);
                 let is_done = b.done[s1 as usize];
                 for &t1 in &nexts {
-                    if b.consistent(s1, t1)? {
+                    if b.consistent(s1, actual, t1)? {
                         let exists = b.index.get(&(s1, t1)).copied();
                         let missing = match exists {
                             None => true,
                             Some(d) => !b.texist.contains(&(n0, d)),
                         };
                         if missing {
-                            let bits = b.action_bits(s0, s1)?;
+                            let v1: &[Value] = match actual {
+                                Some(a) => a,
+                                None => store.vals(s1),
+                            };
+                            let bits = b.action_bits(s0, i as u32, v0, v1)?;
                             let d = match exists {
                                 Some(d) => d,
                                 None => b.create(s1, t1),
                             };
                             b.add(n0, d, &bits);
                             if exists.is_none() && is_done {
-                                b.late(s1, t1)?;
+                                b.late(s1, t1, actual.map(|a| Rc::new(a.to_vec())))?;
                             }
                         }
                     }
@@ -775,8 +835,9 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
 }
 
 /// the behavior graphs of all orders of solution (Java: the `LiveChecker`s after the state space has been explored)
-pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oss: &[Oos], pre: &[Vec<Option<Vec<bool>>>]) -> R<Vec<Graph>> {
-    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]))).collect()
+#[allow(clippy::too_many_arguments)]
+pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oss: &[Oos], pre: &[Vec<Option<Vec<bool>>>]) -> R<Vec<Graph>> {
+    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, gen_fn, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]))).collect()
 }
 
 /// `LiveWorker.call` over all orders of solution: the first counterexample found

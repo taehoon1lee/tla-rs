@@ -50,6 +50,36 @@ impl TlcErr {
 
 pub type R<T> = Result<T, Box<TlcErr>>;
 
+// ---- the order of model values (Java: `ModelValue.index`, the order in which they were created)
+thread_local! {
+    static MODEL_IDX: std::cell::RefCell<(Vec<u32>, u32)> = const { std::cell::RefCell::new((Vec::new(), 0)) };
+}
+
+/// a model value is created (the first mention in the configuration file): it follows the model values created before it
+pub fn register_model(id: u32) {
+    MODEL_IDX.with(|m| {
+        let mut m = m.borrow_mut();
+        let i = id as usize;
+        if m.0.len() <= i {
+            m.0.resize(i + 1, u32::MAX);
+        }
+        if m.0[i] == u32::MAX {
+            m.0[i] = m.1;
+            m.1 += 1;
+        }
+    });
+}
+
+fn model_cmp(a: u32, b: u32) -> Ordering {
+    MODEL_IDX.with(|m| {
+        let m = m.borrow();
+        match (m.0.get(a as usize), m.0.get(b as usize)) {
+            (Some(&x), Some(&y)) if x != u32::MAX && y != u32::MAX => x.cmp(&y),
+            _ => a.cmp(&b),
+        }
+    })
+}
+
 // ---- sources of values (Java: `Value.getSource`, set by `Tool.setSource` for the lazily built sets)
 thread_local! {
     static SRC_RING: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
@@ -1367,7 +1397,7 @@ impl Value {
                         ));
                     }
                 }
-                Ok(a.cmp(b))
+                Ok(model_cmp(*a, *b))
             }
             (Model(a), o) => {
                 if model_type(*a).is_some() {

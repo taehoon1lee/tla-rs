@@ -1789,15 +1789,19 @@ Reason:
     /// (open addressing by the state's fingerprint; a worker keeps the capacity it needed: `multiplier`).  Reproduced for states whose
     /// values this port can fingerprint like Java (`jfp`); returns false (the caller keeps another fixed order) otherwise.
     fn java_set_order(&mut self) -> Option<Vec<Vec<u32>>> {
-        if !self.perms.is_empty() || self.setup.view.is_some() {
+        if self.setup.view.is_some() {
             return None;
         }
+        let perms = !self.perms.is_empty();
         let fp64 = tlc_core::jfp::fp64(self.opts.fp_index.max(0) as usize);
-        let mut fps: Vec<u64> = Vec::with_capacity(self.states.len());
-        for s in &self.states {
-            match fp64.state_opt(&s.vals) {
-                Some(f) => fps.push(f),
-                None => return None,
+        let mut fps: Vec<u64> = Vec::new();
+        if !perms {
+            fps.reserve(self.states.len());
+            for s in &self.states {
+                match fp64.state_opt(&s.vals) {
+                    Some(f) => fps.push(f),
+                    None => return None,
+                }
             }
         }
         // the successors in generation order (without the stuttering step), for the nodes Java creates after their state was done
@@ -1809,50 +1813,116 @@ Reason:
             .collect();
         let mut multiplier = 1usize;
         for i in 0..self.live_succ.len() {
-            if self.live_succ[i].is_empty() {
+            let m = self.live_succ[i].len();
+            if m == 0 {
                 continue;
+            }
+            // the fingerprint Java files each successor under: with SYMMETRY that of the smallest image of the actual successor state
+            let mut ifps: Vec<u64> = Vec::with_capacity(m);
+            for j in 0..m {
+                let f = if perms {
+                    if self.live_edge[i].len() != m {
+                        return None;
+                    }
+                    let vals: &[Value] = &self.live_edge[i][j];
+                    let canon = self.perms.canonical_state(vals, true).ok()?;
+                    fp64.state_opt(canon.as_deref().unwrap_or(vals))?
+                } else {
+                    fps[self.live_succ[i][j] as usize]
+                };
+                ifps.push(f);
             }
             let mut length = multiplier * 16;
             let mut slots: Vec<Option<u32>> = vec![None; length];
             let mut count = 0usize;
             let mut thresh = length / 2;
             // Java: SetOfStates.put0 / grow
-            fn put0(slots: &mut Vec<Option<u32>>, count: &mut usize, fp: u64, node: u32) {
+            fn put0(slots: &mut Vec<Option<u32>>, count: &mut usize, fp: u64, item: u32) {
                 let length = slots.len();
                 let mut loc = ((fp as u32 as i32) & 0x7FFF_FFFF) as usize % length;
                 loop {
                     match slots[loc] {
                         None => {
-                            slots[loc] = Some(node);
+                            slots[loc] = Some(item);
                             *count += 1;
                             return;
                         }
-                        Some(e) if e == node => return,
+                        Some(e) if e == item => return,
                         _ => {}
                     }
                     loc = (loc + 1) % length;
                 }
             }
-            let succ = self.live_succ[i].clone();
-            for &t in &succ {
+            for j in 0..m as u32 {
                 if count >= thresh {
                     let old = std::mem::take(&mut slots);
                     length = (2 * length + 1).min(i32::MAX as usize);
                     thresh = length / 2;
                     slots = vec![None; length];
                     count = 0;
-                    for n in old.into_iter().flatten() {
-                        put0(&mut slots, &mut count, fps[n as usize], n);
+                    for it in old.into_iter().flatten() {
+                        put0(&mut slots, &mut count, ifps[it as usize], it);
                     }
                 }
-                put0(&mut slots, &mut count, fps[t as usize], t);
+                put0(&mut slots, &mut count, ifps[j as usize], j);
             }
             if length > multiplier * 16 {
                 multiplier += 1;
             }
-            self.live_succ[i] = slots.into_iter().flatten().collect();
+            let order: Vec<u32> = slots.into_iter().flatten().collect();
+            if std::env::var_os("TLCRS_DBG_SLOTS").is_some() {
+                eprintln!("DSTATE {} {}", i, self.states[i].vals.iter().map(|v| v.to_tla()).collect::<Vec<_>>().join(" | "));
+                for &j in &order {
+                    let v: Vec<String> = if perms { self.live_edge[i][j as usize].iter().map(|v| v.to_tla()).collect() } else { self.states[self.live_succ[i][j as usize] as usize].vals.iter().map(|v| v.to_tla()).collect() };
+                    eprintln!("DSLOT {} fp={}", v.join(" | "), ifps[j as usize] as i64);
+                }
+            }
+            let old_succ = std::mem::take(&mut self.live_succ[i]);
+            self.live_succ[i] = order.iter().map(|&j| old_succ[j as usize]).collect();
+            if perms {
+                let old_edge = std::mem::take(&mut self.live_edge[i]);
+                self.live_edge[i] = order.iter().map(|&j| old_edge[j as usize].clone()).collect();
+            }
         }
         Some(gen)
+    }
+
+    /// the successors of an actual state in generation order (Java: `tool.getNextStates(action, s)` of the recursive
+    /// `LiveCheck.addNextState`): the node of each successor (its fingerprint is in the table) and the actual state
+    fn gen_successors(&self, actual: &[Value]) -> R<Vec<(u32, Rc<Vec<Value>>)>> {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        let nvars = setup.vars.len();
+        let mut out: Vec<(u32, Rc<Vec<Value>>)> = vec![];
+        let was_eo = ev.eval_only.replace(false);
+        for nx in &setup.next {
+            let buf = RefCell::new(vec![Value::Undef; nvars]);
+            ev.epoch.set(ev.epoch.get() + 1);
+            let r = ev.with_frame(nx.nslots.get(), |ev| {
+                ev.enum_action(&nx.ex, Mode::Next, actual, &buf, &mut || {
+                    let st = buf.borrow().clone();
+                    if st.iter().any(|v| matches!(v, Value::Undef)) {
+                        return Ok(());
+                    }
+                    if !self.in_model(&st)? || !self.action_ok(actual, &st)? {
+                        return Ok(());
+                    }
+                    let fp = self.fp(&st)?;
+                    if let Some(&idx) = self.fp_index.get(&fp) {
+                        if !out.iter().any(|(n, v)| *n == idx && v.iter().zip(st.iter()).all(|(a, b)| a.eq_val(b).unwrap_or(false))) {
+                            out.push((idx, Rc::new(st)));
+                        }
+                    }
+                    Ok(())
+                })
+            });
+            if let Err(e) = r {
+                ev.eval_only.set(was_eo);
+                return Err(e);
+            }
+        }
+        ev.eval_only.set(was_eo);
+        Ok(out)
     }
 
     /// Java: `ModelChecker`: the final liveness check (`LiveCheck.finalCheck` -> `LiveWorker`)
@@ -1866,6 +1936,9 @@ Reason:
         // order that cannot be reproduced here (our fingerprints and intern tokens differ); any fixed order is as good as
         // another.  The reverse generation order agrees with Java's counterexamples more often on the test corpus.
         let gen_lists = self.java_set_order();
+        if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
+            eprintln!("live: set order in {:?}", t0.elapsed());
+        }
         if gen_lists.is_none() {
             for (i, v) in self.live_succ.iter_mut().enumerate() {
                 v.reverse();
@@ -1916,7 +1989,12 @@ Reason:
                 left
             ),
         );
-        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, gen_lists.as_deref(), &self.live_inits, oss, &self.live_sc) {
+        if std::env::var_os("TLCRS_LIVE_DEBUG").is_some() {
+            eprintln!("live: shortcut in {:?}", t0.elapsed());
+        }
+        let gen_closure = |v: &[Value]| self.gen_successors(v);
+        let gen_fn: Option<crate::live::GenFn> = if !self.perms.is_empty() && gen_lists.is_some() { Some(&gen_closure) } else { None };
+        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, gen_lists.as_deref(), gen_fn, &self.live_inits, oss, &self.live_sc) {
             Ok(g) => g,
             Err(e) => {
                 let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
