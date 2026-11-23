@@ -143,6 +143,10 @@ pub struct CompiledDef {
     pub nslots: Cell<usize>,
     pub body: RefCell<Option<Ex>>,
     pub native: Cell<Option<NativeFn>>,
+    /// first conjunct of the body when it is a plain state-level test of the parameters (`actions::first_test`)
+    pub first_test: std::cell::OnceCell<Option<Ex>>,
+    /// value-level entry point of the native (see `natives::Fast`)
+    pub fast: Cell<crate::natives::Fast>,
     pub level: sem::Level,
     pub loc: Loc,
     /// cached value of a constant-level definition without parameters
@@ -288,9 +292,11 @@ pub enum Node {
     SubsetOf { bound: BoundIr, pred: Ex, filter_slots: Rc<Vec<u32>> },
     SetOfAll(Ex, Vec<BoundIr>),
     /// `[x \in S |-> e]`; `self_slot`: slot holding the function itself (recursive definitions)
-    FcnCons(Vec<BoundIr>, Ex, Option<u32>),
+    /// the cell: `deps::is_pure_state_expr(body)`, computed on first use
+    FcnCons(Vec<BoundIr>, Ex, Option<u32>, std::cell::OnceCell<bool>),
     SetOfFcns(Ex, Ex),
-    RcdCons(Vec<(u32, Ex)>),
+    /// `[a |-> e1, b |-> e2]`: the fields as written; the shared sorted domain; `pos[i]` = index of field `i` in the sorted domain
+    RcdCons(Vec<(u32, Ex)>, Rc<Vec<Value>>, Vec<usize>),
     SetOfRcds(Vec<(u32, Ex)>),
     Except(Ex, Vec<ExceptIr>),
     ActionSub { boxed: bool, act: Ex, sub: Ex },

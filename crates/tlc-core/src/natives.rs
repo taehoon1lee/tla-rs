@@ -176,6 +176,28 @@ fn real(_: &Ev, _: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 
 // ---------------------------------------------------------------------------------------------- Sequences
 
+/// the elements of a sequence without copying them (the `Rc` of the tuple is shared)
+fn as_seq_rc(v: &Value, who: &str) -> R<Rc<Vec<Value>>> {
+    match v {
+        Value::Tuple(t) => Ok(t.clone()),
+        Value::FcnLam(_) => match v.force_fcn()? {
+            Value::Tuple(t) => Ok(t),
+            other => fail_code(
+                ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE,
+                format!("Applying {} to the following value,
+which is not a sequence:
+{}", who, other.to_tla()),
+            ),
+        },
+        _ => fail_code(
+            ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE,
+            format!("Applying {} to the following value,
+which is not a sequence:
+{}", who, v.to_tla()),
+        ),
+    }
+}
+
 fn as_seq(v: &Value, who: &str) -> R<Vec<Value>> {
     match v {
         Value::Tuple(t) => Ok(t.to_vec()),
@@ -200,11 +222,18 @@ fn seq_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 
 fn len(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let v = arg(ev, a, 0, s0, s1)?;
+    len1(&v)
+}
+
+fn len1(v: &Value) -> R<Value> {
+    if let Value::Tuple(t) = v {
+        return Ok(Value::Int(t.len() as i32));
+    }
     // Java: Sequences.Len accepts a string (its length in UTF-16 code units)
-    if let Value::Str(id) = &v {
+    if let Value::Str(id) = v {
         return Ok(Value::Int(intern::name_of(*id).encode_utf16().count() as i32));
     }
-    Ok(Value::Int(as_seq(&v, "Len")?.len() as i32))
+    Ok(Value::Int(as_seq_rc(v, "Len")?.len() as i32))
 }
 
 // Java: Sequences.Concat (strings concatenate with strings, sequences with sequences)
@@ -250,14 +279,24 @@ fn concat(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 fn append(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
     let e = arg(ev, a, 1, s0, s1)?;
-    let mut s = as_seq(&x, "Append")?;
-    s.push(e);
+    append2(&x, &e)
+}
+
+fn append2(x: &Value, e: &Value) -> R<Value> {
+    let t = as_seq_rc(x, "Append")?;
+    let mut s = Vec::with_capacity(t.len() + 1);
+    s.extend_from_slice(&t);
+    s.push(e.clone());
     Ok(Value::tuple(s))
 }
 
 fn head(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
-    let s = as_seq(&x, "Head")?;
+    head1(&x)
+}
+
+fn head1(x: &Value) -> R<Value> {
+    let s = as_seq_rc(x, "Head")?;
     match s.first() {
         Some(v) => Ok(v.clone()),
         None => fail_code(ec::TLC_MODULE_APPLY_EMPTY_SEQ, "Attempted to apply Head to the empty sequence."),
@@ -266,7 +305,11 @@ fn head(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 
 fn tail(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
-    let s = as_seq(&x, "Tail")?;
+    tail1(&x)
+}
+
+fn tail1(x: &Value) -> R<Value> {
+    let s = as_seq_rc(x, "Tail")?;
     if s.is_empty() {
         return fail_code(ec::TLC_MODULE_APPLY_EMPTY_SEQ, "Attempted to apply Tail to the empty sequence.");
     }
@@ -277,7 +320,7 @@ fn subseq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
     let m = int_arg(ev, a, 1, "second", "SubSeq", s0, s1)?;
     let n = int_arg(ev, a, 2, "third", "SubSeq", s0, s1)?;
-    let s = as_seq(&x, "SubSeq")?;
+    let s = as_seq_rc(&x, "SubSeq")?;
     if n < m {
         return Ok(Value::tuple(vec![]));
     }
@@ -286,7 +329,7 @@ fn subseq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
             ec::TLC_MODULE_ARGUMENT_NOT_IN_DOMAIN,
             format!(
                 "The second argument of SubSeq must be in the domain of its first argument:\n{}\n, but instead it is\n{}",
-                Value::tuple(s.clone()).to_tla(),
+                Value::Tuple(s.clone()).to_tla(),
                 m
             ),
         );
@@ -296,7 +339,7 @@ fn subseq(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
             ec::TLC_MODULE_ARGUMENT_NOT_IN_DOMAIN,
             format!(
                 "The third argument of SubSeq must be in the domain of its first argument:\n{}\n, but instead it is\n{}",
-                Value::tuple(s.clone()).to_tla(),
+                Value::Tuple(s.clone()).to_tla(),
                 n
             ),
         );
@@ -336,14 +379,23 @@ fn is_finite_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Va
 
 fn cardinality(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let s = arg(ev, a, 0, s0, s1)?;
+    cardinality1(&s)
+}
+
+fn cardinality1(s: &Value) -> R<Value> {
+    if let Value::Set(v) = s {
+        return Ok(Value::Int(v.len() as i32));
+    }
     if !s.is_set_like() {
         return fail_code(
             ec::TLC_MODULE_ARGUMENT_ERROR_AN,
-            format!("The first argument of Cardinality should be a set, but instead it is:\n{}", s.to_tla()),
+            format!("The first argument of Cardinality should be a set, but instead it is:
+{}", s.to_tla()),
         );
     }
     if !s.is_finite() {
-        return fail_code(ec::TLC_MODULE_COMPUTING_CARDINALITY, format!("Attempted to compute cardinality of the value\n{}", s.to_tla()));
+        return fail_code(ec::TLC_MODULE_COMPUTING_CARDINALITY, format!("Attempted to compute cardinality of the value
+{}", s.to_tla()));
     }
     let n = s.size()?;
     if n > i32::MAX as usize {
@@ -1382,6 +1434,9 @@ fn bags_empty(_: &Ev, _: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Valu
 }
 
 fn is_a_bag_val(b: &Value) -> R<bool> {
+    if let Value::Fcn(f) = b {
+        return Ok(f.vals.iter().all(|v| matches!(v, Value::Int(n) if *n > 0)));
+    }
     match bag_parts(b)? {
         None => Ok(false),
         Some((_, vals)) => Ok(vals.iter().all(|v| matches!(v, Value::Int(n) if *n > 0))),
@@ -1457,6 +1512,91 @@ fn bags_copies_in(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<V
     Ok(Value::Int(0))
 }
 
+/// `B1 (+) B2` for two bags that are functions with sorted domains: one merge, the result is already sorted.
+/// `None` (use the general code) when two elements cannot be compared.
+fn merge_bags(f1: &Fcn, f2: &Fcn) -> R<Option<Value>> {
+    let (d1, v1, d2, v2) = (&f1.dom, &f1.vals, &f2.dom, &f2.vals);
+    let mut dom: Vec<Value> = Vec::with_capacity(d1.len() + d2.len());
+    let mut vals: Vec<Value> = Vec::with_capacity(d1.len() + d2.len());
+    let (mut i, mut j) = (0, 0);
+    while i < d1.len() && j < d2.len() {
+        match d1[i].cmp_val(&d2[j]) {
+            Ok(std::cmp::Ordering::Less) => {
+                dom.push(d1[i].clone());
+                vals.push(v1[i].clone());
+                i += 1;
+            }
+            Ok(std::cmp::Ordering::Greater) => {
+                dom.push(d2[j].clone());
+                vals.push(v2[j].clone());
+                j += 1;
+            }
+            Ok(std::cmp::Ordering::Equal) => {
+                let n = match (&v1[i], &v2[j]) {
+                    (Value::Int(x), Value::Int(y)) => match x.checked_add(*y) {
+                        Some(n) => Value::Int(n),
+                        None => return fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}+{}", x, y)),
+                    },
+                    _ => return Ok(None),
+                };
+                dom.push(d1[i].clone());
+                vals.push(n);
+                i += 1;
+                j += 1;
+            }
+            Err(_) => return Ok(None),
+        }
+    }
+    while i < d1.len() {
+        dom.push(d1[i].clone());
+        vals.push(v1[i].clone());
+        i += 1;
+    }
+    while j < d2.len() {
+        dom.push(d2[j].clone());
+        vals.push(v2[j].clone());
+        j += 1;
+    }
+    Ok(Some(Value::fcn_sorted(dom, vals)))
+}
+
+/// `B1 (-) B2` for two bags that are functions with sorted domains; `None` = use the general code
+fn subtract_bags(f1: &Fcn, f2: &Fcn) -> Option<Value> {
+    let (d1, v1, d2, v2) = (&f1.dom, &f1.vals, &f2.dom, &f2.vals);
+    let mut dom: Vec<Value> = Vec::with_capacity(d1.len());
+    let mut vals: Vec<Value> = Vec::with_capacity(d1.len());
+    let mut j = 0;
+    for (i, d) in d1.iter().enumerate() {
+        let mut n = match &v1[i] {
+            Value::Int(n) => *n,
+            _ => return None,
+        };
+        // skip the elements of B2 that are smaller than d
+        while j < d2.len() {
+            match d2[j].cmp_val(d) {
+                Ok(std::cmp::Ordering::Less) => j += 1,
+                Ok(_) => break,
+                Err(_) => return None,
+            }
+        }
+        if j < d2.len() {
+            match d2[j].cmp_val(d) {
+                Ok(std::cmp::Ordering::Equal) => match &v2[j] {
+                    Value::Int(m) => n -= *m,
+                    _ => return None,
+                },
+                Ok(_) => {}
+                Err(_) => return None,
+            }
+        }
+        if n > 0 {
+            dom.push(d.clone());
+            vals.push(Value::Int(n));
+        }
+    }
+    Some(Value::fcn_sorted(dom, vals))
+}
+
 fn bags_cup(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let b1 = arg(ev, a, 0, s0, s1)?;
     let b2 = arg(ev, a, 1, s0, s1)?;
@@ -1465,6 +1605,11 @@ fn bags_cup(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> 
     }
     if !is_a_bag_val(&b2)? {
         return module_arg_err("second", "(+)", "bag", &b2);
+    }
+    if let (Value::Fcn(f1), Value::Fcn(f2)) = (&b1, &b2) {
+        if let Some(r) = merge_bags(f1, f2)? {
+            return Ok(r);
+        }
     }
     let (d1, v1) = bag_parts(&b1)?.unwrap();
     let (d2, v2) = bag_parts(&b2)?.unwrap();
@@ -1493,6 +1638,11 @@ fn bags_cup(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> 
 fn bags_diff(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let b1 = arg(ev, a, 0, s0, s1)?;
     let b2 = arg(ev, a, 1, s0, s1)?;
+    if let (Value::Fcn(f1), Value::Fcn(f2)) = (&b1, &b2) {
+        if let Some(r) = subtract_bags(f1, f2) {
+            return Ok(r);
+        }
+    }
     let (d1, v1) = match bag_parts(&b1)? {
         Some(p) => p,
         None => return module_arg_err("first", "(-)", "bag", &b1),
@@ -1580,6 +1730,25 @@ fn dyadic_reduce(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Va
 
 // ---------------------------------------------------------------------------------------------- lookup
 
+/// value-level entry points of hot, pure natives with one or two ordinary arguments: called without building `Slot`s
+#[derive(Clone, Copy)]
+pub enum Fast {
+    None,
+    F1(fn(&Value) -> R<Value>),
+    F2(fn(&Value, &Value) -> R<Value>),
+}
+
+pub fn lookup_fast(module: &str, name: &str) -> Fast {
+    match (module, name) {
+        ("Sequences", "Len") => Fast::F1(len1),
+        ("Sequences", "Head") => Fast::F1(head1),
+        ("Sequences", "Tail") => Fast::F1(tail1),
+        ("Sequences", "Append") => Fast::F2(append2),
+        ("FiniteSets", "Cardinality") => Fast::F1(cardinality1),
+        _ => Fast::None,
+    }
+}
+
 pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
     let f: N = match (module, name) {
         ("Naturals", "+") => plus,
@@ -1651,4 +1820,53 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         _ => return None,
     };
     Some(f)
+}
+
+#[cfg(test)]
+mod fast_tests {
+    use super::*;
+
+    fn ints(v: &[i32]) -> Value {
+        Value::tuple(v.iter().map(|&i| Value::Int(i)).collect())
+    }
+
+    #[test]
+    fn sequence_natives_without_copies() {
+        let s = ints(&[7, 8, 9]);
+        assert_eq!(len1(&s).unwrap().to_tla(), "3");
+        assert_eq!(len1(&Value::str("abc")).unwrap().to_tla(), "3");
+        assert_eq!(head1(&s).unwrap().to_tla(), "7");
+        assert_eq!(tail1(&s).unwrap().to_tla(), "<<8, 9>>");
+        assert_eq!(append2(&s, &Value::Int(1)).unwrap().to_tla(), "<<7, 8, 9, 1>>");
+        // the argument is shared, not modified
+        assert_eq!(s.to_tla(), "<<7, 8, 9>>");
+        assert!(head1(&ints(&[])).is_err());
+        assert!(tail1(&ints(&[])).is_err());
+        assert!(len1(&Value::Int(1)).is_err());
+        assert_eq!(cardinality1(&Value::Interval(1, 4)).unwrap().to_tla(), "4");
+        assert_eq!(cardinality1(&Value::set_from(vec![Value::Int(1), Value::Int(1)]).unwrap()).unwrap().to_tla(), "1");
+        assert!(cardinality1(&Value::Int(3)).is_err());
+    }
+
+    fn bag(pairs: &[(i32, i32)]) -> Value {
+        Value::fcn_from(pairs.iter().map(|&(k, n)| (Value::Int(k + 10), Value::Int(n))).collect()).unwrap()
+    }
+
+    #[test]
+    fn bag_union_and_difference_by_merging_sorted_domains() {
+        let (a, b) = (bag(&[(1, 2), (3, 1)]), bag(&[(1, 1), (2, 5)]));
+        let (Value::Fcn(fa), Value::Fcn(fb)) = (&a, &b) else { panic!("bags are functions") };
+        // (1 :> 3) @@ (2 :> 5) @@ (3 :> 1), keys shifted by 10
+        assert_eq!(merge_bags(fa, fb).unwrap().unwrap().to_tla(), bag(&[(1, 3), (2, 5), (3, 1)]).to_tla());
+        // elements whose count drops to 0 disappear, absent elements are ignored
+        assert_eq!(subtract_bags(fa, fb).unwrap().to_tla(), bag(&[(1, 1), (3, 1)]).to_tla());
+        assert_eq!(subtract_bags(fb, fa).unwrap().to_tla(), bag(&[(2, 5)]).to_tla());
+        // x (-) x is the empty bag (the empty function is the empty tuple)
+        assert_eq!(subtract_bags(fa, fa).unwrap().to_tla(), "<<>>");
+        // elements of different kinds cannot be compared: the caller falls back to the general code
+        let mixed = Value::fcn_from(vec![(Value::str("s"), Value::Int(1))]).unwrap();
+        let Value::Fcn(fm) = &mixed else { panic!() };
+        assert!(merge_bags(fa, fm).unwrap().is_none());
+        assert!(subtract_bags(fa, fm).is_none());
+    }
 }

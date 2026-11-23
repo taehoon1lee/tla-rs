@@ -20,6 +20,61 @@ pub enum Mode {
 pub type Buf = RefCell<Vec<Value>>;
 pub type Cont<'a> = dyn FnMut() -> R<()> + 'a;
 
+/// a state-level expression that reads state variables, parameters and constants only (no primes, no by-name arguments)
+fn plain_test_expr(e: &Ex) -> bool {
+    match &**e {
+        Node::Const(_) | Node::Var(_) | Node::Local(_) => true,
+        Node::Eq(a, b) | Node::Neq(a, b) | Node::In(a, b) | Node::NotIn(a, b) | Node::FcnApply(a, b) | Node::Implies(a, b) | Node::Equiv(a, b) => {
+            plain_test_expr(a) && plain_test_expr(b)
+        }
+        Node::Arith(_, a, b, _) => plain_test_expr(a) && plain_test_expr(b),
+        Node::Not(x) | Node::Record(x, _) => plain_test_expr(x),
+        Node::And(es) | Node::Or(es) | Node::Tuple(es) | Node::SetEnum(es) => es.iter().all(plain_test_expr),
+        Node::Bi(b, es) => {
+            !matches!(
+                b,
+                tla_sany::sem::B::Prime
+                    | tla_sany::sem::B::Enabled
+                    | tla_sany::sem::B::Unchanged
+                    | tla_sany::sem::B::LeadsTo
+                    | tla_sany::sem::B::Always
+                    | tla_sany::sem::B::Eventually
+                    | tla_sany::sem::B::Cdot
+                    | tla_sany::sem::B::TemporalImplies
+            ) && es.iter().all(plain_test_expr)
+        }
+        // a call of a native or of a state-level definition with plain arguments
+        Node::Call(d, args, _) => {
+            (d.native.get().is_some() || d.level <= tla_sany::sem::Level::State)
+                && args.iter().all(|a| match a {
+                    Arg::Val(x, false) => plain_test_expr(x),
+                    _ => false,
+                })
+        }
+        _ => false,
+    }
+}
+
+/// `Some(test)` when the body of `d` is `/\ test /\ ...` and `test` is a comparison / membership test over plain
+/// state-level operands: it can be evaluated right after the frame of a call is set up (see `enum_def_call`)
+fn first_test(d: &Rc<CompiledDef>) -> Option<Ex> {
+    d.first_test
+        .get_or_init(|| {
+            let body = d.body.borrow().clone()?;
+            match &*body {
+                Node::And(items) if items.len() >= 2 => {
+                    let t = &items[0];
+                    match &**t {
+                        Node::Eq(..) | Node::Neq(..) | Node::In(..) | Node::NotIn(..) if plain_test_expr(t) => Some(t.clone()),
+                        _ => None,
+                    }
+                }
+                _ => None,
+            }
+        })
+        .clone()
+}
+
 fn body_loc(d: &tla_sany::sem::OpDef) -> tla_sany::ast::Loc {
     match d.body() {
         Some(b) => b.loc,
@@ -897,13 +952,57 @@ to argument {}, which is not in the domain of the function.",
         let r = if self.depth.get() > 3000 {
             fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
         } else {
-            self.enum_action(&body, mode, s0, buf, &mut || {
-                // the rest of the caller's formula runs in the caller's frame
-                self.base.set(caller_base);
-                let r = k();
-                self.base.set(callee_base);
-                r
-            })
+            // A body `/\ test /\ rest` whose first conjunct is a plain state-level test of plain-value arguments is decided
+            // right here (the action machinery would evaluate that test the same way): most calls of a disjunction of
+            // guarded actions fail on it.
+            let mut start = 0usize;
+            let mut rejected = false;
+            let mut failure: Option<Box<TlcErr>> = None;
+            if mode == Mode::Next && !self.splitting.get() && !self.eval_only.get() {
+                if let Some(t) = first_test(d) {
+                    let by_name = self.stack.borrow()[nb..nb + args.len()].iter().any(|s| matches!(s, Slot::Lazy(_)));
+                    if !by_name {
+                        let res = {
+                            let b = buf.borrow();
+                            self.eval(&t, s0, &b)
+                        };
+                        match res {
+                            Ok(Value::Bool(true)) => start = 1,
+                            Ok(Value::Bool(false)) => rejected = true,
+                            Ok(_) => {}
+                            Err(e) => failure = Some(e),
+                        }
+                    }
+                }
+            }
+            if let Some(e) = failure {
+                Err(e)
+            } else if rejected {
+                Ok(())
+            } else if start == 1 {
+                match &*body {
+                    Node::And(items) => {
+                        let was = self.splitting.replace(false);
+                        let r = self.enum_conj(items, 1, mode, s0, buf, &mut || {
+                            self.base.set(caller_base);
+                            let r = k();
+                            self.base.set(callee_base);
+                            r
+                        });
+                        self.splitting.set(was);
+                        r
+                    }
+                    _ => unreachable!("first_test is only set for conjunctions"),
+                }
+            } else {
+                self.enum_action(&body, mode, s0, buf, &mut || {
+                    // the rest of the caller's formula runs in the caller's frame
+                    self.base.set(caller_base);
+                    let r = k();
+                    self.base.set(callee_base);
+                    r
+                })
+            }
         };
         self.depth.set(self.depth.get() - 1);
         self.base.set(caller_base);

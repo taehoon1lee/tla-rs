@@ -168,3 +168,19 @@
 - Frame growth uses `eval::grow_unset` (a tag-store loop) instead of `Vec::resize` (~1-2 %). A hand-written `Clone for Value` with an
   inline scalar fast path was SLOWER (code bloat): keep the derive.
 - Run the gate with `-j 4`: `-j8` plus a background build/test made the machine run out of memory once.
+
+## Perf pass 5 (2026-11-23): what helped and what did not
+- Helped: `Len/Head/Tail/Append/Cardinality` without copying the sequence (`as_seq_rc`) + value-level `natives::Fast` entry points called
+  from `call_def` (no `Slot`s / pool); `x = Const`, `x \in Var/Const` compared in place; `enum_def_call` decides a body `/\ test /\ rest`
+  whose first conjunct is a plain state-level `=,#,\in,\notin` test right after the frame is set up (`actions::first_test`; only Mode::Next,
+  not while splitting labels, not with by-name arguments): DijkstraMutex 3-proc benchmark -16 %, MCLamportMutex -11 %;
+  record constructors share one sorted domain `Rc` per field set (`Node::RcdCons(fields, dom, pos)`: no sort/alloc, `ptr_eq` fast paths hit);
+  `run_frame_in` (no `Captured` with two `Rc::new(vec![])` per forced by-name argument); `\oplus`/`\ominus` merge the sorted domains
+  (`merge_bags/subtract_bags`, fall back to the general code when elements are incomparable);
+  small function constructors whose body is pure (`deps::is_pure_state_expr`) are computed right away instead of capturing the frame and
+  both states for a lazy `FcnLambdaValue` (EWD998PCal -12 %): if any element fails the lazy function is built as before.
+- Did NOT help (reverted): hand-written `Clone for Value` with inline scalar fast path (everywhere or only at the 3 leaf reads in `Ev::eval`).
+- Java forces a function value more eagerly than we do in some places (`DOMAIN f = 0..2` with `f == [i \in 0..2 |-> 10 \div i]` raises
+  the division error in Java, we stay lazy). Pre-existing difference, not changed.
+- Tools: `tools/cpu_dir.py exe1,exe2 -n N <dir> Spec.tla Spec.cfg` (best-of-N CPU time on a scratch model), `tools/run_id.py <exe> <id> <secs>`
+  (corpus model, stderr passed through), `tools/profnode_t.py`. Python on Windows reads files as cp949: pass `encoding='utf-8'` (and keep CRLF).

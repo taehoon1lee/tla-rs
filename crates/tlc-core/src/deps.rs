@@ -31,6 +31,13 @@ pub fn state_reads(d: &Rc<CompiledDef>) -> Option<Vec<u32>> {
     Some(w.vars)
 }
 
+/// the expression reads state variables, constants and frame slots only: no primed variables, no impure natives, no
+/// operator parameters, no INSTANCE substitutions (so evaluating it earlier or later in the same states gives the same value)
+pub fn is_pure_state_expr(e: &Ex) -> bool {
+    let mut w = Walk { vars: Vec::new(), seen: HashSet::new(), steps: 0 };
+    w.node(e)
+}
+
 fn bi_pure(b: B) -> bool {
     !matches!(b, B::Prime | B::Enabled | B::Unchanged | B::LeadsTo | B::Always | B::Eventually | B::Cdot | B::TemporalImplies)
 }
@@ -98,8 +105,8 @@ impl Walk {
             Node::Record(x, _) => self.node(x),
             Node::SubsetOf { bound, pred, .. } => self.node(&bound.set) && self.node(pred),
             Node::SetOfAll(x, bs) => self.node(x) && self.bounds(bs),
-            Node::FcnCons(bs, body, _) => self.bounds(bs) && self.node(body),
-            Node::RcdCons(fs) | Node::SetOfRcds(fs) => fs.iter().all(|(_, x)| self.node(x)),
+            Node::FcnCons(bs, body, ..) => self.bounds(bs) && self.node(body),
+            Node::RcdCons(fs, ..) | Node::SetOfRcds(fs) => fs.iter().all(|(_, x)| self.node(x)),
             Node::Except(x, specs) => {
                 self.node(x)
                     && specs.iter().all(|sp| {
@@ -170,5 +177,21 @@ mod tests {
         assert!(reads(n(Node::Unsupported("x".into()))).is_none());
         // a pure builtin around a variable is fine
         assert_eq!(reads(n(Node::Bi(B::Domain, vec![n(Node::Var(1))]))), Some(vec![1]));
+    }
+}
+
+#[cfg(test)]
+mod pure_tests {
+    use super::*;
+    use crate::value::Value;
+
+    #[test]
+    fn pure_state_expressions() {
+        let c = |v: i32| Rc::new(Node::Const(Value::Int(v)));
+        // x + 1 = Local(0) is pure; anything primed is not
+        let pure = Rc::new(Node::Eq(Rc::new(Node::Var(0)), Rc::new(Node::Local(0))));
+        assert!(is_pure_state_expr(&pure));
+        assert!(!is_pure_state_expr(&Rc::new(Node::Eq(Rc::new(Node::PrimedVar(0)), c(1)))));
+        assert!(!is_pure_state_expr(&Rc::new(Node::Fail("x".into()))));
     }
 }

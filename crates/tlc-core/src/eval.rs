@@ -289,15 +289,20 @@ impl Ev {
     }
 
     pub fn run_captured_in(&self, cap: &Captured, assigns: &[(u32, Slot)], code: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
+        self.run_frame_in(&cap.frame, &cap.substs, assigns, code, s0, s1)
+    }
+
+    /// evaluate `code` in a copy of `frame` under the substitutions `substs`, in the states `s0`, `s1`
+    pub fn run_frame_in(&self, frame: &[Slot], substs: &Substs, assigns: &[(u32, Slot)], code: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
         let old_base = self.base.get();
         let nb = {
             let mut st = self.stack.borrow_mut();
             let nb = st.len();
-            st.extend(cap.frame.iter().cloned());
+            st.extend(frame.iter().cloned());
             nb
         };
         self.base.set(nb);
-        let saved_substs = std::mem::replace(&mut *self.substs.borrow_mut(), cap.substs.clone());
+        let saved_substs = std::mem::replace(&mut *self.substs.borrow_mut(), substs.clone());
         for (i, sl) in assigns {
             let mut st = self.stack.borrow_mut();
             let idx = nb + *i as usize;
@@ -421,13 +426,12 @@ impl Ev {
                     }
                     _ => {}
                 }
-                let cap = Captured { frame: l.frame.clone(), substs: l.substs.clone(), s0: Rc::new(vec![]), s1: Rc::new(vec![]) };
                 if l.cacheable {
                     let (p, n, ep) = (s0.as_ptr() as usize, s0.len(), self.epoch.get());
                     if let Some(c) = l.cache.borrow().iter().find(|c| c.s0_ptr == p && c.s0_len == n && c.epoch == ep) {
                         return Ok(c.val.clone());
                     }
-                    let v = self.run_captured_in(&cap, &[], &l.code, s0, s1)?;
+                    let v = self.run_frame_in(&l.frame, &l.substs, &[], &l.code, s0, s1)?;
                     let mut cc = l.cache.borrow_mut();
                     if cc.len() >= 2 {
                         cc.remove(0);
@@ -435,7 +439,7 @@ impl Ev {
                     cc.push(LazyCache { s0_ptr: p, s0_len: n, epoch: ep, val: v.clone(), substs: Substs::default() });
                     return Ok(v);
                 }
-                self.run_captured_in(&cap, &[], &l.code, s0, s1)
+                self.run_frame_in(&l.frame, &l.substs, &[], &l.code, s0, s1)
             }
             Slot::Op(_) => fail("An operator was used where a value was expected."),
             Slot::Memo(m) => Ok(m.v.clone()),
@@ -596,6 +600,23 @@ impl Ev {
             return Ok(v);
         }
         if let Some(f) = d.native.get() {
+            // hot pure natives take their (ordinary, state-level) arguments as plain values
+            match d.fast.get() {
+                crate::natives::Fast::F1(g) if args.len() == 1 => {
+                    if let Arg::Val(e, false) = &args[0] {
+                        let x = self.eval(e, s0, s1)?;
+                        return g(&x);
+                    }
+                }
+                crate::natives::Fast::F2(g) if args.len() == 2 => {
+                    if let (Arg::Val(e0, false), Arg::Val(e1, false)) = (&args[0], &args[1]) {
+                        let x = self.eval(e0, s0, s1)?;
+                        let y = self.eval(e1, s0, s1)?;
+                        return g(&x, &y);
+                    }
+                }
+                _ => {}
+            }
             let mut slots: Vec<Slot> = self.slot_pool.borrow_mut().pop().unwrap_or_default();
             for a in args {
                 match self.eval_arg(a, s0, s1) {
@@ -948,21 +969,51 @@ impl Ev {
             }
             Node::Eq(a, b) => {
                 let x = self.eval(a, s0, s1)?;
+                // a constant right-hand side is compared in place (no clone / drop of the constant)
+                if let Node::Const(c) = &**b {
+                    return Ok(Value::Bool(x.eq_val(c)?));
+                }
                 let y = self.eval(b, s0, s1)?;
                 Ok(Value::Bool(x.eq_val(&y)?))
             }
             Node::Neq(a, b) => {
                 let x = self.eval(a, s0, s1)?;
+                if let Node::Const(c) = &**b {
+                    return Ok(Value::Bool(!x.eq_val(c)?));
+                }
                 let y = self.eval(b, s0, s1)?;
                 Ok(Value::Bool(!x.eq_val(&y)?))
             }
             Node::In(a, b) => {
                 let x = self.eval(a, s0, s1)?;
+                // a constant or a state variable as the set is used in place
+                match &**b {
+                    Node::Const(c) => return Ok(Value::Bool(c.member(&x)?)),
+                    Node::Var(i) => {
+                        if let Some(v) = s0.get(*i as usize) {
+                            if !matches!(v, Value::Undef) {
+                                return Ok(Value::Bool(v.member(&x)?));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
                 let y = self.eval(b, s0, s1)?;
                 Ok(Value::Bool(y.member(&x)?))
             }
             Node::NotIn(a, b) => {
                 let x = self.eval(a, s0, s1)?;
+                match &**b {
+                    Node::Const(c) => return Ok(Value::Bool(!c.member(&x)?)),
+                    Node::Var(i) => {
+                        if let Some(v) = s0.get(*i as usize) {
+                            if !matches!(v, Value::Undef) {
+                                return Ok(Value::Bool(!v.member(&x)?));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
                 let y = self.eval(b, s0, s1)?;
                 Ok(Value::Bool(!y.member(&x)?))
             }
@@ -1155,12 +1206,39 @@ impl Ev {
                 })?;
                 Value::set_from(out)
             }
-            Node::FcnCons(bounds, body, self_slot) => {
+            Node::FcnCons(bounds, body, self_slot, pure_body) => {
                 if bounds.len() == 1 {
                     let b = &bounds[0];
                     let dom = self.eval(&b.set, s0, s1)?;
                     if !dom.is_set_like() {
                         return fail(format!("Attempted to construct a function over the non-set value\n{}", dom.to_tla()));
+                    }
+                    // A function over a small domain whose body only reads the states is computed right away instead of
+                    // capturing the frame and both states for a lazy `FcnLambdaValue` (the value is the same; if the body
+                    // fails for some element the lazy function is built as usual, so errors still show up when it is used).
+                    if self_slot.is_none() && !b.tuple && b.nvars == 1 && *pure_body.get_or_init(|| crate::deps::is_pure_state_expr(body)) {
+                        let elems: Option<Rc<Vec<Value>>> = match &dom {
+                            Value::Set(v) if v.len() <= 16 => Some(v.clone()),
+                            Value::Interval(lo, hi) if (*hi as i64) - (*lo as i64) < 16 => Some(Rc::new((*lo..=*hi).map(Value::Int).collect())),
+                            _ => None,
+                        };
+                        if let Some(elems) = elems {
+                            let mut vals = Vec::with_capacity(elems.len());
+                            let mut complete = true;
+                            for el in elems.iter() {
+                                self.bind_bound(b, el)?;
+                                match self.eval(body, s0, s1) {
+                                    Ok(v) => vals.push(v),
+                                    Err(_) => {
+                                        complete = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            if complete {
+                                return Ok(Value::fcn_sorted(elems.to_vec(), vals));
+                            }
+                        }
                     }
                     let cap = self.capture(s0, s1);
                     let ev = self.rc();
@@ -1248,12 +1326,16 @@ impl Ev {
                 }
                 Ok(Value::SetOfFcns(Rc::new((d, r))))
             }
-            Node::RcdCons(fields) => {
-                let mut v = Vec::with_capacity(fields.len());
-                for (n, x) in fields {
-                    v.push((*n, self.eval(x, s0, s1)?));
+            Node::RcdCons(fields, dom, pos) => {
+                // the fields are evaluated in the order written; the values are stored in the order of the shared domain
+                if fields.is_empty() {
+                    return Ok(Value::record(vec![]));
                 }
-                Ok(Value::record(v))
+                let mut vals = vec![Value::Undef; fields.len()];
+                for (i, (_, x)) in fields.iter().enumerate() {
+                    vals[pos[i]] = self.eval(x, s0, s1)?;
+                }
+                Ok(Value::Fcn(Rc::new(Fcn::new(dom.clone(), vals))))
             }
             Node::SetOfRcds(fields) => {
                 let mut v = Vec::with_capacity(fields.len());

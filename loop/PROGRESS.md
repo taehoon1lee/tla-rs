@@ -45,3 +45,8 @@ next: ex/ perf borderline (MCLamportMutex ~1.12x, RandomGraphs, PCal), heavy ex/
 sequential ex/: all 150 + 13 heavy within 1.1x of Java (heavy x0.13-1.10); MCInnerSerial 523 s -> 2 s (Java 495 s), MisraReachability RandomGraphs 1.5 -> 0.2 s, AllGraphs 5.2 -> 1.2 s.
 full corpus: verdict 304/364 (unchanged), trace 250, perf 300-301, time x0.53 of Java (was x0.70). Gate: no regressions.
 next: remaining ex/ >= 1.0x of Java: DijkstraMutex 1.10, MCLamportMutex 1.08, EWD998PCal 1.06, KVS Small 1.03 (flat interpreter profile: eval_inner, Value clone/drop, action enumeration); tt/ failures.
+
+## 2026-11-23 perf pass 5: sequences w/o copies, first-test rejection, shared record domains, eager small function constructors (Sonnet 5.5)
+CPU (sequential, vs previous commit): MCLamportMutex 14.2 -> 12.6 s (Java 13.3), EWD998PCal 36.2 -> 31.7 s (Java 34.8), DijkstraMutex 3-proc bench -16 %.
+full corpus: verdict 304/364, trace 250, perf 301, gate: no regressions.
+next: confirm DijkstraMutex (4 proc, Java 430 s) sequentially; remaining ex/ ratios.

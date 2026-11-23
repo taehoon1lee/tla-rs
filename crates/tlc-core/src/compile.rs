@@ -33,6 +33,8 @@ pub struct Compiler {
     /// slot of the function being defined (recursive function definitions)
     pending_self_slot: Option<u32>,
     primed_memo: HashMap<(usize, usize), bool>,
+    /// sorted record domains, shared by every record constructor with the same fields
+    rcd_doms: HashMap<Vec<u32>, Rc<Vec<Value>>>,
     /// node address -> source info (action labels)
     pub node_info: HashMap<usize, NodeInfo>,
     /// module of the definition / top expression being compiled
@@ -88,6 +90,7 @@ impl Compiler {
             let_depth: 0,
             pending_self_slot: None,
             primed_memo: HashMap::new(),
+            rcd_doms: HashMap::new(),
             node_info: HashMap::new(),
             cur_module: std::sync::Arc::from(""),
         }
@@ -115,6 +118,8 @@ impl Compiler {
             nslots: Cell::new(params.len()),
             body: RefCell::new(None),
             native: Cell::new(None),
+            fast: Cell::new(crate::natives::Fast::None),
+            first_test: std::cell::OnceCell::new(),
             level: d.level.get(),
             loc: d.loc,
             cache: RefCell::new(None),
@@ -141,6 +146,7 @@ impl Compiler {
         let orig = d.original();
         if let Some(f) = (self.natives)(&orig.module, &orig.name) {
             cd.native.set(Some(f));
+            cd.fast.set(crate::natives::lookup_fast(&orig.module, &orig.name));
             return cd;
         }
         if let Some(body) = d.body() {
@@ -540,7 +546,7 @@ impl Compiler {
                 let self_slot = self.pending_self_slot.take();
                 let bs: Vec<BoundIr> = self.bounds_flat(groups);
                 let b = self.expr(body);
-                Rc::new(Node::FcnCons(bs, b, self_slot))
+                Rc::new(Node::FcnCons(bs, b, self_slot, std::cell::OnceCell::new()))
             }
             EKind::SetOfFcns(a, b) => {
                 let ae = self.expr(a);
@@ -549,7 +555,15 @@ impl Compiler {
             }
             EKind::RcdCons(fields) => {
                 let v: Vec<(u32, Ex)> = fields.iter().map(|(n, x)| (intern::intern(n), self.expr(x))).collect();
-                Rc::new(Node::RcdCons(v))
+                let mut order: Vec<usize> = (0..v.len()).collect();
+                order.sort_by_key(|&i| v[i].0);
+                let mut pos = vec![0usize; v.len()];
+                for (rank, &i) in order.iter().enumerate() {
+                    pos[i] = rank;
+                }
+                let key: Vec<u32> = order.iter().map(|&i| v[i].0).collect();
+                let dom = self.rcd_doms.entry(key.clone()).or_insert_with(|| Rc::new(key.iter().map(|&id| Value::Str(id)).collect())).clone();
+                Rc::new(Node::RcdCons(v, dom, pos))
             }
             EKind::SetOfRcds(fields) => {
                 let v: Vec<(u32, Ex)> = fields.iter().map(|(n, x)| (intern::intern(n), self.expr(x))).collect();
