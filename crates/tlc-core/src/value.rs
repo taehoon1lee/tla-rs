@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::Write as _;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering as AtomicOrdering};
 use tla_sany::intern;
 
 // ---------------------------------------------------------------------------------------------- errors
@@ -51,39 +52,38 @@ impl TlcErr {
 pub type R<T> = Result<T, Box<TlcErr>>;
 
 // ---- the order of model values (Java: `ModelValue.index`, the order in which they were created)
-thread_local! {
-    static MODEL_IDX: std::cell::RefCell<(Vec<u32>, u32)> = const { std::cell::RefCell::new((Vec::new(), 0)) };
-}
+// Per-id tables live in statics (zero-initialized .bss, touched lazily), not in `thread_local!`: on windows-gnu every thread-local
+// access runs a destructor-registration guard (about 10 ns), and these are read by the value comparison.
+const ID_TABLE: usize = 1 << 20;
+/// per interned name: 0 = not a registered model value, otherwise creation index + 1
+static MODEL_IDX: [AtomicU32; ID_TABLE] = [const { AtomicU32::new(0) }; ID_TABLE];
+static MODEL_NEXT: AtomicU32 = AtomicU32::new(0);
 
 /// a model value is created (the first mention in the configuration file): it follows the model values created before it
 pub fn register_model(id: u32) {
-    MODEL_IDX.with(|m| {
-        let mut m = m.borrow_mut();
-        let i = id as usize;
-        if m.0.len() <= i {
-            m.0.resize(i + 1, u32::MAX);
+    if let Some(slot) = MODEL_IDX.get(id as usize) {
+        if slot.load(AtomicOrdering::Relaxed) == 0 {
+            slot.store(MODEL_NEXT.fetch_add(1, AtomicOrdering::Relaxed) + 1, AtomicOrdering::Relaxed);
         }
-        if m.0[i] == u32::MAX {
-            m.0[i] = m.1;
-            m.1 += 1;
-        }
-    });
+    }
 }
 
+#[inline]
 fn model_cmp(a: u32, b: u32) -> Ordering {
-    MODEL_IDX.with(|m| {
-        let m = m.borrow();
-        match (m.0.get(a as usize), m.0.get(b as usize)) {
-            (Some(&x), Some(&y)) if x != u32::MAX && y != u32::MAX => x.cmp(&y),
-            _ => a.cmp(&b),
+    if let (Some(x), Some(y)) = (MODEL_IDX.get(a as usize), MODEL_IDX.get(b as usize)) {
+        let (x, y) = (x.load(AtomicOrdering::Relaxed), y.load(AtomicOrdering::Relaxed));
+        if x != 0 && y != 0 {
+            return x.cmp(&y);
         }
-    })
+    }
+    a.cmp(&b)
 }
 
 // ---- sources of values (Java: `Value.getSource`, set by `Tool.setSource` for the lazily built sets)
-thread_local! {
-    static SRC_RING: std::cell::RefCell<Vec<(usize, usize)>> = std::cell::RefCell::new(Vec::new());
-}
+const SRC_N: usize = 64;
+/// ring of the last `SRC_N` lazy sets (payload address, node address); an empty slot has payload 0
+static SRC_RING: [(AtomicUsize, AtomicUsize); SRC_N] = [const { (AtomicUsize::new(0), AtomicUsize::new(0)) }; SRC_N];
+static SRC_POS: AtomicUsize = AtomicUsize::new(0);
 
 /// the address of the payload of a lazily built set (identifies the value while it is alive)
 fn source_payload(v: &Value) -> Option<usize> {
@@ -99,18 +99,18 @@ fn source_payload(v: &Value) -> Option<usize> {
 /// remember the node that built `v` (the last 64 lazy sets: a failure shows the sets that were just built)
 pub fn note_source(v: &Value, node: usize) {
     if let Some(p) = source_payload(v) {
-        SRC_RING.with(|r| {
-            let mut r = r.borrow_mut();
-            if r.len() >= 64 {
-                r.remove(0);
-            }
-            r.push((p, node));
-        });
+        let i = SRC_POS.fetch_add(1, AtomicOrdering::Relaxed) % SRC_N;
+        SRC_RING[i].0.store(p, AtomicOrdering::Relaxed);
+        SRC_RING[i].1.store(node, AtomicOrdering::Relaxed);
     }
 }
 
 fn lookup_source(p: usize) -> Option<usize> {
-    SRC_RING.with(|r| r.borrow().iter().rev().find(|(q, _)| *q == p).map(|(_, n)| *n))
+    let pos = SRC_POS.load(AtomicOrdering::Relaxed);
+    (0..SRC_N.min(pos)).find_map(|k| {
+        let e = &SRC_RING[(pos - 1 - k) % SRC_N];
+        (e.0.load(AtomicOrdering::Relaxed) == p).then(|| e.1.load(AtomicOrdering::Relaxed))
+    })
 }
 
 pub fn fail_code<T>(code: i32, msg: impl Into<String>) -> R<T> {
@@ -2393,12 +2393,9 @@ fn std_infinite_rank(v: &Value) -> u8 {
 /// Java: `ModelValue` constructor: a model value whose name has more than two characters and `_` as its second one is
 /// typed by its first character (`A_x` has type `A`); any other model value is untyped.
 pub fn model_type(id: u32) -> Option<char> {
-    thread_local! {
-        /// per interned name: 0 = not computed, 1 = untyped, otherwise the type character + 2
-        static TYPES: RefCell<Vec<u32>> = const { RefCell::new(Vec::new()) };
-    }
-    let i = id as usize;
-    let cached = TYPES.with(|t| t.borrow().get(i).copied().unwrap_or(0));
+    /// per interned name: 0 = not computed, 1 = untyped, otherwise the type character + 2
+    static TYPES: [AtomicU32; ID_TABLE] = [const { AtomicU32::new(0) }; ID_TABLE];
+    let cached = TYPES.get(id as usize).map_or(0, |t| t.load(AtomicOrdering::Relaxed));
     let code = if cached != 0 {
         cached
     } else {
@@ -2408,13 +2405,9 @@ pub fn model_type(id: u32) -> Option<char> {
             Some(first) if name.chars().count() > 2 && cs.next() == Some('_') => first as u32 + 2,
             _ => 1,
         };
-        TYPES.with(|t| {
-            let mut t = t.borrow_mut();
-            if t.len() <= i {
-                t.resize(i + 1, 0);
-            }
-            t[i] = code;
-        });
+        if let Some(t) = TYPES.get(id as usize) {
+            t.store(code, AtomicOrdering::Relaxed);
+        }
         code
     };
     if code == 1 {
@@ -2428,30 +2421,27 @@ pub fn model_type(id: u32) -> Option<char> {
 /// char (`(c ^ fp) & 0xFF`), so strings of the same length whose chars differ only in the high byte ("é" and
 /// "ǩ") have equal fingerprints.  The class is computed once per interned string.
 fn str_fp_class(id: u32) -> u64 {
-    thread_local! {
-        static CLASSES: RefCell<Vec<u64>> = const { RefCell::new(Vec::new()) };
+    static CLASSES: [AtomicU64; ID_TABLE] = [const { AtomicU64::new(0) }; ID_TABLE];
+    let slot = CLASSES.get(id as usize);
+    if let Some(s) = slot {
+        let c = s.load(AtomicOrdering::Relaxed);
+        if c != 0 {
+            return c;
+        }
     }
-    CLASSES.with(|c| {
-        let mut c = c.borrow_mut();
-        let i = id as usize;
-        if i < c.len() && c[i] != 0 {
-            return c[i];
-        }
-        let name = intern::name_of(id);
-        let mut h = Hasher::new();
-        let mut n = 0u64;
-        for u in name.encode_utf16() {
-            h.write_u64((u & 0xFF) as u64);
-            n += 1;
-        }
-        h.write_u64(n);
-        let k = h.finish() | 1;
-        if c.len() <= i {
-            c.resize(i + 1, 0);
-        }
-        c[i] = k;
-        k
-    })
+    let name = intern::name_of(id);
+    let mut h = Hasher::new();
+    let mut n = 0u64;
+    for u in name.encode_utf16() {
+        h.write_u64((u & 0xFF) as u64);
+        n += 1;
+    }
+    h.write_u64(n);
+    let k = h.finish() | 1;
+    if let Some(s) = slot {
+        s.store(k, AtomicOrdering::Relaxed);
+    }
+    k
 }
 
 /// 64-bit hasher for fingerprints (FP64 stand-in; collisions are as unlikely as with TLC's FP64)

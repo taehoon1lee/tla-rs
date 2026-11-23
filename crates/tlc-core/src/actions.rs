@@ -262,9 +262,12 @@ impl Ev {
     /// enumerate the ways of satisfying `ex`; for each, call `k` with the assignments in `buf`
     pub fn enum_action(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
         // Java: `CallStackTool.getInitStates` / `getNextStates`: the node being decomposed is on the stack of an error that leaves it
+        if !self.tracking.get() {
+            return self.enum_action_frames(ex, mode, s0, buf, k);
+        }
         match self.enum_action_frames(ex, mode, s0, buf, k) {
             Err(mut e) => {
-                e.frames.push(Rc::as_ptr(ex) as usize);
+                crate::eval::push_frame(&mut e, Rc::as_ptr(ex) as usize);
                 Err(e)
             }
             ok => ok,
@@ -433,10 +436,14 @@ impl Ev {
                 let mut vars = vec![];
                 if self.unchanged_vars(inner, &mut vars) {
                     // Java: `CallStackTool.processUnchanged`: the operand is on the stack while the rest of the action is enumerated
-                    return self.assign_unchanged(&vars, 0, s0, buf, k).map_err(|mut e| {
-                        e.frames.push(Rc::as_ptr(inner) as usize);
-                        e
-                    });
+                    let r = self.assign_unchanged(&vars, 0, s0, buf, k);
+                    return match r {
+                        Err(mut e) if self.tracking.get() => {
+                            crate::eval::push_frame(&mut e, Rc::as_ptr(inner) as usize);
+                            Err(e)
+                        }
+                        r => r,
+                    };
                 }
                 // inside ENABLED: INSTANCE-substituted declarations are bound by name (Java: `enabledUnchanged`)
                 if self.enabled_depth.get() > 0 {

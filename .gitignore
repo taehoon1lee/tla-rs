@@ -17,3 +17,5 @@ __pycache__/
 
 # build output of an alternate target dir (was committed by mistake once)
 /target-b
+/target-b2
+/target-profold

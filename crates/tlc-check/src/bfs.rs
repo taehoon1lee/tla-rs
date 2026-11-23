@@ -566,7 +566,10 @@ The postcondition evaluated to the non-boolean value
         // Java: the replay with the call-stack tool prints the nested expressions the failure passed
         let stack = match self.replay_init_error(st) {
             Some(e2) => self.setup.ev.call_stack_text(&e2),
-            None => self.setup.ev.call_stack_text(e),
+            None => match self.setup.ev.tracked_quiet(|| self.init_state_failure(st)) {
+                Some(e3) => self.setup.ev.call_stack_text(&e3),
+                None => self.setup.ev.call_stack_text(e),
+            },
         };
         self.rep.error(
             ec::TLC_NESTED_EXPRESSION,
@@ -618,6 +621,7 @@ The postcondition evaluated to the non-boolean value
                 Ok(Some(_)) => break,
                 Err((e2, _)) => {
                     self.flush_output();
+                    let e2 = self.setup.ev.replay(e2, || self.check_invariants(&vals).map(|_| ()).map_err(|(e, _)| e));
                     let fs = self.fp_stack_text(&e2);
                     self.rep.error(
                         ec::TLC_FINGERPRINT_EXCEPTION,
@@ -666,7 +670,7 @@ Reason:
 While working on the initial state:
 {}", e.java_message(), self.state_text(st));
         self.rep.error(ec::TLC_INITIAL_STATE, &text);
-        let fs = self.fp_stack_text(e);
+        let fs = self.fp_stack_of_fp(st, e);
         self.rep.error(
             ec::TLC_FINGERPRINT_EXCEPTION,
             &format!("TLC was unable to fingerprint.\n\nFingerprint Stack Trace:\n{}\nReason:\n{}", fs, e.java_message()),
@@ -893,6 +897,36 @@ Reason:
         );
     }
 
+    /// Java: `ModelChecker.doNextFailed`: the expansion of the state `head` is replayed with the call-stack tool; the failure of the replay
+    /// carries the nodes it passed
+    fn replay_next(&self, head: usize, e: Box<TlcErr>) -> Box<TlcErr> {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        let Some(nx) = setup.next.first() else { return e };
+        let cur = self.states[head].vals.clone();
+        ev.replay(e, || {
+            ev.epoch.set(ev.epoch.get() + 1);
+            if self.uses_random {
+                // the choices of `RandomSubset` and friends are seeded per predecessor: the replay draws the same ones
+                ev.pred_id.set(ev.pred_id.get() + 1);
+            }
+            let buf = RefCell::new(vec![Value::Undef; setup.vars.len()]);
+            *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], pnames: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+            ev.splitting.set(false);
+            ev.with_frame(nx.nslots.get(), |ev| ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || Ok(())))
+        })
+    }
+
+    /// the `Fingerprint Stack Trace` of a failure of `fp(st)`: the fingerprint is computed again with the call-stack tool
+    fn fp_stack_of_fp(&self, st: &[Value], e: &TlcErr) -> String {
+        if e.frames.is_empty() && !e.not_ported {
+            if let Err(e2) = self.setup.ev.tracked_quiet(|| self.fp(st)) {
+                return self.fp_stack_text(&e2);
+            }
+        }
+        self.fp_stack_text(e)
+    }
+
     /// the checks the model checker applies to an initial state, in its order: the failure of the first one that raises an error
     fn init_state_failure(&self, st: &[Value]) -> Option<Box<TlcErr>> {
         match self.in_model(st) {
@@ -915,6 +949,10 @@ Reason:
     /// Java: `ModelChecker.doInit(cTool, true)`: the initial predicate is evaluated again with the call-stack tool; the state is checked
     /// again inside the continuation of the enumeration, so the failure carries the frames of the nodes being decomposed
     fn replay_init_error(&self, st: &[Value]) -> Option<Box<TlcErr>> {
+        self.setup.ev.with_tracking(|| self.replay_init_error_tracked(st))
+    }
+
+    fn replay_init_error_tracked(&self, st: &[Value]) -> Option<Box<TlcErr>> {
         let setup = self.setup;
         let ev = setup.ev.clone();
         let nvars = setup.vars.len();
@@ -1184,6 +1222,13 @@ Reason:
                 })
             });
             if let Err(e) = r {
+                let e = ev.replay(e, || {
+                    let buf = RefCell::new(vec![Value::Undef; nvars]);
+                    ev.with_frame(top.nslots.get(), |ev| {
+                        ev.epoch.set(ev.epoch.get() + 1);
+                        ev.enum_action(&top.ex, Mode::Init, &ev.empty(), &buf, &mut || Ok(()))
+                    })
+                });
                 if e.code == ec::SYSTEM_STACK_OVERFLOW {
                     // Java: modelCheckImpl: the exception is reported as GENERAL and the replay names the (empty) call stack
                     self.flush_output();
@@ -1401,6 +1446,7 @@ Reason:
                     })
                 });
                 if let Err(e) = r {
+                    let e = self.replay_next(head, e);
                     self.flush_output();
                     let code = self.report_next_failure(&e);
                     if !e.not_ported {
@@ -1521,7 +1567,7 @@ Reason:
                             self.rep.error(ec::GENERAL, &text);
                             self.print_trace(head as u32);
                             self.rep.error(ec::GENERAL, &text);
-                            let fs = self.fp_stack_text(&e);
+                            let fs = self.fp_stack_of_fp(&st, &e);
                             self.rep.error(
                                 ec::TLC_FINGERPRINT_EXCEPTION,
                                 &format!("TLC was unable to fingerprint.\n\nFingerprint Stack Trace:\n{}\nReason:\n{}", fs, e.java_message()),

@@ -77,6 +77,13 @@ pub struct LabelSpec {
     pub stop: usize,
 }
 
+/// Java: `CallStackTool`: the node is on the stack of an error that leaves it (out of line: errors are rare, the evaluator is hot)
+#[cold]
+#[inline(never)]
+pub fn push_frame(er: &mut TlcErr, node: usize) {
+    er.frames.push(node);
+}
+
 pub struct LabelBase {
     pub name: sem::Name,
     pub params: Vec<Value>,
@@ -183,6 +190,10 @@ pub struct Ev {
     /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
     pub counters: Cell<[i64; 6]>,
     /// Java: the value `TLCExt!CounterExample` is bound to while the POSTCONDITION is evaluated (`Tool.checkPostConditionWithCounterExample`)
+    /// Java: `CallStackTool`: while set, every failure records the nodes it passes (`TlcErr::frames`); set only while a failure is replayed
+    pub tracking: Cell<bool>,
+    /// the next `eval_inner` runs its body untracked (see `eval_tracked`)
+    pub track_skip: Cell<bool>,
     pub counter_example: RefCell<Option<Value>>,
     /// Java: `Tool.evalAlias(.., prefix)`: the value of `TLCExt!Trace` while an ALIAS is evaluated
     pub alias_trace: RefCell<Option<Vec<Value>>>,
@@ -334,6 +345,8 @@ impl Ev {
             epoch: Cell::new(1),
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
+            tracking: Cell::new(false),
+            track_skip: Cell::new(false),
             counter_example: RefCell::new(None),
             wrng: RefCell::new(None),
             pred_state: RefCell::new(None),
@@ -939,14 +952,7 @@ impl Ev {
             }
             _ => {}
         }
-        // Java: `CallStackTool`: the expression being evaluated is on the stack of an error that leaves it
-        match self.eval_inner(e, s0, s1) {
-            Err(mut er) => {
-                er.frames.push(Rc::as_ptr(e) as usize);
-                Err(er)
-            }
-            ok => ok,
-        }
+        self.eval_inner(e, s0, s1)
     }
 
     /// Java: `CallStack.toString`: `0. Line .., column .. to line .., column .. in Module` for the expressions the error passed, outermost first;
@@ -987,7 +993,62 @@ impl Ev {
         out
     }
 
+    /// Java: `CallStackTool` (`Tool.setCallStack`): run `f` with every evaluation recording the nodes a failure passes (`TlcErr::frames`).
+    /// Tracking is off otherwise: the normal run does not pay for the call stack, a failure that needs it is replayed (as TLC does).
+    pub fn with_tracking<T>(&self, f: impl FnOnce() -> T) -> T {
+        let was = self.tracking.replace(true);
+        self.track_skip.set(false);
+        let r = f();
+        self.tracking.set(was);
+        self.track_skip.set(false);
+        r
+    }
+
+    /// `with_tracking` that drops what the evaluation printed (the replay shows no output of its own)
+    pub fn tracked_quiet<T>(&self, f: impl FnOnce() -> T) -> T {
+        let out_len = self.out.borrow().len();
+        let r = self.with_tracking(f);
+        let mut out = self.out.borrow_mut();
+        let keep = out_len.min(out.len());
+        out.truncate(keep);
+        r
+    }
+
+    /// Java: the replay with the call-stack tool after a failure: `f` repeats the evaluation that failed with `e`; the failure of the
+    /// replay (the same one, now carrying the nodes it passed) is returned. The output of the replay is dropped. A failure that is not
+    /// reproduced is returned as it was (without a call stack).
+    pub fn replay<T>(&self, e: Box<TlcErr>, f: impl FnOnce() -> R<T>) -> Box<TlcErr> {
+        // Java: a StackOverflowError is not replayed (`keepCallStack` is false)
+        if self.tracking.get() || !e.frames.is_empty() || e.not_ported || e.code == crate::ec::SYSTEM_STACK_OVERFLOW {
+            return e;
+        }
+        let r = self.tracked_quiet(f);
+        match r {
+            Err(e2) => e2,
+            Ok(_) => e,
+        }
+    }
+
+    /// the tracked variant of `eval_inner` (only while a failure is replayed, see `Ev::replay`): the expression being evaluated is on the
+    /// stack of an error that leaves it
+    #[cold]
+    #[inline(never)]
+    fn eval_tracked(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
+        self.track_skip.set(true);
+        let mut r = self.eval_inner(e, s0, s1);
+        if let Err(er) = &mut r {
+            push_frame(er, Rc::as_ptr(e) as usize);
+        }
+        r
+    }
+
+    /// Java: `CallStackTool`: the expression being evaluated is on the stack of an error that leaves it. (Kept out of `eval`, which is
+    /// inlined at every call site: the check there costs about 10 % on the evaluator-bound models.)
+    #[inline(never)]
     pub fn eval_inner(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
+        if self.tracking.get() && !self.track_skip.replace(false) {
+            return self.eval_tracked(e, s0, s1);
+        }
         match &**e {
             Node::Const(v) => Ok(v.clone()),
             Node::Local(i) => {

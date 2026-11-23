@@ -100,3 +100,10 @@ the model values of the configuration file get Java's `UniqueString.tok` (the fi
 `ModelValue.index` order (`value::register_model`, creation order) for comparisons; `java_set_order` files each successor under the fingerprint of the exact smallest image of the actual successor state;
 `live::build_graph_incr` evaluates the predicates on the actual successor of each edge and expands a late node from the actual state it was reached with (`gen_successors` regenerates its successors in generation order).
 perf: SpanTreeRandom is borderline (the 250k evaluations of `<<Next>>_vars` of its `WF` dominate the graph build, 6 s vs Java 5.8 s): it passes or misses by noise, as before this pass.
+
+## 2026-11-24 perf: the 11 models slower than Java (Sonnet 5.5)
+Sequential Rust/Java after this pass (min of 2): SpanTreeRandom 4.99/5.8, EWD998PCal 32.1/34.8, EWD998Small 25.5/28.3, MCLamportMutex 12.3/13.3, SlidingPuzzles 1.38/1.6, MCBakery 7.2/8.9, MCCheckpointCoordinationFailure 12.2/18.2.
+Two regressions of the parity passes were found by timing old binaries (`git worktree` of 2888227 vs 10f7fe9, `tmp/timeit.py` = min of N interleaved runs):
+(1) `thread_local!` in value comparison (`model_cmp`, `model_type`, `str_fp_class`) and in `note_source` (a Vec::remove(0) per lazy set): on windows-gnu each access runs a destructor guard (~10 ns); now static atomic tables / a static ring;
+(2) the per-eval error check that records the call stack (`TlcErr.frames`) cost 6-14 %: now `Ev.tracking` (off) is read once at the entry of `eval_inner`, and a failure that needs its call stack is REPLAYED with tracking on
+(`Ev::replay`, `Checker::replay_next`, init enumeration, `fp_stack_of_fp`; Java does the same with `CallStackTool`). The replay's output is dropped.
