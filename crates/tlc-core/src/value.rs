@@ -541,11 +541,88 @@ impl Value {
             Value::SetCap(p) => p.0.is_finite() || p.1.is_finite(),
             Value::SetDiff(p) => p.0.is_finite(),
             Value::Subset(s) => s.is_finite(),
-            Value::SetOfFcns(p) => p.0.is_finite() && p.1.is_finite(),
-            Value::SetOfRcds(fs) => fs.iter().all(|(_, s)| s.is_finite()),
-            Value::SetOfTuples(ss) => ss.iter().all(|s| s.is_finite()),
+            // Java: SetOfFcnsValue.isFinite: an empty domain or range makes the set finite whatever the other one is
+            // (isEmpty is only asked of an argument that is finite: an undecidable emptiness would fail instead of answering)
+            Value::SetOfFcns(p) => {
+                let (fd, fr) = (p.0.is_finite(), p.1.is_finite());
+                if fd && p.0.is_empty_set().unwrap_or(false) {
+                    return true;
+                }
+                if fr && p.1.is_empty_set().unwrap_or(false) {
+                    return true;
+                }
+                if fd && fr {
+                    return true;
+                }
+                fr && p.1.size().map_or(false, |n| n == 1)
+            }
+            // Java: SetOfRcdsValue.isFinite: an empty field makes the record set empty
+            Value::SetOfRcds(fs) => {
+                let mut all = true;
+                for (_, s) in fs.iter() {
+                    if s.is_finite() {
+                        if s.is_empty_set().unwrap_or(false) {
+                            return true;
+                        }
+                    } else {
+                        all = false;
+                    }
+                }
+                all
+            }
+            Value::SetOfTuples(ss) => {
+                let mut all = true;
+                for s in ss.iter() {
+                    if s.is_finite() {
+                        if s.is_empty_set().unwrap_or(false) {
+                            return true;
+                        }
+                    } else {
+                        all = false;
+                    }
+                }
+                all
+            }
             Value::BigUnion(s) => s.is_finite(),
             _ => true,
+        }
+    }
+
+    /// Java: `EnumerableValue.isEmpty`: does the set have no element?  Products ask their constituents in order and stop at the first
+    /// empty one; an emptiness TLC cannot decide (`Nat \ {0}`) fails.
+    pub fn is_empty_set(&self) -> R<bool> {
+        match self {
+            Value::Set(v) => Ok(v.is_empty()),
+            Value::Interval(lo, hi) => Ok(hi < lo),
+            // Naturals answers the emptiness of its sets without enumerating them
+            Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_) => Ok(false),
+            Value::Subset(_) => Ok(false),
+            Value::SetOfFcns(p) => {
+                if p.0.is_empty_set()? {
+                    return Ok(false);
+                }
+                p.1.is_empty_set()
+            }
+            Value::SetOfRcds(fs) => {
+                for (_, s) in fs.iter() {
+                    if s.is_empty_set()? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            Value::SetOfTuples(ss) => {
+                for s in ss.iter() {
+                    if s.is_empty_set()? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+            v if v.is_set_like() => Ok(v.enumerate()?.is_empty()),
+            v => fail(format!("Attempted to check if the non-set value
+{}
+is empty", v.to_tla())),
         }
     }
 
@@ -562,6 +639,13 @@ impl Value {
                 Ok(1usize << n)
             }
             Value::SetOfFcns(p) => {
+                // Java: SetOfFcnsValue.size: the domain is asked first, then the range
+                if p.0.is_empty_set()? {
+                    return Ok(1);
+                }
+                if p.1.is_empty_set()? {
+                    return Ok(0);
+                }
                 let (nd, nr) = (p.0.size()?, p.1.size()?);
                 let mut sz: usize = 1;
                 for _ in 0..nd {
@@ -573,6 +657,9 @@ impl Value {
                 Ok(sz)
             }
             Value::SetOfRcds(fs) => {
+                if self.is_empty_set()? {
+                    return Ok(0);
+                }
                 let mut sz: usize = 1;
                 for (_, s) in fs.iter() {
                     sz = sz.saturating_mul(s.size()?);
@@ -580,6 +667,9 @@ impl Value {
                 Ok(sz)
             }
             Value::SetOfTuples(ss) => {
+                if self.is_empty_set()? {
+                    return Ok(0);
+                }
                 let mut sz: usize = 1;
                 for s in ss.iter() {
                     sz = sz.saturating_mul(s.size()?);

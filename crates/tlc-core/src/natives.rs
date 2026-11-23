@@ -692,6 +692,156 @@ fn tlc_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     }
 }
 
+// ------------------------------------------------------------------ Randomization (tlc2.module.Randomization)
+
+/// a constituent set of a product-like set: its elements, without enumerating a big interval
+struct Cons {
+    vals: Option<Rc<Vec<Value>>>,
+    lo: i64,
+    n: u64,
+}
+
+impl Cons {
+    fn of(s: &Value) -> R<Cons> {
+        match s {
+            Value::Interval(lo, hi) => Ok(Cons { vals: None, lo: *lo as i64, n: if hi < lo { 0 } else { (*hi as i64 - *lo as i64 + 1) as u64 } }),
+            other => {
+                let v = other.enumerate()?;
+                let n = v.len() as u64;
+                Ok(Cons { vals: Some(v), lo: 0, n })
+            }
+        }
+    }
+    fn get(&self, i: u64) -> Value {
+        match &self.vals {
+            Some(v) => v[i as usize].clone(),
+            None => Value::Int((self.lo + i as i64) as i32),
+        }
+    }
+}
+
+/// how an element of a product-like set is built from one element of each constituent
+enum ProductKind {
+    Tuple,
+    Fcn(Vec<Value>),
+    Rcd(Vec<u32>),
+}
+
+/// `distinct` pseudo-random indices in `0..n` (all of them if there are no more than `k`)
+fn pick_indices(ev: &Ev, n: u128, k: u128) -> Vec<u128> {
+    if k >= n {
+        return (0..n).collect();
+    }
+    let k = k as usize;
+    if n <= 2_000_000 {
+        // partial Fisher-Yates shuffle
+        let mut all: Vec<u128> = (0..n).collect();
+        for i in 0..k {
+            let len = all.len();
+            let j = i + (next_double(ev) * (len - i) as f64).floor() as usize;
+            all.swap(i, j.min(len - 1));
+        }
+        all.truncate(k);
+        return all;
+    }
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::with_capacity(k);
+    while out.len() < k {
+        let idx = if n <= (1u128 << 52) {
+            ((next_double(ev) * n as f64).floor() as u128).min(n - 1)
+        } else {
+            let hi = (next_double(ev) * (1u64 << 52) as f64).floor() as u128;
+            let lo = (next_double(ev) * (1u64 << 52) as f64).floor() as u128;
+            ((hi << 52) | lo) % n
+        };
+        if seen.insert(idx) {
+            out.push(idx);
+        }
+    }
+    out
+}
+
+/// Java: `Randomization.RandomSubset(k, S)`: `k` distinct elements of the finite set `S`, chosen by index so that a product or a set of
+/// functions with 10^9 elements is not enumerated
+fn random_subset(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let kv = arg(ev, a, 0, s0, s1)?;
+    let s = arg(ev, a, 1, s0, s1)?;
+    let k = match kv {
+        Value::Int(k) => k,
+        v => {
+            return fail_code(
+                ec::TLC_MODULE_ARGUMENT_ERROR,
+                format!("The first argument of RandomSubset should be a nonnegative integer, but instead it is:\n{}", v.to_tla()),
+            )
+        }
+    };
+    if !s.is_set_like() || !s.is_finite() {
+        return fail_code(
+            ec::TLC_MODULE_ARGUMENT_ERROR,
+            format!("The second argument of RandomSubset should be a finite set, but instead it is:\n{}", s.to_tla()),
+        );
+    }
+    if k <= 0 || s.is_empty_set()? {
+        return Value::set_from(vec![]);
+    }
+    let k = k as u128;
+    let parts = match &s {
+        Value::SetOfTuples(ss) => {
+            let mut c = Vec::with_capacity(ss.len());
+            for x in ss.iter() {
+                c.push(Cons::of(x)?);
+            }
+            Some((c, ProductKind::Tuple))
+        }
+        Value::SetOfRcds(fs) => {
+            let mut c = Vec::with_capacity(fs.len());
+            for (_, x) in fs.iter() {
+                c.push(Cons::of(x)?);
+            }
+            Some((c, ProductKind::Rcd(fs.iter().map(|(n, _)| *n).collect())))
+        }
+        Value::SetOfFcns(p) => {
+            let dom = p.0.enumerate()?;
+            let mut c = Vec::with_capacity(dom.len());
+            for _ in 0..dom.len() {
+                c.push(Cons::of(&p.1)?);
+            }
+            Some((c, ProductKind::Fcn(dom.to_vec())))
+        }
+        _ => None,
+    };
+    match parts {
+        Some((cons, kind)) => {
+            let mut n: u128 = 1;
+            for c in cons.iter() {
+                n = n.saturating_mul(c.n as u128);
+            }
+            let mut out = Vec::new();
+            for mut idx in pick_indices(ev, n, k) {
+                // the last constituent varies fastest
+                let mut digits = vec![0u64; cons.len()];
+                for i in (0..cons.len()).rev() {
+                    let m = cons[i].n.max(1) as u128;
+                    digits[i] = (idx % m) as u64;
+                    idx /= m;
+                }
+                let vals: Vec<Value> = cons.iter().zip(digits.iter()).map(|(c, d)| c.get(*d)).collect();
+                out.push(match &kind {
+                    ProductKind::Tuple => Value::tuple(vals),
+                    ProductKind::Fcn(dom) => Value::fcn_from(dom.iter().cloned().zip(vals.into_iter()).collect())?,
+                    ProductKind::Rcd(names) => Value::fcn_from(names.iter().map(|n| Value::Str(*n)).zip(vals.into_iter()).collect())?,
+                });
+            }
+            Value::set_from(out)
+        }
+        None => {
+            let c = Cons::of(&s)?;
+            let out: Vec<Value> = pick_indices(ev, c.n as u128, k).into_iter().map(|i| c.get(i as u64)).collect();
+            Value::set_from(out)
+        }
+    }
+}
+
 /// Java: TLCExt.tlcModelValue: `ModelValue.add(str)`
 fn tlc_model_value(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     match arg(ev, a, 0, s0, s1)? {
@@ -1886,6 +2036,7 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("TLC", "TLCSet") => tlc_set,
         ("TLCExt", "TLCGetOrDefault") => tlc_get_or_default,
         ("TLCExt", "TLCModelValue") => tlc_model_value,
+        ("Randomization", "RandomSubset") => random_subset,
         ("_Possible", "_Counts") => possible_counts,
         ("Functions", "FoldFunctionOnSet") => fold_function_on_set,
         ("Functions", "FoldFunction") => fold_function,
