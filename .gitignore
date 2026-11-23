@@ -14,3 +14,6 @@ __pycache__/
 /target-fat
 /target-old
 /target-dev
+
+# build output of an alternate target dir (was committed by mistake once)
+/target-b
