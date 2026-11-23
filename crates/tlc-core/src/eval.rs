@@ -156,6 +156,14 @@ pub struct Ev {
     /// `-seed`: the generator behind `RandomElement` (Java: `RandomEnumerableValues`), created on first use
     pub seed: Cell<i64>,
     pub rng: RefCell<Option<crate::jrandom::JRandom>>,
+    /// Java: the generator of a worker thread (`TLCStateRandom`): it is seeded with the fingerprint of the state whose successors
+    /// are computed (`pred_state`), once per state (`pred_id` counts the states)
+    pub wrng: RefCell<Option<crate::jrandom::JRandom>>,
+    pub pred_state: RefCell<Option<Vec<Value>>>,
+    pub pred_id: Cell<u64>,
+    pub rng_for: Cell<u64>,
+    /// `-fp`: the irreducible polynomial of the fingerprints Java seeds its random choices with
+    pub fp_index: Cell<usize>,
     pub stats: RefCell<HashMap<String, Value>>,
     pub empty_cache: RefCell<Rc<Vec<Value>>>,
     /// label of the action being enumerated (`<Name line .. of module M>`)
@@ -327,6 +335,11 @@ impl Ev {
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
             counter_example: RefCell::new(None),
+            wrng: RefCell::new(None),
+            pred_state: RefCell::new(None),
+            pred_id: Cell::new(0),
+            rng_for: Cell::new(0),
+            fp_index: Cell::new(0),
             alias_trace: RefCell::new(None),
             setup_phase: Cell::new(false),
             prime_depth: Cell::new(0),

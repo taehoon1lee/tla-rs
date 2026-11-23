@@ -233,8 +233,72 @@ impl Value {
     // ------------------------------------------------------------------ construction helpers
 
     /// build a normalized set from arbitrary elements (sort + dedup); errors on incomparable elements
+    /// Java: `ValueVec.sort(true)`: binary insertion in the order of the elements; the error of the first comparison that fails
+    fn java_sort_error(orig: &[Value]) -> Option<Box<TlcErr>> {
+        let mut sorted: Vec<Value> = Vec::with_capacity(orig.len());
+        for elem in orig {
+            if sorted.is_empty() {
+                sorted.push(elem.clone());
+                continue;
+            }
+            let (mut low, mut high) = (0usize, sorted.len());
+            let (mut idx, mut cmp) = (0usize, Ordering::Equal);
+            while low < high {
+                idx = low + ((high - low) >> 1);
+                cmp = match elem.cmp_val(&sorted[idx]) {
+                    Ok(c) => c,
+                    Err(e) => return Some(e),
+                };
+                match cmp {
+                    Ordering::Equal => break,
+                    Ordering::Less => high = idx,
+                    Ordering::Greater => low = idx + 1,
+                }
+            }
+            if cmp != Ordering::Equal {
+                let at = if cmp == Ordering::Less { idx } else { idx + 1 };
+                sorted.insert(at, elem.clone());
+            }
+        }
+        None
+    }
+
+    /// Java: `FcnRcdValue.sort`: the minimum is moved to the front by comparing the first domain element with every other one,
+    /// then insertion sort; the error of the first comparison that fails
+    fn java_fcn_sort_error(orig: &[Value]) -> Option<Box<TlcErr>> {
+        let mut dom: Vec<Value> = orig.to_vec();
+        let n = dom.len();
+        for i in 1..n {
+            match dom[0].cmp_val(&dom[i]) {
+                Err(e) => return Some(e),
+                Ok(Ordering::Greater) => dom.swap(0, i),
+                Ok(_) => {}
+            }
+        }
+        for i in 2..n {
+            let d = dom[i].clone();
+            let mut j = i;
+            while j > 0 {
+                match d.cmp_val(&dom[j - 1]) {
+                    Err(e) => return Some(e),
+                    Ok(Ordering::Less) => {
+                        dom[j] = dom[j - 1].clone();
+                        j -= 1;
+                    }
+                    Ok(_) => break,
+                }
+            }
+            dom[j] = d;
+        }
+        None
+    }
+
     pub fn set_from(mut elems: Vec<Value>) -> R<Value> {
         if elems.len() > 1 {
+            // elements that may not be comparable (model values, mixed kinds): remember the order they were written in
+            let first = std::mem::discriminant(&elems[0]);
+            let risky = elems.iter().any(|v| matches!(v, Value::Model(_)) || std::mem::discriminant(v) != first);
+            let orig = if risky { Some(elems.clone()) } else { None };
             let mut err: Option<Box<TlcErr>> = None;
             elems.sort_by(|a, b| match a.cmp_val(b) {
                 Ok(o) => o,
@@ -246,6 +310,12 @@ impl Value {
                 }
             });
             if let Some(e) = err {
+                // Java reports the first failing comparison of its own insertion sort
+                if let Some(o) = &orig {
+                    if let Some(j) = Self::java_sort_error(o) {
+                        return Err(j);
+                    }
+                }
                 return Err(e);
             }
             let mut out: Vec<Value> = Vec::with_capacity(elems.len());
@@ -267,6 +337,9 @@ impl Value {
         if pairs.is_empty() {
             return Ok(Value::tuple(vec![]));
         }
+        let first = std::mem::discriminant(&pairs[0].0);
+        let risky = pairs.len() > 1 && pairs.iter().any(|(d, _)| matches!(d, Value::Model(_)) || std::mem::discriminant(d) != first);
+        let orig: Option<Vec<Value>> = if risky { Some(pairs.iter().map(|(d, _)| d.clone()).collect()) } else { None };
         let mut err: Option<Box<TlcErr>> = None;
         pairs.sort_by(|a, b| match a.0.cmp_val(&b.0) {
             Ok(o) => o,
@@ -278,6 +351,12 @@ impl Value {
             }
         });
         if let Some(e) = err {
+            // Java: `FcnRcdValue.sort` reports the first failing comparison of its own sort
+            if let Some(o) = &orig {
+                if let Some(j) = Self::java_fcn_sort_error(o) {
+                    return Err(j);
+                }
+            }
             return Err(e);
         }
         // duplicate domain elements keep... TLC rejects duplicates in function construction; keep the last
@@ -1083,7 +1162,7 @@ impl Value {
                 }
                 let (mut lo, mut hi) = (0usize, dom.len());
                 while lo < hi {
-                    let mid = (lo + hi) / 2;
+                    let mid = (lo + hi - 1) / 2; // Java: `Arrays.binarySearch` (inclusive upper bound) in `FcnRcdValue.select`
                     let ord = match &dom[mid] {
                         Value::Int(d) => d.cmp(k),
                         other => other.cmp_val(x)?,
@@ -1099,7 +1178,7 @@ impl Value {
             Value::Str(k) => {
                 let (mut lo, mut hi) = (0usize, dom.len());
                 while lo < hi {
-                    let mid = (lo + hi) / 2;
+                    let mid = (lo + hi - 1) / 2; // Java: `Arrays.binarySearch` (inclusive upper bound) in `FcnRcdValue.select`
                     let ord = match &dom[mid] {
                         Value::Str(d) => d.cmp(k),
                         other => other.cmp_val(x)?,
@@ -1116,7 +1195,7 @@ impl Value {
         }
         let (mut lo, mut hi) = (0usize, dom.len());
         while lo < hi {
-            let mid = (lo + hi) / 2;
+            let mid = (lo + hi - 1) / 2; // Java: `Arrays.binarySearch` (inclusive upper bound) in `FcnRcdValue.select`
             match dom[mid].cmp_val(x)? {
                 Ordering::Less => lo = mid + 1,
                 Ordering::Greater => hi = mid,

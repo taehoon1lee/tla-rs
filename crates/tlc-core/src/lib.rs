@@ -23,6 +23,7 @@ pub mod eval;
 pub mod liveness;
 pub mod ir;
 pub mod memo;
+pub mod jfp;
 pub mod jrandom;
 pub mod natives;
 pub mod mp;

@@ -603,10 +603,67 @@ fn permutations(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Val
     Value::set_from(out)
 }
 
+/// Java: `RandomEnumerableValues.get()`: the generator of the running thread.  In the scope of the next-state relation it is seeded
+/// with the fingerprint of the predecessor state XOR the seed, once per state (`TLCStateRandom.initialize`); elsewhere (the assumptions,
+/// the initial states) one generator seeded with the seed serves all calls.
+fn with_rng<T>(ev: &Ev, f: impl FnOnce(&mut crate::jrandom::JRandom) -> T) -> T {
+    if let Some(vals) = &*ev.pred_state.borrow() {
+        let mut w = ev.wrng.borrow_mut();
+        let g = w.get_or_insert_with(|| crate::jrandom::JRandom::new(ev.seed.get()));
+        if ev.rng_for.get() != ev.pred_id.get() {
+            let fp = crate::jfp::fp64(ev.fp_index.get()).state(vals);
+            g.set_seed((fp as i64) ^ ev.seed.get());
+            ev.rng_for.set(ev.pred_id.get());
+        }
+        return f(g);
+    }
+    let mut g = ev.rng.borrow_mut();
+    f(g.get_or_insert_with(|| crate::jrandom::JRandom::new(ev.seed.get())))
+}
+
 /// the next pseudo-random double of the shared generator (Java: `RandomEnumerableValues.get().nextDouble()`)
 fn next_double(ev: &Ev) -> f64 {
-    let mut g = ev.rng.borrow_mut();
-    g.get_or_insert_with(|| crate::jrandom::JRandom::new(ev.seed.get())).next_double()
+    with_rng(ev, |g| g.next_double())
+}
+
+/// Java: `EnumerableValue.computeOptimalMandA`: the modulus and the multiplier of the linear congruential generator that visits
+/// every index of a set of `size` elements
+fn optimal_m_and_a(size: i64) -> (i64, i64) {
+    fn prime_factors(mut n: i64) -> Vec<i64> {
+        let mut out = vec![];
+        let mut p = 2i64;
+        while p * p <= n {
+            while n % p == 0 {
+                out.push(p);
+                n /= p;
+            }
+            p += if p == 2 { 1 } else { 2 };
+        }
+        if n > 1 {
+            out.push(n);
+        }
+        out
+    }
+    fn distinct(f: &[i64]) -> Vec<i64> {
+        let mut d: Vec<i64> = vec![];
+        for p in f {
+            if !d.contains(p) {
+                d.push(*p);
+            }
+        }
+        d
+    }
+    let mut n = size.max(9);
+    let mut f = prime_factors(n);
+    while n % 4 == 0 || distinct(&f).len() == f.len() {
+        n += 1;
+        f = prime_factors(n);
+    }
+    let mut a: i64 = 1;
+    for p in distinct(&f) {
+        a *= p;
+    }
+    (n, a + 1)
 }
 
 // Java: TLC.RandomElement
@@ -827,38 +884,40 @@ enum ProductKind {
     Rcd(Vec<u32>),
 }
 
-/// `distinct` pseudo-random indices in `0..n` (all of them if there are no more than `k`)
+/// Java: the indices `SubsetEnumerator` (`EnumerableValue`) / `BigIntegerSubsetEnumerator` (`SetOfFcnsOrRcdsValue`) yield for
+/// `RandomSubset(k, S)` with `n` elements (a set without elements draws nothing)
 fn pick_indices(ev: &Ev, n: u128, k: u128) -> Vec<u128> {
-    if k >= n {
-        return (0..n).collect();
+    if n == 0 {
+        return vec![];
     }
-    let k = k as usize;
-    if n <= 2_000_000 {
-        // partial Fisher-Yates shuffle
-        let mut all: Vec<u128> = (0..n).collect();
-        for i in 0..k {
-            let len = all.len();
-            let j = i + (next_double(ev) * (len - i) as f64).floor() as usize;
-            all.swap(i, j.min(len - 1));
+    with_rng(ev, |rng| {
+        if n > i32::MAX as u128 {
+            let a = rng.next_long().wrapping_abs() as i128;
+            let x = (i64::MAX - 24) as i128;
+            let mut out = Vec::new();
+            for i in 0..k {
+                out.push((x * i as i128 + a).rem_euclid(n as i128) as u128);
+            }
+            return out;
         }
-        all.truncate(k);
-        return all;
-    }
-    let mut seen = std::collections::HashSet::new();
-    let mut out = Vec::with_capacity(k);
-    while out.len() < k {
-        let idx = if n <= (1u128 << 52) {
-            ((next_double(ev) * n as f64).floor() as u128).min(n - 1)
-        } else {
-            let hi = (next_double(ev) * (1u64 << 52) as f64).floor() as u128;
-            let lo = (next_double(ev) * (1u64 << 52) as f64).floor() as u128;
-            ((hi << 52) | lo) % n
-        };
-        if seen.insert(idx) {
-            out.push(idx);
+        let n = n as i64;
+        let (m, a) = optimal_m_and_a(n);
+        let mut index = rng.next_int(n as i32) as i64;
+        let c = rng.next_prime() as i64;
+        // the first n indices the generator yields are all different: later ones repeat them
+        let take = k.min(n as u128) as usize;
+        let mut out = Vec::with_capacity(take);
+        for _ in 0..take {
+            loop {
+                index = a.wrapping_mul(index).wrapping_add(c) % m;
+                if index < n {
+                    break;
+                }
+            }
+            out.push(index as u128);
         }
-    }
-    out
+        out
+    })
 }
 
 /// Java: `Randomization.RandomSubset(k, S)`: `k` distinct elements of the finite set `S`, chosen by index so that a product or a set of
@@ -881,10 +940,11 @@ fn random_subset(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Va
             format!("The second argument of RandomSubset should be a finite set, but instead it is:\n{}", s.to_tla()),
         );
     }
-    if k <= 0 || s.is_empty_set()? {
+    // Java: an empty set has nothing to pick (and draws nothing); its emptiness is decided without enumerating the arguments
+    if s.is_empty_set()? {
         return Value::set_from(vec![]);
     }
-    let k = k as u128;
+    let k = k.max(0) as u128;
     let parts = match &s {
         Value::SetOfTuples(ss) => {
             let mut c = Vec::with_capacity(ss.len());
@@ -2186,7 +2246,17 @@ pub fn lookup_fast(module: &str, name: &str) -> Fast {
     }
 }
 
+static RANDOM_USED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// has a random operator (`RandomElement`, `Randomization`) been bound?
+pub fn random_used() -> bool {
+    RANDOM_USED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
+    if module == "Randomization" || (module == "TLC" && name == "RandomElement") {
+        RANDOM_USED.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
     let f: N = match (module, name) {
         ("Naturals", "+") => plus,
         ("Naturals", "-") => minus,

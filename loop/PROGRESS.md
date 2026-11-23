@@ -72,3 +72,10 @@ gate (-j 2): no regressions (verdict 364/364, trace 283 -> 342). Done: call-stac
 (2111/2112 embed the cause, outdegree after a silent replay), POSTCONDITION after every counterexample with `TLCExt!CounterExample` / `Trace` / `ToTrace`, ALIAS levels, state variables and constants in Java's `Hashtable` order,
 `impliedtemporals`, SUBSET overflow/printing, large SUBSET stays lazy in a state, 2215 text for constraints.
 open: liveness lassos that depend on Java's FP64 / `SetOfStates` order (CodePlexBug08*, Symmetry/Tableau*, Github1389ViolatedC), FingerprintException 2147 stacks (no value sources), `\cdot` ENABLED trail, ValueSemanticsAssume warning order, Random* (needs Java FP64 seeding).
+
+## 2026-11-23 tt/ trace pass 3: 351/364 check models identical at trace level (Sonnet 5.5)
+gate: no regressions (verdict 364/364, trace 342 -> 351, perf 363). Java-compatible randomness and liveness order: `jfp.rs` (FP64 + value fingerprints), `jrandom.rs` (`nextInt`, `nextLong`, `RandomGenerator.nextPrime`),
+`RandomSubset` as `SubsetEnumerator` / `BigIntegerSubsetEnumerator` seeded per predecessor state (`TLCStateRandom`), `SetOfStates` slot order of the liveness successors, and the incremental tableau graph of
+`LiveCheck.TableauLiveChecker` (`live::build_graph_incr`: late nodes expand self-loops first, then successors in generation order). Also: Java's insertion-sort / `FcnRcdValue.sort` error order, `Arrays.binarySearch` midpoint.
+open (13): symmetry + tableau liveness (3, model-value fingerprints use `UniqueString` tokens), FingerprintException 2147 stacks + EmptySubsetEq (5, no value sources), `\cdot` ENABLED trail (2), liveness Print count (1),
+ValueSemanticsAssume warning order (1), StringDeserialize (localized OS message).

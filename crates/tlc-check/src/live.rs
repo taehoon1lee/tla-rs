@@ -50,7 +50,10 @@ pub struct Lasso {
 }
 
 /// build the behavior graph of one order of solution (Java: `LiveChecker` / `TableauLiveChecker` fed by `addNextState`)
-pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32], oos: &Oos) -> R<Graph> {
+pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oos: &Oos) -> R<Graph> {
+    if let (Some(gen), true) = (gen, oos.tableau.is_some()) {
+        return build_graph_incr(ev, store, succ, gen, inits, oos);
+    }
     let alen = oos.check_action.len();
     let nstates = succ.len();
     // per state: results of the state predicates
@@ -153,6 +156,199 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32]
         }
     }
     Ok(g)
+}
+
+/// Port of `LiveCheck.TableauLiveChecker.addNextState` (both variants): the behavior graph of a formula with a tableau is built the
+/// way Java builds it while the states are explored: the states are processed in BFS order; the successors of a state come in the
+/// slot order of its `SetOfStates` (`slot`); a node `<s, t>` that is created after `s` was processed is expanded at once by the
+/// recursive variant, which adds the self-loops first and then the successors in generation order (`gen`).  The order of the
+/// edges of a node decides which counterexample the SCC search finds.
+fn build_graph_incr(ev: &Ev, store: &dyn States, slot: &[Vec<u32>], gen: &[Vec<u32>], inits: &[u32], oos: &Oos) -> R<Graph> {
+    use std::collections::HashSet;
+    struct B<'a> {
+        ev: &'a Ev,
+        store: &'a dyn States,
+        oos: &'a Oos,
+        tb: &'a tlc_core::liveness::tableau::TbGraph,
+        gen: &'a [Vec<u32>],
+        g: Graph,
+        index: HashMap<(u32, usize), u32>,
+        rec: Vec<Vec<usize>>,
+        done: Vec<bool>,
+        texist: HashSet<(u32, u32)>,
+        cons: HashMap<(u32, usize), bool>,
+        sc: Vec<Option<Vec<bool>>>,
+        bits: HashMap<(u32, u32), Vec<bool>>,
+        leaf: HashMap<(u32, u32), bool>,
+    }
+    impl<'a> B<'a> {
+        fn consistent(&mut self, s: u32, t: usize) -> R<bool> {
+            if let Some(&b) = self.cons.get(&(s, t)) {
+                return Ok(b);
+            }
+            let b = self.tb.nodes[t].is_consistent(self.ev, self.store.vals(s))?;
+            self.cons.insert((s, t), b);
+            Ok(b)
+        }
+        fn state_checks(&mut self, s: u32) -> R<Vec<bool>> {
+            if self.sc[s as usize].is_none() {
+                self.sc[s as usize] = Some(self.oos.check_state_res(self.ev, self.store.vals(s))?);
+            }
+            Ok(self.sc[s as usize].clone().unwrap())
+        }
+        fn action_bits(&mut self, s: u32, s1: u32) -> R<Vec<bool>> {
+            if let Some(v) = self.bits.get(&(s, s1)) {
+                return Ok(v.clone());
+            }
+            let (v0, v1) = (self.store.vals(s), self.store.vals(s1));
+            let mut v = Vec::with_capacity(self.oos.check_action.len());
+            for c in self.oos.check_action.iter() {
+                v.push(eval_memo(c, self.ev, s, v0, v1, &mut self.leaf)?);
+            }
+            self.bits.insert((s, s1), v.clone());
+            Ok(v)
+        }
+        fn create(&mut self, s: u32, t: usize) -> u32 {
+            self.g.nodes.push(GNode { state: s, tidx: t as i32, succ: vec![], check_state: vec![], check_action: vec![] });
+            let id = self.g.nodes.len() as u32 - 1;
+            self.index.insert((s, t), id);
+            self.rec[s as usize].push(t);
+            id
+        }
+        fn add(&mut self, from: u32, to: u32, bits: &[bool]) {
+            self.texist.insert((from, to));
+            let n = &mut self.g.nodes[from as usize];
+            n.succ.push(to);
+            n.check_action.extend_from_slice(bits);
+        }
+        /// the recursive `addNextState(tool, s, fp, tnode, oos, dgraph)`: the node `<s, t>` is new and `s` is done
+        fn late(&mut self, s: u32, t: usize) -> R<()> {
+            let n = self.index[&(s, t)];
+            let cs = self.state_checks(s)?;
+            self.g.nodes[n as usize].check_state = cs;
+            let nexts = self.tb.nodes[t].nexts.clone();
+            if !nexts.is_empty() {
+                let bits = self.action_bits(s, s)?;
+                for &t1 in &nexts {
+                    if self.consistent(s, t1)? {
+                        let exists = self.index.get(&(s, t1)).copied();
+                        let missing = match exists {
+                            None => true,
+                            Some(d) => !self.texist.contains(&(n, d)),
+                        };
+                        if missing {
+                            let d = match exists {
+                                Some(d) => d,
+                                None => self.create(s, t1),
+                            };
+                            self.add(n, d, &bits);
+                            if exists.is_none() {
+                                self.late(s, t1)?;
+                            }
+                        }
+                    }
+                }
+            }
+            let succs = self.gen[s as usize].clone();
+            for &s1 in &succs {
+                let bits = self.action_bits(s, s1)?;
+                let is_done = self.done[s1 as usize];
+                for &t1 in &nexts {
+                    if self.consistent(s1, t1)? {
+                        let exists = self.index.get(&(s1, t1)).copied();
+                        let missing = match exists {
+                            None => true,
+                            Some(d) => !self.texist.contains(&(n, d)),
+                        };
+                        if missing {
+                            let d = match exists {
+                                Some(d) => d,
+                                None => self.create(s1, t1),
+                            };
+                            self.add(n, d, &bits);
+                            if exists.is_none() && is_done {
+                                self.late(s1, t1)?;
+                            }
+                        }
+                    }
+                }
+            }
+            Ok(())
+        }
+    }
+    let tb = oos.tableau.as_ref().unwrap();
+    let n = slot.len();
+    let mut b = B {
+        ev,
+        store,
+        oos,
+        tb,
+        gen,
+        g: Graph { nodes: vec![], init: vec![], alen: oos.check_action.len() },
+        index: HashMap::new(),
+        rec: vec![vec![]; n],
+        done: vec![false; n],
+        texist: HashSet::new(),
+        cons: HashMap::new(),
+        sc: vec![None; n],
+        bits: HashMap::new(),
+        leaf: HashMap::new(),
+    };
+    // addInitState: (state, tnode) is a root node if tnode is an initial tableau node consistent with the state
+    for &s in inits {
+        for t in 0..tb.init_cnt {
+            if b.consistent(s, t)? {
+                let id = match b.index.get(&(s, t)).copied() {
+                    Some(id) => id,
+                    None => b.create(s, t),
+                };
+                b.g.init.push(id);
+            }
+        }
+    }
+    for s0 in 0..n as u32 {
+        b.done[s0 as usize] = true;
+        let snapshot = b.rec[s0 as usize].clone();
+        let succs = slot[s0 as usize].clone();
+        for &t0 in &snapshot {
+            let n0 = b.index[&(s0, t0)];
+            let cs = b.state_checks(s0)?;
+            b.g.nodes[n0 as usize].check_state = cs;
+            let nexts = tb.nodes[t0].nexts.clone();
+            for &s1 in &succs {
+                let is_done = b.done[s1 as usize];
+                for &t1 in &nexts {
+                    if b.consistent(s1, t1)? {
+                        let exists = b.index.get(&(s1, t1)).copied();
+                        let missing = match exists {
+                            None => true,
+                            Some(d) => !b.texist.contains(&(n0, d)),
+                        };
+                        if missing {
+                            let bits = b.action_bits(s0, s1)?;
+                            let d = match exists {
+                                Some(d) => d,
+                                None => b.create(s1, t1),
+                            };
+                            b.add(n0, d, &bits);
+                            if exists.is_none() && is_done {
+                                b.late(s1, t1)?;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // a node whose state was never processed keeps the results of its state predicates
+    for i in 0..b.g.nodes.len() {
+        if b.g.nodes[i].check_state.is_empty() {
+            let s = b.g.nodes[i].state;
+            let cs = b.state_checks(s)?;
+            b.g.nodes[i].check_state = cs;
+        }
+    }
+    Ok(b.g)
 }
 
 /// `Ln::eval` on the step `s0 -> s1` of the state `s`, remembering the value of every state predicate per state
@@ -578,8 +774,8 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
 }
 
 /// the behavior graphs of all orders of solution (Java: the `LiveChecker`s after the state space has been explored)
-pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32], oss: &[Oos]) -> R<Vec<Graph>> {
-    oss.iter().map(|oos| build_graph(ev, store, succ, inits, oos)).collect()
+pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oss: &[Oos]) -> R<Vec<Graph>> {
+    oss.iter().map(|oos| build_graph(ev, store, succ, gen, inits, oos)).collect()
 }
 
 /// `LiveWorker.call` over all orders of solution: the first counterexample found
@@ -606,7 +802,7 @@ pub struct Shortcut {
 /// Port of `LiveCheck.TableauLiveChecker.addInitState` / `addNextState` (and the recursive `addNextState` for states that
 /// are done already): the behavior graph is built incrementally in BFS order; when a node `<s, t>` whose tableau successor
 /// `t1` is accepting and consistent with `s` is created, the finite path to it is a counterexample (no cycle needed).
-pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[u32], oos: &Oos) -> R<Option<Shortcut>> {
+pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, inits: &[u32], oos: &Oos) -> R<Option<Shortcut>> {
     let tb = match &oos.tableau {
         Some(t) if oos.has_empty_pem() => t,
         _ => return Ok(None),
@@ -615,6 +811,7 @@ pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[
         ev: &'a Ev,
         store: &'a dyn States,
         succ: &'a [Vec<u32>],
+        gen: Option<&'a [Vec<u32>]>,
         tb: &'a tlc_core::liveness::tableau::TbGraph,
         recorded: std::collections::HashSet<(u32, usize)>,
         nodes_of: HashMap<u32, Vec<usize>>,
@@ -664,7 +861,10 @@ pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[
                 }
             }
             // edges induced by s -> s1 (s1 a successor of s in the state graph)
-            let succs = self.succ[s as usize].clone();
+            let succs = match self.gen {
+                Some(g) => g[s as usize].clone(),
+                None => self.succ[s as usize].clone(),
+            };
             for &s1 in &succs {
                 let is_done = self.done[s1 as usize];
                 for &t1 in &nexts {
@@ -690,6 +890,7 @@ pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], inits: &[
         ev,
         store,
         succ,
+        gen,
         tb,
         recorded: Default::default(),
         nodes_of: HashMap::new(),

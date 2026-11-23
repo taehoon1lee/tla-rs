@@ -129,6 +129,8 @@ struct Checker<'a> {
     live: bool,
     /// per state: the (distinct, in-model) successors in generation order, the stuttering step last
     live_succ: Vec<Vec<u32>>,
+    /// per state: how many entries of `live_succ` are generated successors (the stuttering step is appended after them)
+    live_gen_len: Vec<usize>,
     /// with a VIEW: the successor state actually produced by each recorded transition (parallel to `live_succ`)
     live_edge: Vec<Vec<Rc<Vec<Value>>>>,
     live_inits: Vec<u32>,
@@ -143,6 +145,8 @@ struct Checker<'a> {
     no_summary: bool,
     /// the state being expanded (an error then ends the run with the summary of `printSummary(false, ..)`)
     cur_head: Option<usize>,
+    /// does the specification draw random numbers (`RandomElement`, `Randomization`)?
+    uses_random: bool,
     /// Java: after the failed evaluation of an invariant / action property the replay of the state is silent and `printSummary(true)` follows
     outdeg_on_exit: bool,
     stats_done: bool,
@@ -1018,6 +1022,7 @@ Reason:
         let setup = self.setup;
         let ev = setup.ev.clone();
         ev.warn.set(!self.opts.no_warning);
+        ev.fp_index.set(self.opts.fp_index.max(0) as usize);
         {
             let mut st = ev.stats.borrow_mut();
             let seed = self.opts.seed.to_string();
@@ -1327,6 +1332,11 @@ Reason:
         let mut head = 0usize;
         while head < self.states.len() {
             self.cur_head = Some(head);
+            if self.uses_random {
+                // Java: `IdThread.setCurrentState`: the state whose successors are computed seeds the random choices
+                *self.setup.ev.pred_state.borrow_mut() = Some(self.states[head].vals.clone());
+                self.setup.ev.pred_id.set(self.setup.ev.pred_id.get() + 1);
+            }
             let cur = self.states[head].vals.clone();
             ev.epoch.set(ev.epoch.get() + 1);
             let cur_level = self.states[head].level;
@@ -1603,6 +1613,10 @@ Reason:
             if self.live {
                 // Java: `Worker.doNextCheckLiveness` adds the stuttering step to the successors
                 let h = head as u32;
+                if self.live_gen_len.len() <= head {
+                    self.live_gen_len.resize(head + 1, 0);
+                }
+                self.live_gen_len[head] = self.live_succ[head].len();
                 if self.setup.view.is_some() || !self.perms.is_empty() {
                     let cur = &self.states[head].vals;
                     let dup = self.live_succ[head].iter().zip(self.live_edge[head].iter()).any(|(t, vals)| {
@@ -1679,6 +1693,10 @@ Reason:
     fn step(&mut self, pred: &[Value], level: i64, target_fp: u64) -> Option<(Vec<Value>, Option<LabelSpec>)> {
         let setup = self.setup;
         let ev = setup.ev.clone();
+        if self.uses_random {
+            *ev.pred_state.borrow_mut() = Some(pred.to_vec());
+            ev.pred_id.set(ev.pred_id.get() + 1);
+        }
         // Java: `TLCGet("level")` is the level of the state the actions are applied to (its position in the behavior)
         let saved = ev.counters.get();
         let mut c = saved;
@@ -1715,6 +1733,76 @@ Reason:
         found
     }
 
+    /// Java: `Worker.doNextCheckLiveness`: the successors of a state reach `LiveCheck.addNextState` in the slot order of a `SetOfStates`
+    /// (open addressing by the state's fingerprint; a worker keeps the capacity it needed: `multiplier`).  Reproduced for states whose
+    /// values this port can fingerprint like Java (`jfp`); returns false (the caller keeps another fixed order) otherwise.
+    fn java_set_order(&mut self) -> Option<Vec<Vec<u32>>> {
+        if !self.perms.is_empty() || self.setup.view.is_some() {
+            return None;
+        }
+        let fp64 = tlc_core::jfp::fp64(self.opts.fp_index.max(0) as usize);
+        let mut fps: Vec<u64> = Vec::with_capacity(self.states.len());
+        for s in &self.states {
+            match fp64.state_opt(&s.vals) {
+                Some(f) => fps.push(f),
+                None => return None,
+            }
+        }
+        // the successors in generation order (without the stuttering step), for the nodes Java creates after their state was done
+        let gen: Vec<Vec<u32>> = (0..self.live_succ.len())
+            .map(|i| {
+                let n = self.live_gen_len.get(i).copied().unwrap_or(0).min(self.live_succ[i].len());
+                self.live_succ[i][..n].to_vec()
+            })
+            .collect();
+        let mut multiplier = 1usize;
+        for i in 0..self.live_succ.len() {
+            if self.live_succ[i].is_empty() {
+                continue;
+            }
+            let mut length = multiplier * 16;
+            let mut slots: Vec<Option<u32>> = vec![None; length];
+            let mut count = 0usize;
+            let mut thresh = length / 2;
+            // Java: SetOfStates.put0 / grow
+            fn put0(slots: &mut Vec<Option<u32>>, count: &mut usize, fp: u64, node: u32) {
+                let length = slots.len();
+                let mut loc = ((fp as u32 as i32) & 0x7FFF_FFFF) as usize % length;
+                loop {
+                    match slots[loc] {
+                        None => {
+                            slots[loc] = Some(node);
+                            *count += 1;
+                            return;
+                        }
+                        Some(e) if e == node => return,
+                        _ => {}
+                    }
+                    loc = (loc + 1) % length;
+                }
+            }
+            let succ = self.live_succ[i].clone();
+            for &t in &succ {
+                if count >= thresh {
+                    let old = std::mem::take(&mut slots);
+                    length = (2 * length + 1).min(i32::MAX as usize);
+                    thresh = length / 2;
+                    slots = vec![None; length];
+                    count = 0;
+                    for n in old.into_iter().flatten() {
+                        put0(&mut slots, &mut count, fps[n as usize], n);
+                    }
+                }
+                put0(&mut slots, &mut count, fps[t as usize], t);
+            }
+            if length > multiplier * 16 {
+                multiplier += 1;
+            }
+            self.live_succ[i] = slots.into_iter().flatten().collect();
+        }
+        Some(gen)
+    }
+
     /// Java: `ModelChecker`: the final liveness check (`LiveCheck.finalCheck` -> `LiveWorker`)
     fn final_liveness_check(&mut self) -> SR<()> {
         let setup = self.setup;
@@ -1725,17 +1813,20 @@ Reason:
         // Java iterates the successors of a state in the order of a hash set (`SetOfStates`: slot = FP64 % capacity), an
         // order that cannot be reproduced here (our fingerprints and intern tokens differ); any fixed order is as good as
         // another.  The reverse generation order agrees with Java's counterexamples more often on the test corpus.
-        for (i, v) in self.live_succ.iter_mut().enumerate() {
-            v.reverse();
-            if i < self.live_edge.len() && self.live_edge[i].len() == v.len() {
-                self.live_edge[i].reverse();
+        let gen_lists = self.java_set_order();
+        if gen_lists.is_none() {
+            for (i, v) in self.live_succ.iter_mut().enumerate() {
+                v.reverse();
+                if i < self.live_edge.len() && self.live_edge[i].len() == v.len() {
+                    self.live_edge[i].reverse();
+                }
             }
         }
         let table = StateTable(&self.states, &self.live_edge);
         // Java: `LiveCheck.addNextState` finds the counterexample of a safety-like property while the state graph is explored
         let mut early: Option<(usize, crate::live::Shortcut)> = None;
         for (oi, o) in oss.iter().enumerate() {
-            match crate::live::safety_shortcut(&ev, &table, &self.live_succ, &self.live_inits, o) {
+            match crate::live::safety_shortcut(&ev, &table, &self.live_succ, gen_lists.as_deref(), &self.live_inits, o) {
                 Ok(Some(hit)) => {
                     if early.as_ref().map_or(true, |(_, h)| hit.k < h.k) {
                         early = Some((oi, hit));
@@ -1773,7 +1864,7 @@ Reason:
                 left
             ),
         );
-        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, &self.live_inits, oss) {
+        let graphs = match crate::live::build_all(&ev, &table, &self.live_succ, gen_lists.as_deref(), &self.live_inits, oss) {
             Ok(g) => g,
             Err(e) => {
                 let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
@@ -2026,6 +2117,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         perms: SymGroup::new(Vec::new()),
         live: !setup.live.oss.is_empty(),
         live_succ: Vec::new(),
+        live_gen_len: Vec::new(),
         live_edge: Vec::new(),
         live_inits: Vec::new(),
         fp_index: HashMap::new(),
@@ -2034,6 +2126,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         init_fail: None,
         no_summary: false,
         cur_head: None,
+        uses_random: tlc_core::natives::random_used(),
         outdeg_on_exit: false,
         stats_done: false,
     };
