@@ -363,6 +363,29 @@ The postcondition evaluated to the non-boolean value
         ec::error_constant_to_exit_status(ec::TLC_NESTED_EXPRESSION)
     }
 
+    /// the failure happened while the initial state was fingerprinted: the replay reports a `FingerprintException`
+    fn report_init_state_error_fp(&mut self, e: &TlcErr, st: &[Value]) -> i32 {
+        self.flush_output();
+        if e.not_ported {
+            self.rep.error(mp::NOT_PORTED, &e.msg);
+            return 199;
+        }
+        let text = format!("{}
+While working on the initial state:
+{}", e.msg, self.state_text(st));
+        self.rep.error(ec::TLC_INITIAL_STATE, &text);
+        self.rep.error(
+            ec::TLC_FINGERPRINT_EXCEPTION,
+            &format!("TLC was unable to fingerprint.
+
+Fingerprint Stack Trace:
+
+Reason:
+{}", e.msg),
+        );
+        ec::error_constant_to_exit_status(ec::TLC_FINGERPRINT_EXCEPTION)
+    }
+
     fn report_err(&mut self, e: &TlcErr, default_exit: i32) -> i32 {
         self.flush_output();
         if e.not_ported {
@@ -761,7 +784,7 @@ The postcondition evaluated to the non-boolean value
             let fp = match self.fp(&st) {
                 Ok(f) => f,
                 Err(e) => {
-                    let code = self.report_init_state_error(&e, &st);
+                    let code = self.report_init_state_error_fp(&e, &st);
                     return Err(Stop::Exit(code));
                 }
             };
@@ -979,8 +1002,27 @@ The postcondition evaluated to the non-boolean value
                     let fp = match self.fp(&st) {
                         Ok(f) => f,
                         Err(e) => {
-                            let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
-                            return Err(Stop::Exit(code));
+                            if e.not_ported {
+                                let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
+                                return Err(Stop::Exit(code));
+                            }
+                            // Java: the worker fails to fingerprint the successor: the exception is reported, then the trace to the
+                            // predecessor, then the replay's FingerprintException; `printSummary(false, ..)` follows
+                            self.flush_output();
+                            let text = format!(
+                                "TLC threw an unexpected exception.\nThis was probably caused by an error in the spec or model.\nSee the User Output or TLC Console for clues to what happened.\nThe exception was a java.lang.RuntimeException : {}",
+                                e.msg
+                            );
+                            self.rep.error(ec::GENERAL, &text);
+                            self.print_trace(head as u32);
+                            self.rep.error(ec::GENERAL, &text);
+                            self.rep.error(
+                                ec::TLC_FINGERPRINT_EXCEPTION,
+                                &format!("TLC was unable to fingerprint.\n\nFingerprint Stack Trace:\n\nReason:\n{}", e.msg),
+                            );
+                            let left = self.states.len() - head - 1;
+                            self.stats(left);
+                            return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_FINGERPRINT_EXCEPTION)));
                         }
                     };
                     prof_add(2, t_f);

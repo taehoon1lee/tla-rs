@@ -225,7 +225,10 @@ impl Ev {
         match cur {
             Value::Undef => {
                 self.epoch.set(self.epoch.get() + 1);
-                buf.borrow_mut()[i as usize] = v.normalize()?;
+                // Java binds the value as it is; it is normalized (enumerated) when it is fingerprinted or printed.  A power set
+                // too big to enumerate stays lazy here so that the failure happens where Java's does (the fingerprint).
+                let nv = if v.is_huge_subset() { v } else { v.normalize()? };
+                buf.borrow_mut()[i as usize] = nv;
                 let was = self.eval_only.get();
                 if !was && (mode == Mode::Init || self.warn.get()) && buf.borrow().iter().all(|x| !matches!(x, Value::Undef)) {
                     // Java: getNextStates0 -> getNextStatesAllAssigned / getInitStates(acts, ps, ..) with `ps.allAssigned()`

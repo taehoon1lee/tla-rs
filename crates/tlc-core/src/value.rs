@@ -1364,6 +1364,34 @@ impl Value {
         }
     }
 
+    /// number of elements of a (lazy) set, saturating
+    fn card_sat(&self) -> u128 {
+        match self {
+            Value::Set(s) => s.len() as u128,
+            Value::Interval(lo, hi) => {
+                if hi < lo {
+                    0
+                } else {
+                    (*hi as i64 - *lo as i64 + 1) as u128
+                }
+            }
+            Value::Subset(b) => {
+                let n = b.card_sat();
+                if n >= 127 {
+                    u128::MAX
+                } else {
+                    1u128 << n
+                }
+            }
+            _ => 0,
+        }
+    }
+
+    /// a `SUBSET S` whose elements TLC would never enumerate (more than 2^24)
+    pub fn is_huge_subset(&self) -> bool {
+        matches!(self, Value::Subset(_)) && self.card_sat() > (1u128 << 24)
+    }
+
     fn needs_normalize(&self) -> bool {
         match self {
             Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) => false,
