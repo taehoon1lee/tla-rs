@@ -213,6 +213,74 @@ fn undef_state(n: usize) -> Vec<Value> {
     vec![Value::Undef; n]
 }
 
+
+/// Java: `Tool.eval` of `\cup`, `\cap` and `\` when an operand is an unnormalized set enumeration: an enumerated left operand
+/// (`Reducible`) builds the result element by element, in stored order, asking the other set for membership, so an element
+/// that cannot be compared with the other set's elements fails exactly where Java fails
+fn reduce_unnormalized(b: B, l: &Value, r: &Value) -> Option<R<Value>> {
+    if !(matches!(l, Value::SetU(_)) || matches!(r, Value::SetU(_))) {
+        return None;
+    }
+    let reducible = |v: &Value| matches!(v, Value::Set(_) | Value::Interval(..) | Value::SetU(_));
+    let filter = |a: &Value, o: &Value, keep: bool| -> R<Value> {
+        let mut out = vec![];
+        for e in a.stored_elems()? {
+            if o.member(&e)? == keep {
+                out.push(e);
+            }
+        }
+        Ok(Value::SetU(Rc::new(out)))
+    };
+    match b {
+        B::SetMinus if reducible(l) => Some(filter(l, r, false)),
+        B::Intersect if reducible(l) => Some(filter(l, r, true)),
+        B::Intersect if reducible(r) => Some(filter(r, l, true)),
+        B::Union => {
+            let (a, o) = if reducible(l) { (l, r) } else if reducible(r) { (r, l) } else { return None };
+            if a.is_empty_set().unwrap_or(false) {
+                return Some(Ok(o.clone()));
+            }
+            if !reducible(o) {
+                return None;
+            }
+            Some((|| {
+                let mut out = a.stored_elems()?;
+                for e in o.enumerate()?.iter() {
+                    if !a.member(e)? {
+                        out.push(e.clone());
+                    }
+                }
+                Ok(Value::SetU(Rc::new(out)))
+            })())
+        }
+        _ => None,
+    }
+}
+
+/// Java: `UnionValue.union`: `UNION S` of an enumerated set whose elements are all set enumerations is computed at once, element by
+/// element in stored order, asking the partial result for membership
+fn union_unnormalized(v: &Value) -> Option<R<Value>> {
+    let outer: &[Value] = match v {
+        Value::SetU(x) => x,
+        Value::Set(x) if x.iter().any(|e| matches!(e, Value::SetU(_))) => x,
+        _ => return None,
+    };
+    if !outer.iter().all(|e| matches!(e, Value::Set(_) | Value::SetU(_))) {
+        return None;
+    }
+    Some((|| {
+        let mut res: Vec<Value> = vec![];
+        for inner in outer {
+            for e in inner.stored_elems()? {
+                if !linear_member(&res, &e)? {
+                    res.push(e);
+                }
+            }
+        }
+        Ok(Value::SetU(Rc::new(res)))
+    })())
+}
+
 impl Ev {
     pub fn new(nvars: usize) -> Rc<Ev> {
         Rc::new_cyclic(|me| Ev {
@@ -759,6 +827,9 @@ impl Ev {
                 if !vals[0].is_set_like() {
                     return fail(format!("Attempted to apply UNION to the non-set value\n{}", vals[0].to_tla()));
                 }
+                if let Some(r) = union_unnormalized(&vals[0]) {
+                    return r;
+                }
                 Ok(Value::BigUnion(Rc::new(vals[0].clone())))
             }
             B::Domain => vals[0].domain(),
@@ -780,6 +851,9 @@ impl Ev {
                         vals[0].to_tla(),
                         vals[1].to_tla()
                     ));
+                }
+                if let Some(r) = reduce_unnormalized(b, &vals[0], &vals[1]) {
+                    return r;
                 }
                 // Java: Tool.eval OPCODE_cup: an empty enumerated set (`Reducible.cup`) leaves the other operand as it is
                 if b == B::Union {
@@ -1077,7 +1151,7 @@ impl Ev {
                 for x in es {
                     v.push(self.eval(x, s0, s1)?);
                 }
-                Value::set_from(v)
+                Value::set_lit(v)
             }
             Node::FcnApply(f, a) => {
                 // a state variable or a constant is applied in place (no reference-count traffic): the argument is evaluated
@@ -1305,7 +1379,7 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                 }
                 // Java: SetPredValue is always lazy; small materialized bases are filtered eagerly (cheaper than a capture)
                 let small = match &base {
-                    Value::Set(_) => true,
+                    Value::Set(_) | Value::SetU(_) => true,
                     Value::Interval(lo, hi) => hi.saturating_sub(*lo) < 100_000,
                     _ => false,
                 };

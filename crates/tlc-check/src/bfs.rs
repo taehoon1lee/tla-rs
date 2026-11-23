@@ -381,12 +381,28 @@ The postcondition evaluated to the non-boolean value
         }
     }
 
+    /// Java: printing the state of the error report (`TLCState.toString`) normalizes its set enumerations: when their elements cannot be
+    /// compared, that fails inside the exception handler of `modelCheckImpl`, so the exception escapes to `TLC.process` which reports
+    /// it as an unexpected exception (the `TLCRuntimeException` shown as a `RuntimeException`)
+    fn state_not_printable(&mut self, st: &[Value]) -> Option<i32> {
+        let err = st.iter().find_map(|v| v.check_printable().err())?;
+        self.flush_output();
+        self.rep.error(
+            ec::GENERAL,
+            &format!("TLC threw an unexpected exception.\nThis was probably caused by an error in the spec or model.\nSee the User Output or TLC Console for clues to what happened.\nThe exception was a java.lang.RuntimeException\n: {}", err.msg),
+        );
+        Some(ec::error_constant_to_exit_status(ec::GENERAL))
+    }
+
     /// the failure happened while the initial state was fingerprinted: the replay reports a `FingerprintException`
     fn report_init_state_error_fp(&mut self, e: &TlcErr, st: &[Value]) -> i32 {
         self.flush_output();
         if e.not_ported {
             self.rep.error(mp::NOT_PORTED, &e.msg);
             return 199;
+        }
+        if let Some(code) = self.state_not_printable(st) {
+            return code;
         }
         let text = format!("{}
 While working on the initial state:

@@ -90,6 +90,8 @@ pub enum Value {
     SetPred(Rc<SetPred>),
     FcnLam(Rc<FcnLam>),
     Subset(Rc<Value>),
+    /// a set enumeration that was not normalized because its elements cannot be compared (Java's unnormalized `SetEnumValue`)
+    SetU(Rc<Vec<Value>>),
     /// `FiniteSetsExt!kSubset(k, S)`: Java's `KSubsetValue`
     KSubset(Rc<(i32, Value)>),
     SetOfFcns(Rc<(Value, Value)>),
@@ -175,6 +177,7 @@ impl Value {
                 | Value::Interval(..)
                 | Value::SetPred(_)
                 | Value::Subset(_)
+                | Value::SetU(_)
                 | Value::KSubset(_)
                 | Value::SetOfFcns(_)
                 | Value::SetOfRcds(_)
@@ -408,6 +411,11 @@ impl Value {
                 Ok(Rc::new(out))
             }
             Value::KSubset(_) => self.ksub_enumerate(),
+            // Java: SetEnumValue.normalize: the elements are compared only now
+            Value::SetU(v) => match Value::set_from(v.to_vec())? {
+                Value::Set(rc) => Ok(rc),
+                _ => Ok(Rc::new(vec![])),
+            },
             Value::SetOfFcns(p) => {
                 if self.is_empty_set()? {
                     return Ok(Rc::new(vec![]));
@@ -625,6 +633,7 @@ impl Value {
             Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_) => Ok(false),
             Value::Subset(_) => Ok(false),
             Value::KSubset(_) => self.ksub_no_elements(),
+            Value::SetU(v) => Ok(v.is_empty()),
             Value::SetOfFcns(p) => {
                 if p.0.is_empty_set()? {
                     return Ok(false);
@@ -746,7 +755,11 @@ impl Value {
                     let mid = (lo + hi) / 2;
                     let ord = match (&v[mid], e) {
                         (Value::Int(a), Value::Int(b)) => a.cmp(b),
-                        (a, _) => a.cmp_val(e)?,
+                        // Java: a set enumeration is searched linearly with `equals` until something normalizes it
+                        (a, _) => match a.cmp_val(e) {
+                            Ok(o) => o,
+                            Err(_) => return linear_member(v, e),
+                        },
                     };
                     match ord {
                         Ordering::Less => lo = mid + 1,
@@ -795,11 +808,14 @@ impl Value {
             }
             Value::Subset(s) => {
                 if !e.is_set_like() {
-                    return fail(format!("Attempted to check if the non-set value\n{}\nis in SUBSET", e.to_tla()));
+                    e.check_printable()?;
+                    self.check_printable()?;
+                    return fail(format!("Attempted to check if the non-enumerable value\n{}\nis element of\n{}", crate::pprint::ppr(&e.to_tla()), crate::pprint::ppr(&self.to_tla())));
                 }
                 e.subseteq(s)
             }
             // Java: KSubsetValue.member: the size is asked first, then every element has to be in the base set
+            Value::SetU(v) => linear_member(v, e),
             Value::KSubset(p) => {
                 if self.ksub_no_elements()? {
                     return Ok(false);
@@ -844,6 +860,9 @@ impl Value {
                         if fc.dom.len() != fs.len() {
                             return Ok(false);
                         }
+                        if fc.dom.iter().any(|d| !matches!(d, Value::Str(_))) {
+                            return self.non_record_member(e);
+                        }
                         for (d, v) in fc.dom.iter().zip(fc.vals.iter()) {
                             match d {
                                 Value::Str(id) => match fs.iter().find(|(n, _)| n == id) {
@@ -860,8 +879,9 @@ impl Value {
                         Ok(true)
                     }
                     // a tuple has the integer domain 1..n: only the empty tuple can be a record (of no fields)
-                    Value::Tuple(t) => Ok(t.is_empty() && fs.is_empty()),
-                    _ => Ok(false),
+                    Value::Tuple(t) if t.is_empty() => Ok(fs.is_empty()),
+                    Value::Model(_) => Ok(false),
+                    _ => self.non_record_member(e),
                 }
             }
             Value::SetOfTuples(ss) => match e {
@@ -876,7 +896,16 @@ impl Value {
                     }
                     Ok(true)
                 }
-                _ => Ok(false),
+                // Java: SetOfTuplesValue.member: a function with an integer domain is not a tuple of this length, any other value
+                // that is not a tuple cannot be asked
+                Value::Fcn(fc) => {
+                    if fc.dom.iter().any(|d| !matches!(d, Value::Int(_))) {
+                        return self.non_tuple_member(e);
+                    }
+                    Ok(false)
+                }
+                Value::Model(_) => Ok(false),
+                _ => self.non_tuple_member(e),
             },
             Value::SeqOf(s) => {
                 let f = e.force_fcn()?;
@@ -952,6 +981,7 @@ impl Value {
         match self {
             Value::Tuple(t) => Ok(Value::Interval(1, t.len() as i32)),
             Value::Fcn(f) => Ok(Value::Set(f.dom.clone())),
+            Value::FcnLam(l) if matches!(l.dom, Value::SetU(_)) => self.force_fcn()?.domain(),
             Value::FcnLam(l) => Ok(l.dom.clone()),
             v => fail(format!("Attempted to apply the operator DOMAIN to the non-function value\n{}", v.to_tla())),
         }
@@ -1074,7 +1104,7 @@ impl Value {
                 }
                 None => Ok(self.clone()),
             },
-            Value::FcnLam(l) if !l.dom.is_finite() => {
+            Value::FcnLam(l) if !l.dom.is_finite() || matches!(l.dom, Value::SetU(_)) => {
                 // Java: FcnLambdaValue.takeExcept keeps the function lazy: the new value is one more case of the application
                 if !l.dom.member(arg)? {
                     return Ok(self.clone());
@@ -1454,6 +1484,16 @@ impl Value {
                 out.push_str("SUBSET ");
                 s.write_tla(out);
             }
+            Value::SetU(v) => {
+                out.push('{');
+                for (i, e) in v.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(", ");
+                    }
+                    e.write_tla(out);
+                }
+                out.push('}');
+            }
             // Java: KSubsetValue.toString: expanded below 64 elements
             Value::KSubset(p) => match self.ksub_size() {
                 Ok(n) if n < 64 => {
@@ -1719,6 +1759,83 @@ impl Value {
     }
 }
 
+
+// ---------------------------------------------------------------------------------------------- unnormalized set enumerations
+
+/// Java: `SetEnumValue.member` of a set that is not normalized: the stored elements are compared with `equals`, in order
+pub fn linear_member(elems: &[Value], e: &Value) -> R<bool> {
+    for x in elems {
+        if x.eq_val(e)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+impl Value {
+    /// a set enumeration `{e1, ..., en}`: Java normalizes it only when it has to (to compare, enumerate or fingerprint it), so
+    /// elements that cannot be compared (`{1, "a"}`) leave it unnormalized instead of failing the evaluation
+    pub fn set_lit(elems: Vec<Value>) -> R<Value> {
+        let simple = |k: fn(&Value) -> bool| elems.iter().all(k);
+        if elems.len() < 2 || simple(|v| matches!(v, Value::Int(_))) || simple(|v| matches!(v, Value::Str(_))) || simple(|v| matches!(v, Value::Bool(_))) {
+            return Value::set_from(elems);
+        }
+        let stored = elems.clone();
+        match Value::set_from(elems) {
+            Ok(v) => Ok(v),
+            Err(_) => Ok(Value::SetU(Rc::new(stored))),
+        }
+    }
+
+    fn non_tuple_member(&self, e: &Value) -> R<bool> {
+        e.check_printable()?;
+        self.check_printable()?;
+        fail(format!("Attempted to check if non-tuple\n{}\nis in the set of tuples:\n{}", crate::pprint::ppr(&e.to_tla()), crate::pprint::ppr(&self.to_tla())))
+    }
+
+    fn non_record_member(&self, e: &Value) -> R<bool> {
+        e.check_printable()?;
+        self.check_printable()?;
+        fail(format!("Attempted to check if non-record\n{}\nis in the set of records:\n{}", e.to_tla(), crate::pprint::ppr(&self.to_tla())))
+    }
+
+    /// Java: `toString` of a set enumeration normalizes it, so building an error message that shows it fails when its elements
+    /// cannot be compared
+    pub fn check_printable(&self) -> R<()> {
+        match self {
+            Value::SetU(_) => self.enumerate().map(|_| ()),
+            Value::Set(v) => v.iter().try_for_each(|e| e.check_printable()),
+            Value::Tuple(v) => v.iter().try_for_each(|e| e.check_printable()),
+            Value::SetOfTuples(v) => v.iter().try_for_each(|e| e.check_printable()),
+            Value::SetOfRcds(v) => v.iter().try_for_each(|(_, e)| e.check_printable()),
+            Value::SetOfFcns(p) => {
+                p.0.check_printable()?;
+                p.1.check_printable()
+            }
+            Value::Subset(s) => s.check_printable(),
+            _ => Ok(()),
+        }
+    }
+
+    /// does the value hold an unnormalized set enumeration (Java normalizes it only when it fingerprints or prints the value)?
+    pub fn contains_setu(&self) -> bool {
+        match self {
+            Value::SetU(_) => true,
+            Value::Set(v) | Value::Tuple(v) => v.iter().any(|e| e.contains_setu()),
+            Value::Fcn(f) => f.vals.iter().any(|e| e.contains_setu()),
+            _ => false,
+        }
+    }
+
+    /// the elements of an enumerated set in the order Java stores them: written order for an unnormalized set enumeration,
+    /// the normalized order otherwise
+    pub fn stored_elems(&self) -> R<Vec<Value>> {
+        match self {
+            Value::SetU(v) => Ok(v.to_vec()),
+            other => Ok(other.enumerate()?.to_vec()),
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------------------------- KSubsetValue
 
