@@ -203,7 +203,7 @@
   (CheckpointCoordinationFailure, MultiPaxos_small got slower with the exhaustive form). Top-level function images are cached per perm
   (`ImgCache`, cap 512); a function over a closed domain permuted onto itself keeps the `dom` Rc and only reorders values (binary search);
   `Fcn.has_model` memoizes `contains_model`. Remaining profile is flat (eval_inner, permute_opt ~10 %, hash_into, cmp_val_slow, clone/alloc).
-- tt/ pass (verdict 304 -> 357/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
+- tt/ pass (verdict 304 -> 358/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
   `SpecProcessor.processConfigPossible` and analyses it with `tla_sany::analyze_generated_module` (loads `_Possible` + its LOCAL INSTANCEs);
   state-level predicates become model constraints, action-level ones action constraints (the generated defs get the level of the tracked predicate,
   otherwise the compiler folds them: SANY gives `_Track(P, n)` constant level). `bfs::check_postconditions` runs after the BFS (2404/2405/2780, exit 10).
@@ -222,7 +222,7 @@
   SPECIFICATION naming a state variable = 2236; `[]S` with state-level S in a SPEC = 2213; unnamed next-state actions are called `Action`.
 - Fingerprints of strings only see the low byte of each UTF-16 char (`FP64.Extend(fp, String)`): "é" and "ǩ" are one state (`str_fp_class`).
 - ENABLED / primed INSTANCE access: `actions::target_var` and `var_of` follow SubstIn and nullary definitions (Java `getPrimedVar` / `getVar`).
-- Still open in tt/ (7): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
+- Still open in tt/ (6): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
   Java classes (UserModuleOverride), `Randomization` natives, TLCGet("spec") coverage + level (TLCGetLevel), parameterized INSTANCE in
   SPECIFICATION (Github687specA/D), 2102/2103 call stacks and the
   exit-255 variants (Github696b, CyclicRedefine*, FingerprintException*), config constant `A <- diameter` evaluated at startup (TLCGetNamedUndefined).
@@ -240,3 +240,5 @@
 - Value semantics (ValueSemanticsAssume / ModuleSemanticsAssume): `TLCExt!AssertError` is a native (the TLA+ definition is always TRUE): TRUE iff the 2nd argument fails with exactly the text of the 1st;
   `TLCExt!TLCFP`; `Nat \cap {1,2}` enumerates the finite side; Java's equality of Nat/Int/Seq(S) and of product-like sets (`value::set_eq_special`), `Seq({})` is finite, `Nat \cup {}` reduces,
   EXCEPT on a function with an infinite domain stays lazy, lazy-function application errors use `In applying the function ...`, IsFiniteSet({x \in Nat : p}) fails like Java (override text with markers).
+- EmptySetEqAssume: Java prints a product-like set by its elements only when it has < 2000 (`Value::expands`), otherwise structurally (`[n1: S, n2: T]`, `[D -> R]`, `(S \X T)`); ToString does not
+  normalize; `Value::is_empty_set` follows `Value.isEmpty` (UNION decided by its first element); scalar compare/equality errors use Java's text (`... with non-integer:` + value).

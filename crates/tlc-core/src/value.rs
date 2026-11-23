@@ -514,6 +514,10 @@ impl Value {
                 Ok(Rc::new(out))
             }
             Value::SetDiff(p) => {
+                // Java: SetDiffValue.elements
+                if !p.0.is_finite() {
+                    return fail(format!("Attempted to enumerate S \\ T when S:\n{}\nis not enumerable.", crate::pprint::ppr(&p.0.to_tla())));
+                }
                 let a = p.0.enumerate()?;
                 let mut out = vec![];
                 for e in a.iter() {
@@ -636,10 +640,24 @@ impl Value {
                 }
                 Ok(false)
             }
+            // Java: `UnionValue.isEmpty`: the first element of the union decides, the rest is not enumerated
+            Value::BigUnion(s) => {
+                for x in s.enumerate()?.iter() {
+                    if !x.is_set_like() {
+                        return fail(format!(
+                            "Attempted to compute UNION of a set one of whose elements is not a set:\n{}",
+                            x.to_tla()
+                        ));
+                    }
+                    if !x.is_empty_set()? {
+                        return Ok(false);
+                    }
+                }
+                Ok(true)
+            }
             v if v.is_set_like() => Ok(v.enumerate()?.is_empty()),
-            v => fail(format!("Attempted to check if the non-set value
-{}
-is empty", v.to_tla())),
+            // Java: Value.isEmpty
+            v => fail(format!("Shouldn't call isEmpty() on value {}", crate::pprint::ppr(&v.to_tla()))),
         }
     }
 
@@ -1197,6 +1215,14 @@ is empty", v.to_tla())),
                 }
                 Ok(Ordering::Equal)
             }
+            // Java: IntValue / StringValue / BoolValue.compareTo
+            (a @ (Int(_) | Str(_) | Bool(_)), b) => fail(format!(
+                "Attempted to compare {} {} with non-{}:\n{}",
+                kind_name(a),
+                crate::pprint::ppr(&a.to_tla()),
+                kind_name(a),
+                crate::pprint::ppr(&b.to_tla())
+            )),
             (a, b) => fail(format!(
                 "Attempted to compare {} {} with {} {}.",
                 kind_name(a),
@@ -1268,6 +1294,19 @@ is empty", v.to_tla())),
                 }
                 Ok(a.cmp_val(b)? == Ordering::Equal)
             }
+            // Java: IntValue / StringValue / BoolValue.equals
+            (a @ (Int(_) | Str(_)), b) => fail(format!(
+                "Attempted to check equality of {} {} with non-{}:\n{}",
+                kind_name(a),
+                crate::pprint::ppr(&a.to_tla()),
+                kind_name(a),
+                crate::pprint::ppr(&b.to_tla())
+            )),
+            (a @ Bool(_), b) => fail(format!(
+                "Attempted to compare equality of boolean {} with non-boolean:\n{}",
+                crate::pprint::ppr(&a.to_tla()),
+                crate::pprint::ppr(&b.to_tla())
+            )),
             (a, b) => fail(format!(
                 "Attempted to check equality of {} {} with {} {}.",
                 kind_name(a),
@@ -1382,11 +1421,62 @@ is empty", v.to_tla())),
                 out.push_str("SUBSET ");
                 s.write_tla(out);
             }
+            Value::SetOfRcds(fs) if !self.expands() => {
+                out.push('[');
+                for (i, (n, s)) in fs.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(", ");
+                    }
+                    out.push_str(&intern::name_of(*n));
+                    out.push_str(": ");
+                    s.write_tla(out);
+                }
+                out.push(']');
+            }
+            Value::SetOfFcns(p) if !self.expands() => {
+                out.push('[');
+                p.0.write_tla(out);
+                out.push_str(" -> ");
+                p.1.write_tla(out);
+                out.push(']');
+            }
+            Value::SetOfTuples(ss) if !self.expands() => {
+                if !ss.is_empty() {
+                    out.push('(');
+                }
+                for (i, s) in ss.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(" \\X ");
+                    }
+                    s.write_tla(out);
+                }
+                if !ss.is_empty() {
+                    out.push(')');
+                }
+            }
             v => match v.enumerate() {
                 Ok(e) => Value::Set(e).write_tla(out),
                 Err(_) => out.push_str("<set>"),
             },
         }
+    }
+
+    /// Java: `TLCGlobals.expand` with `enumBound = 2000`: a product-like set is printed as its elements only if it has fewer
+    fn expands(&self) -> bool {
+        let sz: Option<u128> = match self {
+            Value::SetOfRcds(fs) => fs.iter().try_fold(1u128, |sz, (_, s)| s.size().ok().map(|n| if n == 0 { 0 } else { sz.saturating_mul(n as u128) })),
+            Value::SetOfTuples(ss) => ss.iter().try_fold(1u128, |sz, s| s.size().ok().map(|n| if n == 0 { 0 } else { sz.saturating_mul(n as u128) })),
+            Value::SetOfFcns(p) => match p.0.is_empty_set() {
+                Ok(true) => Some(1),
+                Ok(false) => match (p.0.size(), p.1.size()) {
+                    (Ok(d), Ok(r)) => Some((0..d).fold(1u128, |sz, _| if sz <= 2147483647 { sz.saturating_mul(r as u128) } else { sz })),
+                    _ => None,
+                },
+                Err(_) => None,
+            },
+            _ => None,
+        };
+        matches!(sz, Some(n) if n < 2000)
     }
 
     // ------------------------------------------------------------------ fingerprints
@@ -1553,6 +1643,7 @@ fn set_eq_special(a: &Value, b: &Value) -> R<Option<bool>> {
     let builtin = |v: &Value| matches!(v, NatSet | IntSet | RealSet | StringSet | SeqOf(_));
     Ok(match (a, b) {
         (SeqOf(x), SeqOf(y)) if !(a.is_finite() || b.is_finite()) => Some(x.eq_val(y)?),
+        (Subset(x), Subset(y)) if !x.is_finite() && !y.is_finite() => Some(x.eq_val(y)?),
         (x, y) if builtin(x) && builtin(y) && !x.is_finite() && !y.is_finite() => {
             Some(std::mem::discriminant(x) == std::mem::discriminant(y))
         }

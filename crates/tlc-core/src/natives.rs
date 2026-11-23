@@ -468,7 +468,9 @@ fn assert_(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
 }
 
 fn to_string(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
-    let v = arg(ev, a, 0, s0, s1)?.normalize()?;
+    // Java: `v.toStringUnchecked()`: a product-like set is printed by its structure when it is too big to expand
+    let v = arg(ev, a, 0, s0, s1)?;
+    let v = if matches!(v, Value::SetOfRcds(_) | Value::SetOfFcns(_) | Value::SetOfTuples(_)) { v } else { v.normalize()? };
     Ok(Value::str(&v.to_tla()))
 }
 
