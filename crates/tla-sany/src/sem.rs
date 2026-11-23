@@ -359,6 +359,8 @@ pub struct ExceptSpec {
 pub struct Subst {
     pub target: Rc<OpDecl>,
     pub value: Arg,
+    /// the module that holds the `INSTANCE` statement (the module the value expression was written in)
+    pub module: Name,
 }
 
 #[derive(Debug, Clone)]

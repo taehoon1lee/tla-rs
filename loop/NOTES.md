@@ -259,3 +259,8 @@
   trace, then the replay (`replay_failed_invariant`): the successors the first pass did not store are stored and evaluated, the first failure is the 2147; the stack positions of 2147 are not reproduced (no source positions on values).
   Trace-level text (290/364) still differs for: 2147 positions, 2111 layout of the other evaluation failures (Java embeds the cause), the stats after such errors, JVM method order of override messages.
 
+- Trace-level pass 2 (342/364): state variables / constants are listed in Java's `Hashtable` order (`spec::java_decl_order`: bucket = `String.hashCode() % capacity`, capacity from the symbol count + 72 built-ins).
+  Counterexample machinery (`bfs.rs`: `post_after_trace`, `post_after_lasso`, `counter_example_value`, `action_record`) builds `[state, action]` like `CounterExample.java` and runs the POSTCONDITION after the trace (safety:
+  `Worker.doPostCondition` incl. ALIAS records; liveness: raw states + the closing action); `Ev.counter_example` / `Ev.alias_trace` back `TLCExt!CounterExample` / `Trace` (TLCExt definitions are not constant-folded).
+  `step(pred, level, fp)` sets `TLCGet("level")`. `Subst.module` / `NodeInfo.module`: frames of instance copies are located in the module holding the `INSTANCE` statement. After a failed invariant/action-property evaluation the
+  summary prints the outdegree (Java's replay is silent -> `printSummary(true)`).

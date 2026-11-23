@@ -28,12 +28,27 @@ pub struct TlcErr {
     /// Java: the failure happened inside a method of a value that has a source (`Value.member`, ...), which rethrows it as a
     /// `FingerprintException` (`FingerprintException.getNewHead`) instead of letting the original exception through
     pub fp_exc: bool,
+    /// Java: `CallStackTool`: the nodes (by address, innermost first) whose evaluation the failure passed on its way out
+    pub frames: Vec<usize>,
+    /// the failure was raised while an argument was evaluated, not by the Java method of an override: it is not wrapped by it
+    pub pass: bool,
+}
+
+impl TlcErr {
+    /// Java: `getMessage()` of the exception: an error built from an EC code (`MP.getMessage`) carries the tool-mode markers
+    pub fn java_message(&self) -> String {
+        if self.code == crate::ec::GENERAL || self.code < 0 || self.msg.starts_with("@!@!@STARTMSG") {
+            self.msg.clone()
+        } else {
+            format!("@!@!@STARTMSG {}:0 @!@!@\n{}\n@!@!@ENDMSG {} @!@!@", self.code, self.msg, self.code)
+        }
+    }
 }
 
 pub type R<T> = Result<T, Box<TlcErr>>;
 
 pub fn fail_code<T>(code: i32, msg: impl Into<String>) -> R<T> {
-    Err(Box::new(TlcErr { code, msg: msg.into(), not_ported: false, trail: vec![], fp_exc: false }))
+    Err(Box::new(TlcErr { code, msg: msg.into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
 }
 
 /// `Assert.fail(msg)` -> EC.GENERAL
@@ -42,7 +57,7 @@ pub fn fail<T>(msg: impl Into<String>) -> R<T> {
 }
 
 pub fn not_ported<T>(what: impl Into<String>) -> R<T> {
-    Err(Box::new(TlcErr { code: crate::mp::NOT_PORTED, msg: what.into(), not_ported: true, trail: vec![], fp_exc: false }))
+    Err(Box::new(TlcErr { code: crate::mp::NOT_PORTED, msg: what.into(), not_ported: true, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
 }
 
 // ---------------------------------------------------------------------------------------------- values
@@ -404,7 +419,7 @@ impl Value {
                 let base = s.enumerate()?;
                 let n = base.len();
                 if n >= 31 {
-                    return fail(format!("Attempted to enumerate SUBSET of a set with {} elements.", n));
+                    return fail_code(crate::ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing the number of elements in:\n{}", crate::pprint::ppr(&self.to_tla())));
                 }
                 let mut out = Vec::with_capacity(1usize << n);
                 each_subset(&base, &mut |sv| {
@@ -687,8 +702,8 @@ impl Value {
             Value::Interval(lo, hi) => Ok(if hi < lo { 0 } else { (*hi as i64 - *lo as i64 + 1) as usize }),
             Value::Subset(s) => {
                 let n = s.size()?;
-                if n >= 63 {
-                    return fail("Overflow when computing the size of a SUBSET.");
+                if n >= 31 {
+                    return fail_code(crate::ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing the number of elements in:\n{}", crate::pprint::ppr(&self.to_tla())));
                 }
                 Ok(1usize << n)
             }
@@ -709,8 +724,8 @@ impl Value {
                 let mut sz: usize = 1;
                 for _ in 0..nd {
                     sz = match sz.checked_mul(nr) {
-                        Some(x) => x,
-                        None => return fail("Overflow when computing the size of a set of functions."),
+                        Some(x) if x <= i32::MAX as usize => x,
+                        _ => return fail(format!("Overflow when computing the number of elements in:\n{}", crate::pprint::ppr(&self.to_tla()))),
                     };
                 }
                 Ok(sz)
@@ -803,12 +818,18 @@ impl Value {
             Value::NatSet => match e {
                 Value::Int(i) => Ok(*i >= 0),
                 Value::Model(_) => Ok(false),
-                _ => fail(format!("Attempted to check if the non-integer value:\n{}\nis in Nat.", e.to_tla())),
+                _ => fail_code(
+                    crate::ec::TLC_MODULE_CHECK_MEMBER_OF,
+                    format!("Attempted to check if the value:\n{}\nis an element of Nat.", crate::pprint::ppr(&e.to_tla())),
+                ),
             },
             Value::IntSet => match e {
                 Value::Int(_) => Ok(true),
                 Value::Model(_) => Ok(false),
-                _ => fail(format!("Attempted to check if the non-integer value:\n{}\nis in Int.", e.to_tla())),
+                _ => fail_code(
+                    crate::ec::TLC_MODULE_CHECK_MEMBER_OF,
+                    format!("Attempted to check if the value:\n{}\nis an element of Int.", crate::pprint::ppr(&e.to_tla())),
+                ),
             },
             Value::RealSet => match e {
                 Value::Int(_) => Ok(true),
@@ -1013,7 +1034,7 @@ impl Value {
             Value::Tuple(t) => match arg {
                 Value::Int(i) if *i >= 1 && (*i as usize) <= t.len() => Ok(t[*i as usize - 1].clone()),
                 _ => fail(format!(
-                    "Attempted to apply tuple:\n{}\nto argument {} which is out of domain.",
+                    "Attempted to apply function:\n{}\nto argument {}, which is not in the domain of the function.",
                     self.to_tla(),
                     arg.to_tla()
                 )),
@@ -1500,10 +1521,23 @@ impl Value {
             Value::IntSet => out.push_str("Int"),
             Value::RealSet => out.push_str("Real"),
             Value::StringSet => out.push_str("STRING"),
-            Value::Subset(s) => {
-                out.push_str("SUBSET ");
-                s.write_tla(out);
-            }
+            // Java: SubsetValue.toString: a base with fewer than 7 elements is expanded, an interval base is parenthesized
+            Value::Subset(s) => match s.size() {
+                Ok(n) if n < 7 => match self.enumerate() {
+                    Ok(e) => Value::Set(e).write_tla(out),
+                    Err(_) => out.push_str("<set>"),
+                },
+                _ => {
+                    out.push_str("SUBSET ");
+                    if matches!(**s, Value::Interval(..)) {
+                        out.push('(');
+                        s.write_tla(out);
+                        out.push(')');
+                    } else {
+                        s.write_tla(out);
+                    }
+                }
+            },
             Value::SetU(v) => {
                 out.push('{');
                 for (i, e) in v.iter().enumerate() {
@@ -1754,9 +1788,10 @@ impl Value {
         }
     }
 
-    /// a `SUBSET S` whose elements TLC would never enumerate (more than 2^24)
+    /// a `SUBSET S` that stays lazy when it is bound to a variable (Java keeps the `SubsetValue`, which prints as `SUBSET S`): more
+    /// than 2^16 elements (the ones TLC would never enumerate are in it)
     pub fn is_huge_subset(&self) -> bool {
-        matches!(self, Value::Subset(_)) && self.card_sat() > (1u128 << 24)
+        matches!(self, Value::Subset(_)) && self.card_sat() > (1u128 << 16)
     }
 
     fn needs_normalize(&self) -> bool {

@@ -80,6 +80,8 @@ pub struct LabelSpec {
 pub struct LabelBase {
     pub name: sem::Name,
     pub params: Vec<Value>,
+    /// names of the parameters that carry a value (same order as `params`)
+    pub pnames: Vec<sem::Name>,
 }
 
 /// Java: FcnLambdaValue.body / params / context, kept so `getNextStates` can expand a function application
@@ -172,6 +174,10 @@ pub struct Ev {
     pub slot_pool: RefCell<Vec<Vec<Slot>>>,
     /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
     pub counters: Cell<[i64; 6]>,
+    /// Java: the value `TLCExt!CounterExample` is bound to while the POSTCONDITION is evaluated (`Tool.checkPostConditionWithCounterExample`)
+    pub counter_example: RefCell<Option<Value>>,
+    /// Java: `Tool.evalAlias(.., prefix)`: the value of `TLCExt!Trace` while an ALIAS is evaluated
+    pub alias_trace: RefCell<Option<Vec<Value>>>,
     /// true while the specification is processed (Java: `TLCGlobals.mainChecker == null`): the model checker's counters
     /// are not available yet
     pub setup_phase: Cell<bool>,
@@ -320,6 +326,8 @@ impl Ev {
             epoch: Cell::new(1),
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
+            counter_example: RefCell::new(None),
+            alias_trace: RefCell::new(None),
             setup_phase: Cell::new(false),
             prime_depth: Cell::new(0),
             no_frame: Rc::new(Vec::new()),
@@ -729,7 +737,7 @@ impl Ev {
                     }
                 }
             }
-            let r = f(self, &mut slots, s0, s1);
+            let r = f(self, &mut slots, s0, s1).map_err(|e| crate::natives::wrap_override_error(&d.src.original().module, &d.name, e));
             slots.clear();
             self.slot_pool.borrow_mut().push(slots);
             return r;
@@ -743,7 +751,7 @@ impl Ev {
 
     pub fn call_def_slots(&self, d: &Rc<CompiledDef>, mut slots: Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
         if let Some(f) = d.native.get() {
-            return f(self, &mut slots, s0, s1);
+            return f(self, &mut slots, s0, s1).map_err(|e| crate::natives::wrap_override_error(&d.src.original().module, &d.name, e));
         }
         let cacheable = d.nparams == 0 && d.level == sem::Level::Const;
         if cacheable {
@@ -922,7 +930,39 @@ impl Ev {
             }
             _ => {}
         }
-        self.eval_inner(e, s0, s1)
+        // Java: `CallStackTool`: the expression being evaluated is on the stack of an error that leaves it
+        match self.eval_inner(e, s0, s1) {
+            Err(mut er) => {
+                er.frames.push(Rc::as_ptr(e) as usize);
+                Err(er)
+            }
+            ok => ok,
+        }
+    }
+
+    /// Java: `CallStack.toString`: `0. Line .., column .. to line .., column .. in Module` for the expressions the error passed, outermost first;
+    /// consecutive identical nodes are skipped
+    pub fn call_stack_text(&self, e: &TlcErr) -> String {
+        let ni = self.node_info.borrow();
+        let mut out = String::new();
+        let mut last: Option<String> = None;
+        let mut depth = 0;
+        for p in e.frames.iter().rev() {
+            if let Some(i) = ni.get(p).filter(|i| !i.synthetic) {
+                let l = format!("Line {}, column {} to line {}, column {} in {}", i.loc.bl, i.loc.bc, i.loc.el, i.loc.ec, i.module);
+                if last.as_deref() == Some(l.as_str()) {
+                    continue;
+                }
+                out.push_str(&format!("{}. {}\n", depth, l));
+                depth += 1;
+                last = Some(l);
+            }
+        }
+        if depth == 0 {
+            return "    The error call stack is empty.\n".to_string();
+        }
+        out.push('\n');
+        out
     }
 
     pub fn eval_inner(&self, e: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
@@ -1843,7 +1883,7 @@ in a quantifier or set constructor.",
             // `@` is the current value at the path
             match &sub {
                 Some(old) => self.set_slot(at_slot, Slot::V(old.clone())),
-                None => self.set_slot(at_slot, Slot::Poison(Box::new(TlcErr { code: crate::ec::GENERAL, msg: "Attempted to evaluate @ for a function argument outside the domain.".into(), not_ported: false, trail: vec![], fp_exc: false }))),
+                None => self.set_slot(at_slot, Slot::Poison(Box::new(TlcErr { code: crate::ec::GENERAL, msg: "Attempted to evaluate @ for a function argument outside the domain.".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))),
             }
             if sub.is_none() {
                 // outside the domain: TLC leaves the function unchanged

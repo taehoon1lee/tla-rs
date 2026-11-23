@@ -66,3 +66,9 @@ gate (-j 2): verdict 304 -> 364/364, trace 250 -> 283 (all 150 + 13 heavy ex/ un
 safety-like liveness shortcut (exit 12), typed model values, constant operator tables, config/spec validation (2236, 2213, 5007), `-continue` at init,
 ENABLED over INSTANCE, unicode string fingerprints, `\cdot`, incomplete successor text, `_format` alias exception, TLCGet("spec") (no coverage).
 open: 0 tt/ models at verdict level (see NOTES.md "Still open in tt/"); the two Java-timeout tt/ models are unscored.
+
+## 2026-11-23 tt/ trace pass 2: 342/364 check models identical at trace level (Sonnet 5.5)
+gate (-j 2): no regressions (verdict 364/364, trace 283 -> 342). Done: call-stack texts (2103/2147 frames: `TlcErr.frames`, module of instance copies and substitution values), `doNextFailed`/`doNextEvalFailed` shapes
+(2111/2112 embed the cause, outdegree after a silent replay), POSTCONDITION after every counterexample with `TLCExt!CounterExample` / `Trace` / `ToTrace`, ALIAS levels, state variables and constants in Java's `Hashtable` order,
+`impliedtemporals`, SUBSET overflow/printing, large SUBSET stays lazy in a state, 2215 text for constraints.
+open: liveness lassos that depend on Java's FP64 / `SetOfStates` order (CodePlexBug08*, Symmetry/Tableau*, Github1389ViolatedC), FingerprintException 2147 stacks (no value sources), `\cdot` ENABLED trail, ValueSemanticsAssume warning order, Random* (needs Java FP64 seeding).

@@ -143,6 +143,8 @@ struct Checker<'a> {
     no_summary: bool,
     /// the state being expanded (an error then ends the run with the summary of `printSummary(false, ..)`)
     cur_head: Option<usize>,
+    /// Java: after the failed evaluation of an invariant / action property the replay of the state is silent and `printSummary(true)` follows
+    outdeg_on_exit: bool,
     stats_done: bool,
     proc_log: Vec<(u64, usize, u32)>,
 }
@@ -173,9 +175,172 @@ impl<'a> Checker<'a> {
         ev.counters.set([level, self.generated as i64, self.fps.len() as i64, queue, self.max_level as i64, secs]);
     }
 
+    // ---- POSTCONDITION with the counterexample (Java: Worker.doPostCondition, LiveWorker.printTrace, ModelChecker.modelCheckImpl)
+
+    /// Java: `Tool.evalAlias(.., prefix)` binds `TLCExt!Trace` to the behavior up to and including the state being printed: the states
+    /// `chain[..=n]` (state `n` is `last` when `n == chain.len()`)
+    fn bind_alias_trace(&self, chain: &[u32], n: usize, last: Option<&[Value]>) {
+        if self.setup.alias.is_none() {
+            return;
+        }
+        let mut recs: Vec<Value> = chain.iter().take(n + 1).map(|&i| self.state_record(&self.states[i as usize].vals)).collect();
+        if let Some(l) = last {
+            recs.push(self.state_record(l));
+        }
+        *self.setup.ev.alias_trace.borrow_mut() = Some(recs);
+    }
+
+    /// Java: `TLCStateInfo.toRecordValue`: a state as the record `[var |-> value]`
+    fn state_record(&self, vals: &[Value]) -> Value {
+        Value::record(self.setup.vars.iter().zip(vals.iter()).map(|(v, x)| (tla_sany::intern::intern(&v.name), x.clone())).collect())
+    }
+
+    /// Java: `RecordValue(Action)`: `[name |-> .., location |-> [beginLine, beginColumn, endLine, endColumn, module]]` and, for an
+    /// action with parameters, `context` and `parameters`; the unknown action has the location of the built-ins
+    fn action_record(&self, l: &Option<LabelSpec>) -> Value {
+        use tla_sany::intern::intern;
+        let ev = &self.setup.ev;
+        let loc_rec = |bl: u32, bc: u32, el: u32, ec: u32, module: &str| {
+            Value::record(vec![
+                (intern("beginLine"), Value::Int(bl as i32)),
+                (intern("beginColumn"), Value::Int(bc as i32)),
+                (intern("endLine"), Value::Int(el as i32)),
+                (intern("endColumn"), Value::Int(ec as i32)),
+                (intern("module"), Value::str(module)),
+            ])
+        };
+        match l {
+            None => Value::record(vec![(intern("name"), Value::str("UnnamedAction")), (intern("location"), loc_rec(0, 0, 0, 0, "--TLA+ BUILTINS--"))]),
+            Some(l) => {
+                let location = match ev.node_info.borrow().get(&l.stop) {
+                    Some(i) => loc_rec(i.loc.bl as u32, i.loc.bc as u32, i.loc.el as u32, i.loc.ec as u32, &i.module),
+                    None => loc_rec(0, 0, 0, 0, "--TLA+ BUILTINS--"),
+                };
+                let mut f = vec![(intern("name"), Value::str(&l.base.name)), (intern("location"), location)];
+                if !l.base.params.is_empty() {
+                    let ctx: Vec<(u32, Value)> = l.base.pnames.iter().zip(l.base.params.iter()).map(|(n, v)| (intern(n), v.clone())).collect();
+                    f.push((intern("context"), Value::record(ctx)));
+                    f.push((intern("parameters"), Value::tuple(l.base.pnames.iter().map(|n| Value::str(n)).collect())));
+                }
+                Value::record(f)
+            }
+        }
+    }
+
+    /// Java: `CounterExample(trace, action, loopOrdinal)`: the graph `[state |-> {<<n, state>>}, action |-> {<<s, action, t>>}]`;
+    /// `back` closes a lasso: the 0-based index of the state the loop returns to and the action that takes it there
+    fn counter_example_value(&self, recs: &[Value], labels: &[Option<LabelSpec>], back: Option<(usize, Option<LabelSpec>)>) -> Value {
+        use tla_sany::intern::intern;
+        let nums: Vec<Value> = recs.iter().enumerate().map(|(i, r)| Value::tuple(vec![Value::Int(i as i32 + 1), r.clone()])).collect();
+        let mut edges = vec![];
+        for i in 1..recs.len() {
+            edges.push(Value::tuple(vec![nums[i - 1].clone(), self.action_record(&labels[i]), nums[i].clone()]));
+        }
+        if let (Some((pos, l)), Some(last)) = (back, nums.last()) {
+            edges.push(Value::tuple(vec![last.clone(), self.action_record(&l), nums[pos].clone()]));
+        }
+        let set = |v: Vec<Value>| Value::set_from(v).unwrap_or(Value::Bool(false));
+        Value::record(vec![(intern("action"), set(edges)), (intern("state"), set(nums))])
+    }
+
+    /// Java: `Tool.evalAlias`: the record the ALIAS makes of a trace state (the state itself when there is no ALIAS), `None` for a
+    /// failed evaluation is reported as the extra field `_ALIASEvalError`
+    fn alias_record(&mut self, level: usize, vals: &[Value], succ: &[Value]) -> Value {
+        let setup = self.setup;
+        let alias = match &setup.alias {
+            Some(a) => a,
+            None => return self.state_record(vals),
+        };
+        let ev = setup.ev.clone();
+        let saved = ev.counters.get();
+        let mut c = saved;
+        c[0] = level as i64;
+        ev.counters.set(c);
+        let r = setup.run_top(alias, vals, succ).and_then(|v| v.force_fcn()).and_then(|v| v.normalize());
+        ev.counters.set(saved);
+        self.flush_output();
+        match r {
+            Ok(v) => v,
+            Err(e) => {
+                let mut f: Vec<(u32, Value)> = setup.vars.iter().zip(vals.iter()).map(|(v, x)| (tla_sany::intern::intern(&v.name), x.clone())).collect();
+                f.push((tla_sany::intern::intern("_ALIASEvalError"), Value::str(&e.msg)));
+                Value::record(f)
+            }
+        }
+    }
+
+    /// the states on the path to the state `parent`, followed by `last`
+    fn path_states(&self, parent: Option<u32>, last: Option<&[Value]>) -> Vec<Vec<Value>> {
+        let mut chain = vec![];
+        let mut i = parent.unwrap_or(NONE);
+        while i != NONE {
+            chain.push(i);
+            i = self.states[i as usize].parent;
+        }
+        chain.reverse();
+        let mut out: Vec<Vec<Value>> = chain.iter().map(|&i| self.states[i as usize].vals.clone()).collect();
+        if let Some(l) = last {
+            out.push(l.to_vec());
+        }
+        out
+    }
+
+    /// the action that produced each state of a behavior (`None` for the first one and for a step that cannot be recomputed)
+    fn trace_labels(&mut self, states: &[Vec<Value>]) -> Vec<Option<LabelSpec>> {
+        let mut labels: Vec<Option<LabelSpec>> = vec![None];
+        for i in 1..states.len() {
+            let l = match self.fp(&states[i]) {
+                Ok(fp) => self.step(&states[i - 1], i as i64, fp).and_then(|(_, l)| l),
+                Err(_) => None,
+            };
+            labels.push(l);
+        }
+        labels
+    }
+
+    /// Java: `checkPostConditionWithCounterExample`: the POSTCONDITION is evaluated with `TLCExt!CounterExample` bound to `ce`; its
+    /// failure is reported but does not change the result of the run
+    fn run_post_with(&mut self, ce: Value) {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        *ev.counter_example.borrow_mut() = Some(ce);
+        let _ = self.check_postconditions(setup);
+        *ev.counter_example.borrow_mut() = None;
+    }
+
+    /// Java: `Worker.doPostCondition` after a safety violation: the behavior up to `parent` followed by `last`
+    fn post_after_trace(&mut self, parent: Option<u32>, last: Option<&[Value]>) {
+        if self.setup.postconditions.is_empty() {
+            return;
+        }
+        let states = self.path_states(parent, last);
+        if states.is_empty() {
+            return;
+        }
+        let labels = self.trace_labels(&states);
+        let mut recs = vec![];
+        for i in 0..states.len() {
+            let succ = states.get(i + 1).unwrap_or(&states[i]).clone();
+            recs.push(self.alias_record(i + 1, &states[i], &succ));
+        }
+        let ce = self.counter_example_value(&recs, &labels, None);
+        self.run_post_with(ce);
+    }
+
+    /// Java: `LiveWorker.printTrace`: the lasso (`back`: where the loop returns to and by which action) as a counterexample
+    fn post_after_lasso(&mut self, actual: &[(Vec<Value>, Option<LabelSpec>)], back: Option<(usize, Option<LabelSpec>)>) {
+        if self.setup.postconditions.is_empty() {
+            return;
+        }
+        let recs: Vec<Value> = actual.iter().map(|(v, _)| self.state_record(v)).collect();
+        let labels: Vec<Option<LabelSpec>> = actual.iter().map(|(_, l)| l.clone()).collect();
+        let ce = self.counter_example_value(&recs, &labels, back);
+        self.run_post_with(ce);
+    }
+
     /// Java: `Tool.checkPostConditionWithContext`: POSTCONDITION(S) and `_POSSIBLE` checks, evaluated once the state
     /// space has been explored. Returns the exit code of the first postcondition that is false or fails.
-    fn check_postconditions(&mut self, setup: &Rc<Setup>) -> Option<i32> {
+    fn check_postconditions(&mut self, setup: &Setup) -> Option<i32> {
         for (top, loc, possible) in &setup.postconditions {
             let r = setup.run_top(top, &setup.ev.empty(), &setup.ev.empty());
             self.flush_output();
@@ -262,18 +427,24 @@ The postcondition evaluated to the non-boolean value
     /// Java: `Tool.evalAlias` + `RecordValue.PrintTLCState.toString`: the state at trace position `level` (1-based) as printed, with
     /// `succ` its successor in the trace.  Without an ALIAS (or if it is not a record) these are the state variables.
     fn state_text_at(&mut self, level: usize, vals: &[Value], succ: &[Value]) -> String {
+        // Java: the values an ALIAS builds are lazy: they are evaluated (while the state is printed) at the level of that state
+        let ev = self.setup.ev.clone();
+        let saved = ev.counters.get();
+        let mut c = saved;
+        c[0] = level as i64;
+        ev.counters.set(c);
+        let r = self.state_text_at_inner(vals, succ);
+        ev.counters.set(saved);
+        r
+    }
+
+    fn state_text_at_inner(&mut self, vals: &[Value], succ: &[Value]) -> String {
         let setup = self.setup;
         let alias = match &setup.alias {
             Some(a) => a,
             None => return self.state_text(vals),
         };
-        let ev = setup.ev.clone();
-        let saved = ev.counters.get();
-        let mut c = saved;
-        c[0] = level as i64;
-        ev.counters.set(c);
         let r = setup.run_top(alias, vals, succ);
-        ev.counters.set(saved);
         self.flush_output();
         let rec = match r {
             Ok(v) => match v {
@@ -381,14 +552,19 @@ The postcondition evaluated to the non-boolean value
         if is_eval_exception(e.code) {
             // Java: an `EvalException` (thrown by the TLC modules) is not a `TLCRuntimeException`: `doInit` does not record the
             // initial state, so the failure is reported without it
-            self.rep.error(ec::GENERAL, &e.msg);
+            self.rep.error(ec::GENERAL, &e.java_message());
         } else {
-            let text = format!("{}\nWhile working on the initial state:\n{}", e.msg, self.state_text(st));
+            let text = format!("{}\nWhile working on the initial state:\n{}", e.java_message(), self.state_text(st));
             self.rep.error(ec::TLC_INITIAL_STATE, &text);
         }
+        // Java: the replay with the call-stack tool prints the nested expressions the failure passed
+        let stack = match self.replay_init_error(st) {
+            Some(e2) => self.setup.ev.call_stack_text(&e2),
+            None => self.setup.ev.call_stack_text(e),
+        };
         self.rep.error(
             ec::TLC_NESTED_EXPRESSION,
-            "The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\nThe error call stack is empty.",
+            &format!("The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\n{}", stack),
         );
         ec::error_constant_to_exit_status(ec::TLC_NESTED_EXPRESSION)
     }
@@ -512,19 +688,24 @@ Reason:
         }
     }
 
-    fn in_model(&mut self, vals: &[Value]) -> R<bool> {
-        for c in &self.setup.constraints {
-            if !self.setup.run_top(c, vals, &self.setup.ev.empty())?.as_bool()? {
-                return Ok(false);
+    fn in_model(&self, vals: &[Value]) -> R<bool> {
+        for (i, c) in self.setup.constraints.iter().enumerate() {
+            match self.setup.run_top(c, vals, &self.setup.ev.empty())? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                // Java: `Tool.isInModel`: `Assert.fail(EC.TLC_EXPECTED_VALUE, {"boolean", constraint.toString()}, constraint)`
+                _ => return fail_code(ec::TLC_EXPECTED_VALUE, format!("TLC expected a boolean value, but did not find one. {}", self.setup.constraint_exprs[i])),
             }
         }
         Ok(true)
     }
 
-    fn action_ok(&mut self, cur: &[Value], succ: &[Value]) -> R<bool> {
-        for c in &self.setup.action_constraints {
-            if !self.setup.run_top(c, cur, succ)?.as_bool()? {
-                return Ok(false);
+    fn action_ok(&self, cur: &[Value], succ: &[Value]) -> R<bool> {
+        for (i, c) in self.setup.action_constraints.iter().enumerate() {
+            match self.setup.run_top(c, cur, succ)? {
+                Value::Bool(true) => {}
+                Value::Bool(false) => return Ok(false),
+                _ => return fail_code(ec::TLC_EXPECTED_VALUE, format!("TLC expected a boolean value, but did not find one. {}", self.setup.action_constraint_exprs[i])),
             }
         }
         Ok(true)
@@ -546,11 +727,13 @@ Reason:
             } else {
                 let pred = self.states[chain[n - 1] as usize].vals.clone();
                 let cur = self.states[si as usize].vals.clone();
-                self.transition_label(&pred, &cur)
+                self.transition_label(&pred, n as i64, &cur)
             };
             let nx = chain.get(n + 1).copied().unwrap_or(si);
             let (cur, succ) = (self.states[si as usize].vals.clone(), self.states[nx as usize].vals.clone());
+            self.bind_alias_trace(&chain, n, None);
             let body = self.state_text_at(n + 1, &cur, &succ);
+            *self.setup.ev.alias_trace.borrow_mut() = None;
             if self.report_fmt_exc() {
                 return;
             }
@@ -577,7 +760,7 @@ Reason:
     }
 
     /// check the invariants on a state; `Some(name)` if one is violated
-    fn check_invariants(&mut self, vals: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
+    fn check_invariants(&self, vals: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
         for inv in &self.setup.invariants {
             match self.setup.run_top(inv, vals, &self.setup.ev.empty()) {
                 Ok(Value::Bool(true)) => {}
@@ -590,6 +773,8 @@ Reason:
                             not_ported: false,
                             trail: vec![],
                             fp_exc: false,
+                            frames: vec![],
+                            pass: false,
                         }),
                         inv.name.clone(),
                     ))
@@ -601,7 +786,7 @@ Reason:
     }
 
     /// Java: `Tool.getImpliedInits` checks; `Some(name)` for the first violated implied initial predicate
-    fn check_implied_inits(&mut self, vals: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
+    fn check_implied_inits(&self, vals: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
         for p in &self.setup.implied_inits {
             match self.setup.run_top(p, vals, &self.setup.ev.empty()) {
                 Ok(Value::Bool(true)) => {}
@@ -613,7 +798,7 @@ Reason:
     }
 
     /// Java: `Tool.getImpliedActions` checks on the step `cur -> succ`
-    fn check_implied_actions(&mut self, cur: &[Value], succ: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
+    fn check_implied_actions(&self, cur: &[Value], succ: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
         for p in &self.setup.implied_actions {
             match self.setup.run_top(p, cur, succ) {
                 Ok(Value::Bool(true)) => {}
@@ -622,6 +807,94 @@ Reason:
             }
         }
         Ok(None)
+    }
+
+    /// Java: `ModelChecker.modelCheckImpl`: the initial predicate failed to evaluate: the message of the exception is printed as a
+    /// general error and the replay with the call-stack tool names the nested expressions
+    fn report_init_failure(&mut self, e: &TlcErr) -> i32 {
+        if e.not_ported || e.code == ec::SYSTEM_STACK_OVERFLOW || e.code == ec::TLC_VALUE_ASSERT_FAILED || e.code == ec::TLC_CONFIG_VALUE_NOT_ASSIGNED_TO_CONSTANT_PARAM || e.code == ec::GENERAL {
+            let code = self.report_err(e, ec::exit_status::FAILURE_SPEC_EVAL);
+            if !e.not_ported && e.code != ec::SYSTEM_STACK_OVERFLOW {
+                self.print_nested_expressions(e);
+            }
+            return code;
+        }
+        self.flush_output();
+        self.rep.error(ec::GENERAL, &e.java_message());
+        self.print_nested_expressions(e);
+        ec::exit_status::FAILURE_SPEC_EVAL
+    }
+
+    /// Java: `ModelChecker.doNextFailed`: the exception that ended the expansion of a state is reported under its own code when it is an
+    /// `EvalException` (thrown by the TLC modules), otherwise as an unexpected exception (a `TLCRuntimeException` is shown as a
+    /// `RuntimeException`); returns the exit status
+    fn report_next_failure(&mut self, e: &TlcErr) -> i32 {
+        if e.not_ported || e.code == ec::SYSTEM_STACK_OVERFLOW || e.code == ec::TLC_VALUE_ASSERT_FAILED || e.code == ec::TLC_CONFIG_VALUE_NOT_ASSIGNED_TO_CONSTANT_PARAM {
+            return self.report_err(e, ec::exit_status::FAILURE_SPEC_EVAL);
+        }
+        self.flush_output();
+        if is_eval_exception(e.code) {
+            self.rep.error(e.code, &e.msg);
+        } else {
+            let text = format!("TLC threw an unexpected exception.\nThis was probably caused by an error in the spec or model.\nSee the User Output or TLC Console for clues to what happened.\nThe exception was a java.lang.RuntimeException\n: {}", e.java_message());
+            self.rep.error(ec::GENERAL, &text);
+        }
+        ec::exit_status::FAILURE_SPEC_EVAL
+    }
+
+    /// Java: the replay with the call-stack tool names the nested expressions the failure passed (`TLC_NESTED_EXPRESSION`)
+    fn print_nested_expressions(&mut self, e: &TlcErr) {
+        let stack = self.setup.ev.call_stack_text(e);
+        self.rep.error(
+            ec::TLC_NESTED_EXPRESSION,
+            &format!("The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\n{}", stack),
+        );
+    }
+
+    /// the checks the model checker applies to an initial state, in its order: the failure of the first one that raises an error
+    fn init_state_failure(&self, st: &[Value]) -> Option<Box<TlcErr>> {
+        match self.in_model(st) {
+            Err(e) => return Some(e),
+            Ok(false) => return None,
+            Ok(true) => {}
+        }
+        if let Err(e) = self.fp(st) {
+            return Some(e);
+        }
+        if let Err((e, _)) = self.check_invariants(st) {
+            return Some(e);
+        }
+        if let Err((e, _)) = self.check_implied_inits(st) {
+            return Some(e);
+        }
+        None
+    }
+
+    /// Java: `ModelChecker.doInit(cTool, true)`: the initial predicate is evaluated again with the call-stack tool; the state is checked
+    /// again inside the continuation of the enumeration, so the failure carries the frames of the nodes being decomposed
+    fn replay_init_error(&self, st: &[Value]) -> Option<Box<TlcErr>> {
+        let setup = self.setup;
+        let ev = setup.ev.clone();
+        let nvars = setup.vars.len();
+        for top in &setup.init {
+            let buf = RefCell::new(vec![Value::Undef; nvars]);
+            let r = ev.with_frame(top.nslots.get(), |ev| {
+                ev.epoch.set(ev.epoch.get() + 1);
+                ev.enum_action(&top.ex, Mode::Init, &ev.empty(), &buf, &mut || {
+                    let cur = buf.borrow().clone();
+                    if cur.len() == st.len() && cur.iter().zip(st.iter()).all(|(a, b)| a.eq_val(b).unwrap_or(false)) {
+                        if let Some(e2) = self.init_state_failure(&cur) {
+                            return Err(e2);
+                        }
+                    }
+                    Ok(())
+                })
+            });
+            if let Err(e2) = r {
+                return Some(e2);
+            }
+        }
+        None
     }
 
     /// Java: `Tool.getState(fp)`: the states of a trace are recreated from their fingerprints, starting with the initial states,
@@ -662,14 +935,16 @@ Reason:
             } else {
                 let pred = self.states[chain[n - 1] as usize].vals.clone();
                 let cur = self.states[si as usize].vals.clone();
-                self.transition_label(&pred, &cur)
+                self.transition_label(&pred, n as i64, &cur)
             };
             let cur = self.states[si as usize].vals.clone();
             let succ = match chain.get(n + 1) {
                 Some(&nx) => self.states[nx as usize].vals.clone(),
                 None => vals.to_vec(),
             };
+            self.bind_alias_trace(&chain, n, None);
             let body = self.state_text_at(n + 1, &cur, &succ);
+            *self.setup.ev.alias_trace.borrow_mut() = None;
             if self.report_fmt_exc() {
                 return;
             }
@@ -680,11 +955,13 @@ Reason:
             (Some(l), _) => l,
             (None, Some(&last)) => {
                 let pred = self.states[last as usize].vals.clone();
-                self.transition_label(&pred, vals)
+                self.transition_label(&pred, chain.len() as i64, vals)
             }
             (None, None) => "<Next>".to_string(),
         };
+        self.bind_alias_trace(&chain, chain.len(), Some(vals));
         let body = self.state_text_at(chain.len() + 1, vals, vals);
+        *self.setup.ev.alias_trace.borrow_mut() = None;
         if self.report_fmt_exc() {
             return;
         }
@@ -780,7 +1057,10 @@ Reason:
                 (intern("invariants"), set_of(&setup.invariants)),
                 (intern("impliedinits"), set_of(&setup.implied_inits)),
                 (intern("impliedactions"), set_of(&setup.implied_actions)),
-                (intern("impliedtemporals"), Value::set_from(vec![]).unwrap_or(Value::Bool(false))),
+                (
+                    intern("impliedtemporals"),
+                    Value::set_from(setup.implied_temporals.iter().map(|(n, l, m)| named(n, l, m)).collect()).unwrap_or(Value::Bool(false)),
+                ),
                 (intern("variables"), Value::set_from(vars).unwrap_or(Value::Bool(false))),
                 (intern("actionconstraints"), set_of(&setup.action_constraints)),
                 (intern("constraints"), set_of(&setup.constraints)),
@@ -872,7 +1152,7 @@ Reason:
                     self.init_fail = Some(0);
                     return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_NESTED_EXPRESSION)));
                 }
-                let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
+                let code = self.report_init_failure(&e);
                 self.init_fail = Some(0);
                 return Err(Stop::Exit(code));
             }
@@ -967,6 +1247,8 @@ Reason:
                                 let st = self.state_text_at(1, &vals, &vals);
                                 self.rep.error(ec::TLC_INVARIANT_VIOLATED_INITIAL, &format!("Invariant {} is violated by the initial state:
 {}", name, st));
+                                // Java: `ModelChecker.modelCheckImpl`: the POSTCONDITION sees the initial state as the counterexample
+                                self.post_after_trace(None, Some(&vals));
                             }
                             Ok(_) => {}
                             Err(e) => {
@@ -1012,6 +1294,7 @@ Reason:
                 self.rep.error(ec::TLC_INVARIANT_VIOLATED_INITIAL, &format!("Invariant {} is violated by the initial state:
 {}", name, st));
             }
+            self.post_after_trace(Some(idx as u32), None);
             // Java: `modelCheckImpl` returns after a failed `doInit` without `printSummary`
             return Err(Stop::Exit(ec::error_constant_to_exit_status(if is_prop { ec::TLC_PROPERTY_VIOLATED_INITIAL } else { ec::TLC_INVARIANT_VIOLATED_INITIAL })));
         }
@@ -1054,7 +1337,7 @@ Reason:
             let t_enum = prof_now();
             if let Some(nx) = next {
                 let buf = RefCell::new(vec![Value::Undef; nvars]);
-                *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+                *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], pnames: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
                 ev.splitting.set(false);
                 let r = ev.with_frame(nx.nslots.get(), |ev| {
                     ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
@@ -1071,9 +1354,13 @@ Reason:
                 });
                 if let Err(e) = r {
                     self.flush_output();
-                    let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
+                    let code = self.report_next_failure(&e);
                     if !e.not_ported {
                         self.print_trace(head as u32);
+                        // Java: a StackOverflowError is not replayed (`keepCallStack` is false)
+                        if e.code != ec::SYSTEM_STACK_OVERFLOW {
+                            self.print_nested_expressions(&e);
+                        }
                     }
                     return Err(Stop::Exit(code));
                 }
@@ -1096,6 +1383,7 @@ Reason:
                 self.rep.error(ec::TLC_STATE_NOT_COMPLETELY_SPECIFIED_NEXT, &text);
                 let label_text = label.as_ref().map(|l| setup.ev.format_label(l));
                 self.print_trace_ext_l(head as u32, &st, label_text);
+                self.post_after_trace(Some(head as u32), Some(&st));
                 // Java: the incomplete successor counts as generated; `printSummary(false, ..)` follows
                 self.generated += 1;
                 let left = self.states.len() - head - 1;
@@ -1108,6 +1396,7 @@ Reason:
             if nsucc == 0 && self.opts.check_deadlock && setup.check_deadlock {
                 self.rep.error(ec::TLC_DEADLOCK_REACHED, "Deadlock reached.");
                 self.print_trace(head as u32);
+                self.post_after_trace(Some(head as u32), None);
                 self.generated += 0;
                 self.stats(self.states.len() - head - 1);
                 return Err(Stop::Exit(ec::exit_status::VIOLATION_DEADLOCK));
@@ -1139,11 +1428,21 @@ Reason:
                             self.flush_output();
                             self.rep.error(ec::TLC_INVARIANT_VIOLATED_BEHAVIOR, &format!("Invariant {} is violated.", name));
                             self.print_trace_ext(head as u32, &st);
+                            self.post_after_trace(Some(head as u32), Some(&st));
                             let left = self.states.len() - head - 1;
                             self.stats(left);
                             if !self.opts.continue_after_error {
                                 return Err(Stop::Exit(ec::exit_status::VIOLATION_SAFETY));
                             }
+                        }
+                        Err((e, name)) if is_eval_exception(e.code) && !e.not_ported => {
+                            // Java: `doNextEvalFailed` reports the cause inside the message of the failed invariant
+                            self.flush_output();
+                            self.rep.error(ec::TLC_INVARIANT_EVALUATION_FAILED, &format!("Evaluating invariant {} failed.\n{}", name, e.java_message()));
+                            self.print_trace(head as u32);
+                            self.outdeg.push(unseen_count);
+                            self.outdeg_on_exit = true;
+                            return Err(Stop::Exit(ec::exit_status::FAILURE_SAFETY_EVAL));
                         }
                         Err((e, name)) => {
                             self.flush_output();
@@ -1230,6 +1529,7 @@ Reason:
                                 self.flush_output();
                                 self.rep.error(ec::TLC_INVARIANT_VIOLATED_BEHAVIOR, &format!("Invariant {} is violated.", name));
                                 self.print_trace(idx as u32);
+                                self.post_after_trace(Some(idx as u32), None);
                                 // Java enqueues a successor only after its invariants hold: the violating state is not queued
                                 let left = self.states.len() - head - 2;
                                 self.stats(left);
@@ -1240,6 +1540,16 @@ Reason:
                             }
                             Err((e, name)) => {
                                 self.flush_output();
+                                if is_eval_exception(e.code) && !e.fp_exc && !e.not_ported {
+                                    self.rep.error(ec::TLC_INVARIANT_EVALUATION_FAILED, &format!("Evaluating invariant {} failed.\n{}", name, e.java_message()));
+                                    self.print_trace(idx as u32);
+                                    // Java enqueues a successor only after its invariants were evaluated: the failing state is not queued
+                                    let left = self.states.len() - head - 2;
+                                    self.stats(left);
+                                    self.outdeg.push(unseen_count);
+                                    self.outdeg_on_exit = true;
+                                    return Err(Stop::Exit(ec::exit_status::FAILURE_SAFETY_EVAL));
+                                }
                                 if e.fp_exc && !e.not_ported {
                                     // Java: `doNextEvalFailed` reports the cause inside the message; the failure is a `FingerprintException`:
                                     // the replay with the call-stack tool expands the state again
@@ -1265,9 +1575,18 @@ Reason:
                             self.flush_output();
                             self.rep.error(ec::TLC_ACTION_PROPERTY_VIOLATED_BEHAVIOR, &format!("Action property {} is violated.", name));
                             self.print_trace_ext(head as u32, &sv);
+                            self.post_after_trace(Some(head as u32), Some(&sv));
                             let left = self.states.len() - head - 1 - usize::from(just_pushed);
                             self.stats(left);
                             return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_ACTION_PROPERTY_VIOLATED_BEHAVIOR)));
+                        }
+                        Err((e, name)) if is_eval_exception(e.code) && !e.not_ported => {
+                            self.flush_output();
+                            self.rep.error(ec::TLC_ACTION_PROPERTY_EVALUATION_FAILED, &format!("Evaluating action property {} failed.\n{}", name, e.java_message()));
+                            self.print_trace(head as u32);
+                            self.outdeg.push(unseen_count + u32::from(just_pushed));
+                            self.outdeg_on_exit = true;
+                            return Err(Stop::Exit(ec::exit_status::FAILURE_SAFETY_EVAL));
                         }
                         Err((e, name)) => {
                             self.flush_output();
@@ -1312,12 +1631,12 @@ Reason:
 
     /// the label of the action taking `pred` to `succ` as printed in a trace (`<Next line ...>`): the actions are split
     /// again for this one state (Java: `Tool.getState(fp, predecessor)`), the main search does not track labels
-    fn transition_label(&mut self, pred: &[Value], succ: &[Value]) -> String {
+    fn transition_label(&mut self, pred: &[Value], level: i64, succ: &[Value]) -> String {
         let fp = match self.fp(succ) {
             Ok(f) => f,
             Err(_) => return "<Next>".to_string(),
         };
-        match self.step(pred, fp) {
+        match self.step(pred, level, fp) {
             Some((_, Some(l))) => self.setup.ev.format_label(&l),
             _ => "<Next>".to_string(),
         }
@@ -1336,7 +1655,7 @@ Reason:
         let buf = RefCell::new(vec![Value::Undef; setup.vars.len()]);
         let mut found: Option<LabelSpec> = None;
         ev.epoch.set(ev.epoch.get() + 1);
-        *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+        *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], pnames: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
         ev.splitting.set(true);
         let _ = ev.with_frame(nx.nslots.get(), |ev| {
             ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
@@ -1357,16 +1676,21 @@ Reason:
 
     /// Java: `Tool.getState(fp, predecessor)`: the first successor of `pred` (in the order the actions yield them) whose
     /// fingerprint is `target_fp`, with the label of the action that yields it
-    fn step(&mut self, pred: &[Value], target_fp: u64) -> Option<(Vec<Value>, Option<LabelSpec>)> {
+    fn step(&mut self, pred: &[Value], level: i64, target_fp: u64) -> Option<(Vec<Value>, Option<LabelSpec>)> {
         let setup = self.setup;
         let ev = setup.ev.clone();
+        // Java: `TLCGet("level")` is the level of the state the actions are applied to (its position in the behavior)
+        let saved = ev.counters.get();
+        let mut c = saved;
+        c[0] = level;
+        ev.counters.set(c);
         let nx = setup.next.first()?;
         let cur = pred.to_vec();
         let nvars = setup.vars.len();
         let mut found: Option<(Vec<Value>, Option<LabelSpec>)> = None;
         let buf = RefCell::new(vec![Value::Undef; nvars]);
         ev.epoch.set(ev.epoch.get() + 1);
-        *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+        *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], pnames: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
         ev.splitting.set(true);
         let _ = ev.with_frame(nx.nslots.get(), |ev| {
             ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
@@ -1386,6 +1710,7 @@ Reason:
             })
         });
         ev.splitting.set(false);
+        ev.counters.set(saved);
         self.flush_output();
         found
     }
@@ -1512,7 +1837,7 @@ Reason:
         let mut actual: Vec<(Vec<Value>, Option<LabelSpec>)> = vec![(self.states[lasso.states[0] as usize].vals.clone(), None)];
         for i in 1..lasso.states.len() {
             let prev = actual[i - 1].0.clone();
-            let next = match self.step(&prev, fps[i]) {
+            let next = match self.step(&prev, i as i64, fps[i]) {
                 Some(x) => x,
                 None => (self.states[lasso.states[i] as usize].vals.clone(), None),
             };
@@ -1546,12 +1871,21 @@ Reason:
                 Some((nv, _)) => nv.clone(),
                 None => actual[lasso.cycle_pos].0.clone(),
             };
+            // Java: `Tool.evalAlias(.., prefix)` binds `TLCExt!Trace`: a state of the prefix sees the states before it, a state of the
+            // cycle sees the states up to and including itself
+            if setup.alias.is_some() {
+                let upto = if n < lasso.cycle_pos { n } else { n + 1 };
+                let recs: Vec<Value> = actual[..upto].iter().map(|(x, _)| self.state_record(x)).collect();
+                *ev.alias_trace.borrow_mut() = Some(recs);
+            }
             let body = self.state_text_at(n + 1, v, &succ);
+            *ev.alias_trace.borrow_mut() = None;
             let text = format!("{}: {}\n{}", n + 1, label, body);
             self.rep.message(ec::TLC_STATE_PRINT2, mp::class::STATE, &text);
         }
         let cycle_num = lasso.cycle_pos + 1;
         if finite {
+            self.post_after_lasso(&actual, None);
             return;
         }
         if lasso.stuttering {
@@ -1573,13 +1907,17 @@ Reason:
                     );
                 }
             }
+            let last_label = actual.last().and_then(|(_, l)| l.clone());
+            self.post_after_lasso(&actual, Some((lasso.cycle_pos, last_label)));
         } else {
             let last = actual.last().unwrap().0.clone();
-            let label = match self.step(&last, fps[lasso.cycle_pos]) {
-                Some((_, Some(l))) => ev.format_label(&l),
-                _ => "<Next>".to_string(),
+            let back_label = self.step(&last, actual.len() as i64, fps[lasso.cycle_pos]).and_then(|(_, l)| l);
+            let label = match &back_label {
+                Some(l) => ev.format_label(l),
+                None => "<Next>".to_string(),
             };
             self.rep.message(ec::TLC_BACK_TO_STATE, mp::class::STATE, &format!("{}: Back to state: {}", cycle_num, label));
+            self.post_after_lasso(&actual, Some((lasso.cycle_pos, back_label)));
         }
     }
 }
@@ -1696,6 +2034,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         init_fail: None,
         no_summary: false,
         cur_head: None,
+        outdeg_on_exit: false,
         stats_done: false,
     };
     #[cfg(feature = "prof")]
@@ -1739,6 +2078,9 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
                     let left = ck.states.len().saturating_sub(h + 1);
                     ck.stats(left);
                 }
+            }
+            if ck.outdeg_on_exit {
+                ck.outdegree_stats();
             }
             finish(ck.rep, start, code)
         }

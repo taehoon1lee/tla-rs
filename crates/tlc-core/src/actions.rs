@@ -261,6 +261,17 @@ impl Ev {
 
     /// enumerate the ways of satisfying `ex`; for each, call `k` with the assignments in `buf`
     pub fn enum_action(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        // Java: `CallStackTool.getInitStates` / `getNextStates`: the node being decomposed is on the stack of an error that leaves it
+        match self.enum_action_frames(ex, mode, s0, buf, k) {
+            Err(mut e) => {
+                e.frames.push(Rc::as_ptr(ex) as usize);
+                Err(e)
+            }
+            ok => ok,
+        }
+    }
+
+    fn enum_action_frames(&self, ex: &Ex, mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
         if self.splitting.get() && !self.eval_only.get() {
             // Java: Tool.getActions: the next-state relation is split at disjunctions, `\E` over constant sets and
             // applications of operators to constant arguments; the first other expression is the action's `pred`
@@ -296,7 +307,7 @@ impl Ev {
         if let Some(l) = cl.as_mut() {
             l.stop = Rc::as_ptr(ex) as usize;
             if let Some(nm) = name {
-                l.base = Rc::new(LabelBase { name: nm, params: vec![] });
+                l.base = Rc::new(LabelBase { name: nm, params: vec![], pnames: vec![] });
             }
         }
     }
@@ -998,10 +1009,18 @@ to argument {}, which is not in the domain of the function.",
         let body = d.body.borrow().as_ref().unwrap().clone();
         let saved_label = if self.splitting.get() && mode == Mode::Next {
             let base = if args.is_empty() {
-                d.label_base.get_or_init(|| Rc::new(LabelBase { name: d.name.clone(), params: vec![] })).clone()
+                d.label_base.get_or_init(|| Rc::new(LabelBase { name: d.name.clone(), params: vec![], pnames: vec![] })).clone()
             } else {
-                let params: Vec<Value> = self.stack.borrow()[nb..].iter().filter_map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
-                Rc::new(LabelBase { name: d.name.clone(), params })
+                let (params, pnames): (Vec<Value>, Vec<tla_sany::sem::Name>) = {
+                    let st = self.stack.borrow();
+                    let formals = d.src.params.borrow();
+                    st[nb..]
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(i, s)| if let Slot::V(v) = s { Some((v.clone(), formals.get(i).map(|p| p.name.clone()).unwrap_or_else(|| std::sync::Arc::from("")))) } else { None })
+                        .unzip()
+                };
+                Rc::new(LabelBase { name: d.name.clone(), params, pnames })
             };
             let stop = Rc::as_ptr(&body) as usize;
             Some(self.cur_label.replace(Some(LabelSpec { base, stop })))
@@ -1265,7 +1284,7 @@ impl Ev {
             if cur.eq_val(&nxt)? {
                 Ok(())
             } else {
-                Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false }))
+                Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
             }
         });
         *self.cur_label.borrow_mut() = saved_label;
@@ -1297,7 +1316,7 @@ impl Ev {
         self.enabled_depth.set(saved_virt.0 + 1);
         self.virt_ptr.set(buf.borrow().as_ptr() as usize);
         let r = self.enum_action(ex, Mode::Next, s0, &buf, &mut || {
-            Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false }))
+            Err(Box::new(TlcErr { code: -777, msg: "enabled".into(), not_ported: false, trail: vec![], fp_exc: false, frames: vec![], pass: false }))
         });
         *self.cur_label.borrow_mut() = saved_label;
         self.splitting.set(was);

@@ -44,6 +44,9 @@ pub struct Setup {
     pub invariants: Vec<Top>,
     pub constraints: Vec<Top>,
     pub action_constraints: Vec<Top>,
+    /// Java: `constraint.toString()` of the model constraints / action constraints (location of the expression), for the error 2215
+    pub constraint_exprs: Vec<String>,
+    pub action_constraint_exprs: Vec<String>,
     pub assumes: Vec<(Top, String)>,
     pub view: Option<Top>,
     /// Java: `allParams` of the VIEW expression: the variables (by declaration index) and the number of constants it depends on
@@ -63,6 +66,8 @@ pub struct Setup {
     /// state-level properties `P` (checked in the initial states) / action properties `[][A]_v` (checked on every step)
     pub implied_inits: Vec<Top>,
     pub implied_actions: Vec<Top>,
+    /// the temporal parts of the PROPERTYs: (name in the configuration file, location, module)
+    pub implied_temporals: Vec<(String, tla_sany::ast::Loc, String)>,
     /// POSTCONDITION definitions (constant level), checked after the state space has been explored
     /// (compiled definition, location text, is a `_POSSIBLE` check)
     pub postconditions: Vec<(Top, String, bool)>,
@@ -116,7 +121,11 @@ pub fn set_user_overrides(v: Vec<(String, String, usize, Value)>) {
 
 pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyze: ModuleAnalyzer) -> Result<Setup, SetupErr> {
     let root = sem.root.clone();
-    let vars: Vec<Rc<sem::OpDecl>> = root.variables();
+    // Java: `ModuleNode.getVariableDecls` lists the variables in the order of the `Hashtable` that holds the symbols of the module (reversed
+    // enumeration order = ascending bucket index, `String.hashCode() % capacity`, oldest first within a bucket); the capacity follows
+    // from the number of symbols (the 72 built-in operators of TLA+ are in every module's table)
+    let mut vars: Vec<Rc<sem::OpDecl>> = root.variables();
+    java_decl_order(&mut vars, &root, |v| v.name.to_string());
     let ev = Ev::new(vars.len());
     ev.set_bound.set(set_bound);
     ev.seed.set(seed);
@@ -284,6 +293,8 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyz
         invariants: vec![],
         constraints: vec![],
         action_constraints: vec![],
+        constraint_exprs: vec![],
+        action_constraint_exprs: vec![],
         assumes: vec![],
         view: None,
         view_params: (vec![], 0),
@@ -296,6 +307,7 @@ pub fn setup(sem: &SemSpec, cfg: &ModelConfig, set_bound: i64, seed: i64, analyz
         properties_bound: vec![],
         implied_inits: vec![],
         implied_actions: vec![],
+        implied_temporals: vec![],
         postconditions: vec![],
         spec_temporal: vec![],
         live: Default::default(),
@@ -394,7 +406,12 @@ cannot be used as a spec",
         }
         if !inits.is_empty() {
             let e = if inits.len() == 1 {
-                inits.pop().unwrap()
+                // Java: `processConfigSpec` takes the body of a definition without parameters as the initial predicate
+                let x = inits.pop().unwrap();
+                match &x.kind {
+                    EKind::Apply(Callee::Def(d), a) if a.is_empty() => sem::Expr::new(x.kind.clone(), d.loc, x.level),
+                    _ => x,
+                }
             } else {
                 let loc = inits[0].loc;
                 let lvl = inits.iter().fold(sem::Level::Const, |a, x| sem::Level::max(a, x.level));
@@ -407,6 +424,11 @@ cannot be used as a spec",
             return serr(ec::TLC_CANT_HANDLE_TOO_MANY_NEXT_STATE_RELS, "TLC cannot handle the specification: it has more than one next-state relation.");
         }
         for (e, name) in nexts {
+            // Java: the next-state relation of a SPECIFICATION is the body of the definition (`getActions` follows a definition without arguments)
+            let e = match &e.kind {
+                EKind::Apply(Callee::Def(d), a) if a.is_empty() => sem::Expr::new(e.kind.clone(), d.loc, e.level),
+                _ => e,
+            };
             // the action's source position names the module the relation is written in
             let saved_module = std::mem::replace(&mut setup.comp.cur_module, def.module.clone());
             let (ex, n) = setup.comp.compile_top(&e);
@@ -516,10 +538,14 @@ cannot be used as a spec",
             let e = sem::Expr::new(EKind::Apply(Callee::Def(def.clone()), vec![]), def.loc, def.level.get());
             let (ex, n) = setup.comp.compile_top(&e);
             let top = Top { name: name.clone(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
+            let bl = sem_body_loc(&def);
+            let text = format!("line {}, col {} to line {}, col {} of module {}", bl.bl, bl.bc, bl.el, bl.ec, def.original().module);
             if is_action {
                 setup.action_constraints.push(top);
+                setup.action_constraint_exprs.push(text);
             } else {
                 setup.constraints.push(top);
+                setup.constraint_exprs.push(text);
             }
         }
     }
@@ -635,7 +661,15 @@ is not defined in the specification.", name),
     // Java: SpecProcessor.processConstantDefns evaluates the definition a constant is substituted with once at startup; a failure
     // is an error only if the definition is not constant-level (it reads variables or TLCGet)
     ev.setup_phase.set(true);
-    for (id, def) in setup.comp.const_ops.clone() {
+    let mut const_decls = root.constants();
+    java_decl_order(&mut const_decls, &root, |d| d.name.to_string());
+    let mut const_defs: Vec<(usize, Rc<sem::OpDef>)> = vec![];
+    for d in &const_decls {
+        if let Some(def) = setup.comp.const_ops.get(&d.id) {
+            const_defs.push((d.id, def.clone()));
+        }
+    }
+    for (id, def) in const_defs {
         if def.arity() != 0 {
             continue;
         }
@@ -651,6 +685,14 @@ is not defined in the specification.", name),
         let top = Top { name: def.name.to_string(), ex, nslots: n, loc: def.loc, module: def.module.to_string(), bound: vec![] };
         if let Err(err) = setup.run_top(&top, &ev.empty(), &ev.empty()) {
             ev.setup_phase.set(false);
+            // Java: `TLCGet` is an `@Evaluation` override: its failure comes back as the error of the override that produced it
+            let err = if err.code == ec::TLC_MODULE_TLCGET_UNDEFINED {
+                let mut w = err.clone();
+                w.msg = format!("@!@!@STARTMSG 2154:0 @!@!@\nAttempted to apply the operator overridden by the Java method\npublic static tlc2.value.impl.Value tlc2.module.TLCGetSet.TLCGetEval(tlc2.tool.impl.Tool,tla2sany.semantic.ExprOrOpArgNode[],tlc2.util.Context,tlc2.tool.TLCState,tlc2.tool.TLCState,int,tlc2.tool.coverage.CostModel),\nbut it produced the following error:\n{}\n@!@!@ENDMSG 2154 @!@!@", err.java_message());
+                w
+            } else {
+                err
+            };
             let cname = root.constants().iter().find(|d| d.id == id).map(|d| d.name.to_string()).unwrap_or_default();
             return serr(
                 ec::TLC_CONFIG_SUBSTITUTION_NON_CONSTANT,
@@ -663,6 +705,21 @@ is not defined in the specification.", name),
     *setup.ev.node_info.borrow_mut() = std::mem::take(&mut setup.comp.node_info).into_iter().collect();
     setup.ev.warnings.borrow_mut().extend(take_pending_warnings());
     Ok(setup)
+}
+
+/// Java: `Context` keeps its symbols in a `Hashtable`; `getVariableDecls` / `getConstantDecls` list them in reverse enumeration order
+/// (ascending bucket index = `String.hashCode() % capacity`, oldest first within a bucket).  The capacity follows from the number of symbols
+/// (the 72 built-in operators of TLA+ are in every module's table).
+fn java_decl_order<T>(items: &mut [T], root: &sem::ModuleNode, name: impl Fn(&T) -> String) {
+    let n = root.ctx.borrow().items.len() + 72;
+    let mut cap: usize = 11;
+    let mut thr = cap * 3 / 4;
+    while n > thr {
+        cap = cap * 2 + 1;
+        thr = cap * 3 / 4;
+    }
+    let java_hash = |s: &str| -> i32 { s.chars().fold(0i32, |h, c| h.wrapping_mul(31).wrapping_add(c as i32)) };
+    items.sort_by_key(|x| ((java_hash(&name(x)) & 0x7fff_ffff) as usize) % cap);
 }
 
 /// the variables and constants an expression depends on, through the definitions it applies (Java: `SemanticNode.getAllParams`)
@@ -779,6 +836,11 @@ fn push_temporal(temporals: &mut Vec<sem::Expr>, e: sem::Expr) {
 }
 
 thread_local! {
+    /// location of the `INSTANCE` statement a substitution list (by address) stems from, for the nodes `wrap_all` builds
+    static WRAP_LOCS: std::cell::RefCell<HashMap<usize, tla_sany::ast::Loc>> = std::cell::RefCell::new(HashMap::new());
+}
+
+thread_local! {
     /// formal parameters of operators inlined by `classify_property` that stand for a non-constant argument formula
     static PROP_ENV: std::cell::RefCell<Vec<(usize, sem::Expr)>> = const { std::cell::RefCell::new(Vec::new()) };
 }
@@ -836,15 +898,20 @@ fn classify_property(
     let mk_top = |setup: &mut Setup, nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>], bound: &[(Rc<sem::Param>, Value)]| -> Top {
         let w = wrap_all(x, wraps);
         let params: Vec<Rc<sem::Param>> = bound.iter().map(|(p, _)| p.clone()).collect();
+        // Java: the nodes of the formula are located in the module that defines the operator it came from
+        let saved_module = std::mem::replace(&mut setup.comp.cur_module, owner.original().module.clone());
         let (ex, n) = setup.comp.compile_top_bound(&w, &params);
+        setup.comp.cur_module = saved_module;
         Top { name: nm.to_string(), ex, nslots: n, loc: x.loc, module: owner.module.to_string(), bound: bound.iter().map(|(_, v)| v.clone()).collect() }
     };
     let push_prop = |setup: &mut Setup, _nm: &str, x: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>], bound: &[(Rc<sem::Param>, Value)]| {
         setup.properties.push((cfg_name.to_string(), wrap_all(x, wraps)));
+        setup.implied_temporals.push((cfg_name.to_string(), x.loc, owner.module.to_string()));
         setup.properties_bound.push(bound.to_vec());
     };
     match &e.kind {
         EKind::SubstIn(subs, b) => {
+            WRAP_LOCS.with(|m| m.borrow_mut().insert(Rc::as_ptr(subs) as usize, e.loc));
             wraps.push(subs.clone());
             let r = classify_property(setup, cfg_name, name, b, owner, wraps, bound, depth + 1);
             wraps.pop();
@@ -1104,7 +1171,8 @@ fn analyze_apply(
 fn wrap_all(e: &sem::Expr, wraps: &[Rc<Vec<sem::Subst>>]) -> sem::Expr {
     let mut cur = e.clone();
     for w in wraps.iter().rev() {
-        let (loc, level) = (cur.loc, cur.level);
+        let level = cur.level;
+        let loc = WRAP_LOCS.with(|m| m.borrow().get(&(Rc::as_ptr(w) as usize)).copied()).unwrap_or(cur.loc);
         cur = sem::Expr::new(EKind::SubstIn(w.clone(), cur), loc, level);
     }
     cur

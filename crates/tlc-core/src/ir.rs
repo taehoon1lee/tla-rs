@@ -238,6 +238,8 @@ pub struct NodeInfo {
     pub module: sem::Name,
     /// `\E` with constant domains / operator application with constant arguments: Java splits actions there
     pub const_sub: bool,
+    /// a synthetic application of a definition created by the driver (the invariant `Inv`, the `Init` predicate): Java evaluates its body
+    pub synthetic: bool,
 }
 
 /// binary operators of Naturals/Integers with an inlined fast path for `Int` operands

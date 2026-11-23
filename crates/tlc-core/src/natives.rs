@@ -10,7 +10,10 @@ use tla_sany::intern;
 
 fn arg(ev: &Ev, a: &mut Vec<Slot>, i: usize, s0: &[Value], s1: &[Value]) -> R<Value> {
     let s = std::mem::replace(&mut a[i], Slot::Unset);
-    ev.force_slot(s, s0, s1)
+    ev.force_slot(s, s0, s1).map_err(|mut e| {
+        e.pass = true;
+        e
+    })
 }
 
 fn int_arg(ev: &Ev, a: &mut Vec<Slot>, i: usize, which: &str, op: &str, s0: &[Value], s1: &[Value]) -> R<i32> {
@@ -20,6 +23,54 @@ fn int_arg(ev: &Ev, a: &mut Vec<Slot>, i: usize, which: &str, op: &str, s0: &[Va
             ec::TLC_MODULE_ARGUMENT_ERROR_AN,
             format!("The {} argument of {} should be an integer, but instead it is:\n{}", which, op, v.to_tla()),
         ),
+    }
+}
+
+
+/// Java: `Method.toString()` of the method that overrides the operator `module!name` (`public static <ret> <class>.<method>(<params>)`),
+/// for the operators whose Java method rethrows the failures of the values it works on (`MethodValue.eval` wraps them)
+pub fn java_signature(module: &str, name: &str) -> Option<String> {
+    const V: &str = "tlc2.value.impl.Value";
+    let (class, method, ret, nargs): (&str, &str, &str, usize) = match (module, name) {
+        ("TLC", "Print") => ("TLC", "Print", V, 2),
+        ("TLC", "PrintT") => ("TLC", "PrintT", V, 1),
+        ("TLC", "ToString") => ("TLC", "ToString", V, 1),
+        ("TLC", "Assert") => ("TLC", "Assert", V, 2),
+        ("TLC", ":>") => ("TLC", "MakeFcn", V, 2),
+        ("TLC", "@@") => ("TLC", "CombineFcn", V, 2),
+        ("TLC", "SortSeq") => ("TLC", "SortSeq", V, 2),
+        ("TLC", "Permutations") => ("TLC", "Permutations", V, 1),
+        ("TLC", "RandomElement") => ("TLC", "RandomElement", V, 1),
+        ("Sequences", "Seq") => ("Sequences", "Seq", V, 1),
+        ("Sequences", "Len") => ("Sequences", "Len", "tlc2.value.impl.IntValue", 1),
+        ("Sequences", "Head") => ("Sequences", "Head", V, 1),
+        ("Sequences", "Tail") => ("Sequences", "Tail", V, 1),
+        ("Sequences", "Append") => ("Sequences", "Append", V, 2),
+        ("Sequences", "\\o") => ("Sequences", "Concat", V, 2),
+        ("Sequences", "SubSeq") => ("Sequences", "SubSeq", V, 3),
+        ("Sequences", "SelectSeq") => ("Sequences", "SelectSeq", V, 2),
+        ("FiniteSets", "IsFiniteSet") => ("FiniteSets", "IsFiniteSet", "tlc2.value.IBoolValue", 1),
+        ("FiniteSets", "Cardinality") => ("FiniteSets", "Cardinality", "tlc2.value.impl.IntValue", 1),
+        ("Randomization", "RandomSubset") => ("Randomization", "RandomSubset", V, 2),
+        _ => return None,
+    };
+    Some(format!("public static {} tlc2.module.{}.{}({})", ret, class, method, vec![V; nargs].join(",")))
+}
+
+/// Java: `MethodValue.eval`: a failure (`Assert.fail`) inside the Java method of an override is reported as an error of the override
+pub fn wrap_override_error(module: &str, name: &str, e: Box<TlcErr>) -> Box<TlcErr> {
+    if e.pass || e.not_ported || e.code != ec::GENERAL {
+        return e;
+    }
+    match java_signature(module, name) {
+        Some(sig) => match override_error::<()>(&sig, &e.msg) {
+            Err(mut w) => {
+                w.frames = e.frames.clone();
+                w
+            }
+            Ok(()) => e,
+        },
+        None => e,
     }
 }
 
@@ -80,8 +131,9 @@ fn gt(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     Ok(Value::Bool(x > y))
 }
 fn ge(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
-    let x = int_arg(ev, a, 0, "first", ">=", s0, s1)?;
-    let y = int_arg(ev, a, 1, "second", ">=", s0, s1)?;
+    // Java: `Naturals.GEQ` reports its failures as `>` (copy and paste in the original)
+    let x = int_arg(ev, a, 0, "first", ">", s0, s1)?;
+    let y = int_arg(ev, a, 1, "second", ">", s0, s1)?;
     Ok(Value::Bool(x >= y))
 }
 
@@ -466,10 +518,8 @@ fn assert_(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     }
     let v2 = std::mem::replace(&mut a[1], Slot::Unset);
     let msg = match ev.force_slot(v2, s0, s1) {
-        Ok(v) => match &v {
-            Value::Str(id) => intern::name_of(*id).to_string(),
-            other => other.to_tla(),
-        },
+        // Java: `Values.ppr(v2.toString())`: a string is shown with its quotes
+        Ok(v) => crate::pprint::ppr(&v.to_tla()),
         Err(e) => return Err(e),
     };
     fail_code(ec::TLC_VALUE_ASSERT_FAILED, format!("The first argument of Assert evaluated to FALSE; the second argument was:\n{}", msg))
@@ -890,6 +940,49 @@ fn random_subset(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Va
             Value::set_from(out)
         }
     }
+}
+
+/// Java: TLCExt!CounterExample (an `@Evaluation`): the counterexample the POSTCONDITION is checked against; `TRUE` elsewhere
+fn counter_example(ev: &Ev, _a: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Value> {
+    Ok(ev.counter_example.borrow().clone().unwrap_or(Value::Bool(true)))
+}
+
+/// Java: TLCExt!Trace (an `@Evaluation`): the behavior up to the state an ALIAS is evaluated for
+fn ext_trace(ev: &Ev, _a: &mut Vec<Slot>, _s0: &[Value], _s1: &[Value]) -> R<Value> {
+    match &*ev.alias_trace.borrow() {
+        Some(t) => Ok(Value::tuple(t.clone())),
+        None => Ok(Value::Bool(true)),
+    }
+}
+
+/// Java: TLCExt.lassoOrdinal (`ToTrace`): the states of a counterexample as a sequence, ordered by state number
+fn to_trace(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let ce = arg(ev, a, 0, s0, s1)?;
+    let states = match ce.force_fcn()?.fcn_parts() {
+        Some((d, v)) => d.iter().position(|k| matches!(k, Value::Str(id) if &*intern::name_of(*id) == "state")).map(|i| v[i].clone()),
+        None => None,
+    };
+    let states = match states {
+        Some(x) => x,
+        None => {
+            return fail_code(
+                ec::TLC_MODULE_ONE_ARGUMENT_ERROR,
+                format!("The argument of ToTrace should be a CounterExample, but instead it is:\n{}", crate::pprint::ppr(&ce.to_tla())),
+            )
+        }
+    };
+    let elems = states.enumerate()?;
+    let mut out: Vec<Value> = vec![Value::Undef; elems.len()];
+    for e in elems.iter() {
+        if let Value::Tuple(t) = e {
+            if let (Some(Value::Int(n)), Some(rec)) = (t.get(0), t.get(1)) {
+                if *n >= 1 && (*n as usize) <= out.len() {
+                    out[*n as usize - 1] = rec.clone();
+                }
+            }
+        }
+    }
+    Ok(Value::tuple(out))
 }
 
 /// Java: TLCExt.tlcModelValue: `ModelValue.add(str)`
@@ -2134,6 +2227,9 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("TLC", "TLCSet") => tlc_set,
         ("TLCExt", "TLCGetOrDefault") => tlc_get_or_default,
         ("TLCExt", "TLCModelValue") => tlc_model_value,
+        ("TLCExt", "CounterExample") => counter_example,
+        ("TLCExt", "Trace") => ext_trace,
+        ("TLCExt", "ToTrace") => to_trace,
         ("TLCExt", "TLCFP") => tlc_fp,
         ("TLCExt", "AssertError") => assert_error,
         ("Randomization", "RandomSubset") => random_subset,

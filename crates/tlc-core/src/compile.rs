@@ -168,6 +168,13 @@ impl Compiler {
                 }
             }
             let ex = self.expr(&body);
+            // Java: the body of an instance copy is the substitution node of the `INSTANCE` statement: its location lies in the module
+            // that holds the statement (the copy's module), not in the instantiated module
+            if body.loc == d.loc && d.module != d.original().module {
+                if let Some(i) = self.node_info.get_mut(&(Rc::as_ptr(&ex) as usize)) {
+                    i.module = d.module.clone();
+                }
+            }
             self.cur_module = saved_module;
             self.let_depth = saved;
             let fc = self.ctx.pop().unwrap();
@@ -462,7 +469,7 @@ impl Compiler {
             EKind::Bi(b, args) => !matches!(b, B::Prime | B::Unchanged | B::Enabled) && args.iter().all(Self::foldable),
             EKind::Apply(Callee::Def(d), args) => {
                 let ok_def = matches!(&*d.module, "Naturals" | "Integers" | "Reals" | "Sequences" | "FiniteSets")
-                    || (args.is_empty() && d.level.get() == sem::Level::Const && !d.in_let.get() && &*d.module != "TLC");
+                    || (args.is_empty() && d.level.get() == sem::Level::Const && !d.in_let.get() && !matches!(&*d.module, "TLC" | "TLCExt") && !matches!(&*d.original().module, "TLC" | "TLCExt"));
                 ok_def
                     && args.iter().all(|a| match a {
                         SArg::Expr(x) => Self::foldable(x),
@@ -484,7 +491,14 @@ impl Compiler {
                 }),
                 _ => false,
             };
-            self.node_info.entry(Rc::as_ptr(&n) as usize).or_insert(NodeInfo { loc: e.loc, module: self.cur_module.clone(), const_sub });
+            let synthetic = matches!(&e.kind, EKind::Apply(Callee::Def(d), a) if a.is_empty() && e.loc == d.loc);
+            // Java: the location of a reference to an instance definition is the `INSTANCE` statement, in the module that holds it
+            let module = match &e.kind {
+                EKind::Apply(Callee::Def(d), a) if synthetic && a.is_empty() => d.module.clone(),
+                EKind::SubstIn(subs, _) if !subs.is_empty() => subs[0].module.clone(),
+                _ => self.cur_module.clone(),
+            };
+            self.node_info.entry(Rc::as_ptr(&n) as usize).or_insert(NodeInfo { loc: e.loc, module, const_sub, synthetic });
         }
         if Self::foldable(e) && !matches!(&*n, Node::Const(_) | Node::Fold(..) | Node::Unsupported(_) | Node::Fail(_)) {
             // only worth it for operations (a bare definition call is cached by the definition itself)
@@ -713,6 +727,8 @@ impl Compiler {
             EKind::SubstIn(subs, body) => {
                 let mut v = vec![];
                 for s in subs.iter() {
+                    // Java: the value of a substitution is located in the module that holds the `INSTANCE` statement
+                    let saved_module = std::mem::replace(&mut self.cur_module, s.module.clone());
                     let a = match &s.value {
                         SArg::Expr(e) if e.level == sem::Level::State => {
                             let ev0 = self.fc().events;
@@ -728,6 +744,7 @@ impl Compiler {
                         }
                         other => self.arg(other),
                     };
+                    self.cur_module = saved_module;
                     v.push((s.target.id, a));
                 }
                 let b = self.expr(body);

@@ -393,7 +393,7 @@ impl<'a> Analyzer<'a> {
                 self.gen_expr(&s.expr).map(Arg::Expr)
             };
             match val {
-                Ok(v) => out.push(Subst { target, value: v }),
+                Ok(v) => out.push(Subst { target, value: v, module: self.cur_name.clone() }),
                 Err(()) => {}
             }
         }
@@ -441,7 +441,7 @@ impl<'a> Analyzer<'a> {
                             return Err(());
                         }
                     };
-                    out.push(Subst { target: d, value: arg });
+                    out.push(Subst { target: d, value: arg, module: self.cur_name.clone() });
                 }
                 None => {
                     self.err(
