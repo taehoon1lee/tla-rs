@@ -3714,6 +3714,7 @@
 "tt/MinimalSetOfInitStatesTest",
 "tt/MinimalSetOfNextStatesTest",
 "tt/MinimumDiameterTest",
+"tt/ModuleSemanticsAssumeTest",
 "tt/NoFairnessButLivePropATest",
 "tt/NoFairnessButLivePropBTest",
 "tt/NoFairnessButLivePropDTest",
@@ -3762,6 +3763,7 @@
 "tt/UserModuleOverrideAnnotationTest",
 "tt/UserModuleOverrideFromJarTest",
 "tt/UserModuleOverrideTest",
+"tt/ValueSemanticsAssumeTest",
 "tt/ViewMapTest"
 ],
 "init": [
@@ -4073,6 +4075,7 @@
 "tt/MinimalSetOfInitStatesTest",
 "tt/MinimalSetOfNextStatesTest",
 "tt/MinimumDiameterTest",
+"tt/ModuleSemanticsAssumeTest",
 "tt/NoFairnessButLivePropATest",
 "tt/NoFairnessButLivePropBTest",
 "tt/NoFairnessButLivePropDTest",
@@ -4121,6 +4124,7 @@
 "tt/UserModuleOverrideAnnotationTest",
 "tt/UserModuleOverrideFromJarTest",
 "tt/UserModuleOverrideTest",
+"tt/ValueSemanticsAssumeTest",
 "tt/ViewMapTest"
 ],
 "verdict": [
@@ -4431,6 +4435,7 @@
 "tt/MinimalSetOfInitStatesTest",
 "tt/MinimalSetOfNextStatesTest",
 "tt/MinimumDiameterTest",
+"tt/ModuleSemanticsAssumeTest",
 "tt/NoFairnessButLivePropATest",
 "tt/NoFairnessButLivePropBTest",
 "tt/NoFairnessButLivePropDTest",
@@ -4478,6 +4483,7 @@
 "tt/UnicodeStringFingerprintTest",
 "tt/UserModuleOverrideAnnotationTest",
 "tt/UserModuleOverrideFromJarTest",
+"tt/ValueSemanticsAssumeTest",
 "tt/ViewMapTest"
 ],
 "trace": [
@@ -5074,6 +5080,7 @@
 "tt/MinimalSetOfInitStatesTest",
 "tt/MinimalSetOfNextStatesTest",
 "tt/MinimumDiameterTest",
+"tt/ModuleSemanticsAssumeTest",
 "tt/NoFairnessButLivePropATest",
 "tt/NoFairnessButLivePropBTest",
 "tt/NoFairnessButLivePropDTest",
@@ -5121,6 +5128,7 @@
 "tt/UnicodeStringFingerprintTest",
 "tt/UserModuleOverrideAnnotationTest",
 "tt/UserModuleOverrideFromJarTest",
+"tt/ValueSemanticsAssumeTest",
 "tt/ViewMapTest"
 ]
 }

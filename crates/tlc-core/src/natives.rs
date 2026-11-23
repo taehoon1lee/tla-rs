@@ -374,7 +374,38 @@ fn is_finite_set(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Va
             format!("The first argument of IsFiniteSet should be a set, but instead it is:\n{}", s.to_tla()),
         );
     }
-    Ok(Value::Bool(s.is_finite()))
+    // Java: the override wraps the failure of `Value.isFinite()` (`{x \in S : p(x)}` with an S TLC cannot classify)
+    match is_finite_chk(&s) {
+        Ok(b) => Ok(Value::Bool(b)),
+        Err(e) => override_error(
+            "public static tlc2.value.IBoolValue tlc2.module.FiniteSets.IsFiniteSet(tlc2.value.impl.Value)",
+            &e.msg,
+        ),
+    }
+}
+
+/// `Value.isFinite()` as Java computes it: a set of the form `{x \in S : p(x)}` is finite when S is; if TLC cannot tell, it fails
+fn is_finite_chk(v: &Value) -> R<bool> {
+    match v {
+        Value::SetPred(p) => {
+            if !is_finite_chk(&p.base)? {
+                return fail(format!(
+                    "Attempted to check if expression of form {{x \\in S : p(x)}} is a finite set, but cannot check if S:\n{}\nis finite.",
+                    v_ppr(&p.base)
+                ));
+            }
+            Ok(true)
+        }
+        Value::SetCup(p) => Ok(is_finite_chk(&p.0)? && is_finite_chk(&p.1)?),
+        Value::SetCap(p) => Ok(is_finite_chk(&p.0)? || is_finite_chk(&p.1)?),
+        Value::SetDiff(p) => is_finite_chk(&p.0),
+        Value::Subset(s) => is_finite_chk(s),
+        other => Ok(other.is_finite()),
+    }
+}
+
+fn v_ppr(v: &Value) -> String {
+    crate::pprint::ppr(&v.to_tla())
 }
 
 fn cardinality(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
@@ -851,6 +882,34 @@ fn tlc_model_value(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<
             format!("The argument of ModelValue should be a string, but instead it is:\n{}", v.to_tla()),
         ),
     }
+}
+
+/// Java: TLCExt.assertError (an `@Evaluation`): TRUE iff evaluating the second argument fails with exactly the message the first one
+/// names; FALSE when it succeeds or fails differently
+fn assert_error(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let err = arg(ev, a, 0, s0, s1)?;
+    let expected = match &err {
+        Value::Str(id) => intern::name_of(*id).to_string(),
+        other => {
+            return fail(format!(
+                "In computing AssertError, a non-string expression ({}) was used as the err of an AssertError(err, exp).",
+                other.to_tla()
+            ))
+        }
+    };
+    match arg(ev, a, 1, s0, s1) {
+        Ok(_) => Ok(Value::Bool(false)),
+        Err(e) if e.not_ported => Err(e),
+        Err(e) => Ok(Value::Bool(e.msg == expected)),
+    }
+}
+
+/// Java: TLCExt.tlcFingerprint: the fingerprint of the (normalized) value, cut down to an int
+fn tlc_fp(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
+    let v = arg(ev, a, 0, s0, s1)?.normalize()?;
+    let mut h = Hasher::new();
+    v.hash_into(&mut h)?;
+    Ok(Value::Int(h.finish() as u32 as i32))
 }
 
 /// Java: TLCExt.tlcGetOrDefault
@@ -2036,6 +2095,8 @@ pub fn lookup(module: &str, name: &str) -> Option<NativeFn> {
         ("TLC", "TLCSet") => tlc_set,
         ("TLCExt", "TLCGetOrDefault") => tlc_get_or_default,
         ("TLCExt", "TLCModelValue") => tlc_model_value,
+        ("TLCExt", "TLCFP") => tlc_fp,
+        ("TLCExt", "AssertError") => assert_error,
         ("Randomization", "RandomSubset") => random_subset,
         ("_Possible", "_Counts") => possible_counts,
         ("Functions", "FoldFunctionOnSet") => fold_function_on_set,

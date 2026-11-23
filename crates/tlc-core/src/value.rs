@@ -405,6 +405,12 @@ impl Value {
                 Ok(Rc::new(out))
             }
             Value::SetOfFcns(p) => {
+                if self.is_empty_set()? {
+                    return Ok(Rc::new(vec![]));
+                }
+                if p.0.is_empty_set()? {
+                    return Ok(Rc::new(vec![Value::tuple(vec![])]));
+                }
                 let doms = p.0.enumerate()?;
                 let rng = p.1.enumerate()?;
                 let (nd, nr) = (doms.len(), rng.len());
@@ -444,6 +450,9 @@ impl Value {
                 Ok(Value::set_from(out)?.enumerate()?)
             }
             Value::SetOfRcds(fs) => {
+                if self.is_empty_set()? {
+                    return Ok(Rc::new(vec![]));
+                }
                 let mut sets: Vec<(u32, Rc<Vec<Value>>)> = vec![];
                 for (n, s) in fs.iter() {
                     sets.push((*n, s.enumerate()?));
@@ -465,6 +474,9 @@ impl Value {
                 Ok(Value::set_from(vals)?.enumerate()?)
             }
             Value::SetOfTuples(ss) => {
+                if self.is_empty_set()? {
+                    return Ok(Rc::new(vec![]));
+                }
                 let mut sets = vec![];
                 for s in ss.iter() {
                     sets.push(s.enumerate()?);
@@ -490,10 +502,12 @@ impl Value {
                 Ok(Value::set_from(a)?.enumerate()?)
             }
             Value::SetCap(p) => {
-                let a = p.0.enumerate()?;
+                // Java: SetCapValue: the elements come from the operand that TLC can enumerate (`Nat \cap {1, 2}`)
+                let (src, other) = if !p.0.is_finite() && p.1.is_finite() { (&p.1, &p.0) } else { (&p.0, &p.1) };
+                let a = src.enumerate()?;
                 let mut out = vec![];
                 for e in a.iter() {
-                    if p.1.member(e)? {
+                    if other.member(e)? {
                         out.push(e.clone());
                     }
                 }
@@ -523,6 +537,7 @@ impl Value {
                 }
                 Ok(Value::set_from(all)?.enumerate()?)
             }
+            Value::SeqOf(b) if b.is_finite() && b.is_empty_set().unwrap_or(false) => Ok(Rc::new(vec![Value::tuple(vec![])])),
             Value::SeqOf(_) => fail("Attempted to enumerate the infinite set Seq(S)."),
             Value::NatSet => fail("Attempted to enumerate the infinite set Nat."),
             Value::IntSet => fail("Attempted to enumerate the infinite set Int."),
@@ -535,7 +550,9 @@ impl Value {
     /// is the set-like value finite (without enumerating it)
     pub fn is_finite(&self) -> bool {
         match self {
-            Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_) => false,
+            Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet => false,
+            // Java: SeqSetValue.isFinite: only Seq({}) = {<<>>} is finite
+            Value::SeqOf(b) => b.is_finite() && b.is_empty_set().unwrap_or(false),
             Value::SetPred(p) => p.base.is_finite(),
             Value::SetCup(p) => p.0.is_finite() && p.1.is_finite(),
             Value::SetCap(p) => p.0.is_finite() || p.1.is_finite(),
@@ -646,7 +663,11 @@ is empty", v.to_tla())),
                 if p.1.is_empty_set()? {
                     return Ok(0);
                 }
-                let (nd, nr) = (p.0.size()?, p.1.size()?);
+                let nr = p.1.size()?;
+                if nr == 1 {
+                    return Ok(1);
+                }
+                let nd = p.0.size()?;
                 let mut sz: usize = 1;
                 for _ in 0..nd {
                     sz = match sz.checked_mul(nr) {
@@ -676,6 +697,7 @@ is empty", v.to_tla())),
                 }
                 Ok(sz)
             }
+            Value::SeqOf(b) if b.is_finite() && b.is_empty_set().unwrap_or(false) => Ok(1),
             Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::SeqOf(_) => {
                 fail(format!("Attempted to compute the number of elements in the non-enumerable set\n{}", self.to_tla()))
             }
@@ -920,10 +942,11 @@ is empty", v.to_tla())),
                     return v.apply(arg);
                 }
                 if !l.dom.member(arg)? {
+                    // Java: FcnLambdaValue.apply
                     return fail(format!(
-                        "Attempted to apply function:\n{}\nto argument {}, which is not in the domain of the function.",
-                        self.to_tla(),
-                        arg.to_tla()
+                        "In applying the function\n{},\nthe first argument is:\n{}\nwhich is not in its domain.\n",
+                        crate::pprint::ppr(&self.force_fcn()?.to_tla()),
+                        crate::pprint::ppr(&arg.to_tla())
                     ));
                 }
                 (l.apply)(arg)
@@ -1010,6 +1033,19 @@ is empty", v.to_tla())),
                 }
                 None => Ok(self.clone()),
             },
+            Value::FcnLam(l) if !l.dom.is_finite() => {
+                // Java: FcnLambdaValue.takeExcept keeps the function lazy: the new value is one more case of the application
+                if !l.dom.member(arg)? {
+                    return Ok(self.clone());
+                }
+                let (old, at, nv) = (l.clone(), arg.clone(), v);
+                Ok(Value::FcnLam(Rc::new(FcnLam {
+                    dom: l.dom.clone(),
+                    apply: Box::new(move |x: &Value| if x.eq_val(&at)? { Ok(nv.clone()) } else { (old.apply)(x) }),
+                    cache: RefCell::new(None),
+                    body: None,
+                })))
+            }
             Value::FcnLam(_) => self.force_fcn()?.except1(arg, v),
             _ => fail(format!("Attempted to apply EXCEPT to the non-function\n{}", self.to_tla())),
         }
@@ -1042,6 +1078,11 @@ is empty", v.to_tla())),
             (Int(a), Int(b)) => Ok(a.cmp(b)),
             (Str(a), Str(b)) => Ok(a.cmp(b)),
             (Bool(a), Bool(b)) => Ok(a.cmp(b)),
+            // the standard infinite sets (Nat, Int, Real, STRING, Seq(S)) are ordered by kind
+            (x, y) if is_std_infinite(x) && is_std_infinite(y) => match (x, y) {
+                (SeqOf(p), SeqOf(q)) => p.cmp_val(q),
+                _ => Ok(std_infinite_rank(x).cmp(&std_infinite_rank(y))),
+            },
             // Java: ModelValue.compareTo: a typed model value (`A_x`) is comparable only with model values of the same
             // type or untyped ones
             (Model(a), Model(b)) => {
@@ -1214,6 +1255,9 @@ is empty", v.to_tla())),
             (a, b) if a.is_set_like() && b.is_set_like() => {
                 if let (Interval(..), Interval(..)) = (a, b) {
                     return Ok(a.cmp_val(b)? == Ordering::Equal);
+                }
+                if let Some(r) = set_eq_special(a, b)? {
+                    return Ok(r);
                 }
                 if !a.is_finite() || !b.is_finite() {
                     return fail(format!(
@@ -1499,6 +1543,84 @@ is empty", v.to_tla())),
             }
             _ => true,
         }
+    }
+}
+
+/// Java: `equals` of the infinite standard sets and of the product-like sets (`SetOfFcnsValue`, `SetOfRcdsValue`, `SetOfTuplesValue`):
+/// an empty domain / field / component decides the comparison before the other constituents are looked at
+fn set_eq_special(a: &Value, b: &Value) -> R<Option<bool>> {
+    use Value::*;
+    let builtin = |v: &Value| matches!(v, NatSet | IntSet | RealSet | StringSet | SeqOf(_));
+    Ok(match (a, b) {
+        (SeqOf(x), SeqOf(y)) if !(a.is_finite() || b.is_finite()) => Some(x.eq_val(y)?),
+        (x, y) if builtin(x) && builtin(y) && !x.is_finite() && !y.is_finite() => {
+            Some(std::mem::discriminant(x) == std::mem::discriminant(y))
+        }
+        (SetOfFcns(p), SetOfFcns(q)) => {
+            let (u1, u2) = (p.0.is_empty_set()?, q.0.is_empty_set()?);
+            if u1 || u2 {
+                return Ok(Some(u1 == u2));
+            }
+            let (e1, e2) = (p.1.is_empty_set()?, q.1.is_empty_set()?);
+            if e1 || e2 {
+                return Ok(Some(e1 == e2));
+            }
+            Some(p.0.eq_val(&q.0)? && p.1.eq_val(&q.1)?)
+        }
+        (SetOfRcds(p), SetOfRcds(q)) => {
+            let e1 = a.is_empty_set()?;
+            if e1 {
+                return Ok(Some(b.is_empty_set()?));
+            }
+            if b.is_empty_set()? {
+                return Ok(Some(e1));
+            }
+            if p.len() != q.len() {
+                return Ok(Some(false));
+            }
+            let (mut p1, mut q1): (Vec<&(u32, Value)>, Vec<&(u32, Value)>) = (p.iter().collect(), q.iter().collect());
+            p1.sort_by_key(|x| x.0);
+            q1.sort_by_key(|x| x.0);
+            for ((n1, s1), (n2, s2)) in p1.iter().map(|x| (&x.0, &x.1)).zip(q1.iter().map(|x| (&x.0, &x.1))) {
+                if n1 != n2 || !s1.eq_val(s2)? {
+                    return Ok(Some(false));
+                }
+            }
+            Some(true)
+        }
+        (SetOfTuples(p), SetOfTuples(q)) => {
+            let e1 = a.is_empty_set()?;
+            if e1 {
+                return Ok(Some(b.is_empty_set()?));
+            }
+            if b.is_empty_set()? {
+                return Ok(Some(e1));
+            }
+            if p.len() != q.len() {
+                return Ok(Some(false));
+            }
+            for (s1, s2) in p.iter().zip(q.iter()) {
+                if !s1.eq_val(s2)? {
+                    return Ok(Some(false));
+                }
+            }
+            Some(true)
+        }
+        _ => None,
+    })
+}
+
+fn is_std_infinite(v: &Value) -> bool {
+    matches!(v, Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet) || (matches!(v, Value::SeqOf(_)) && !v.is_finite())
+}
+
+fn std_infinite_rank(v: &Value) -> u8 {
+    match v {
+        Value::NatSet => 0,
+        Value::IntSet => 1,
+        Value::RealSet => 2,
+        Value::StringSet => 3,
+        _ => 4,
     }
 }
 

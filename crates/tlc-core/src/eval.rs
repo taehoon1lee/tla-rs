@@ -781,6 +781,16 @@ impl Ev {
                         vals[1].to_tla()
                     ));
                 }
+                // Java: Tool.eval OPCODE_cup: an empty enumerated set (`Reducible.cup`) leaves the other operand as it is
+                if b == B::Union {
+                    let is_empty = |v: &Value| matches!(v, Value::Set(s) if s.is_empty()) || matches!(v, Value::Interval(lo, hi) if hi < lo);
+                    if is_empty(&vals[0]) {
+                        return Ok(vals[1].clone());
+                    }
+                    if is_empty(&vals[1]) {
+                        return Ok(vals[0].clone());
+                    }
+                }
                 let p = Rc::new((vals[0].clone(), vals[1].clone()));
                 // eagerly normalize when both operands are cheap finite sets
                 let v = match b {
