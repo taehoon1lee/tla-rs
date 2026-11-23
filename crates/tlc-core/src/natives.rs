@@ -631,7 +631,11 @@ fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
                 if ev.setup_phase.get() && (1..=4).contains(&i) {
                     return fail_code(ec::TLC_MODULE_TLCGET_UNDEFINED, format!("TLCGet({}) was undefined.", name));
                 }
-                let v = ev.counters.get()[i];
+                let mut v = ev.counters.get()[i];
+                if i == 0 {
+                    // Java: the level of the successor state under a prime
+                    v += ev.prime_depth.get() as i64;
+                }
                 return match i32::try_from(v) {
                     Ok(n) => Ok(Value::Int(n)),
                     Err(_) => fail_code(ec::TLC_MODULE_OVERFLOW, format!("Overflow when computing {}", v)),

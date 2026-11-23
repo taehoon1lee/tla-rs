@@ -173,6 +173,8 @@ pub struct Ev {
     /// true while the specification is processed (Java: `TLCGlobals.mainChecker == null`): the model checker's counters
     /// are not available yet
     pub setup_phase: Cell<bool>,
+    /// number of enclosing primes: `TLCGet("level")'` is the level of the successor state
+    pub prime_depth: Cell<u32>,
     pub no_frame: Rc<Vec<Slot>>,
     pub no_state: Rc<Vec<Value>>,
     /// Java: TLCGlobals.warn (false with -nowarning): disables the all-assigned fast path
@@ -241,6 +243,7 @@ impl Ev {
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
             setup_phase: Cell::new(false),
+            prime_depth: Cell::new(0),
             no_frame: Rc::new(Vec::new()),
             no_state: Rc::new(Vec::new()),
             warn: Cell::new(true),
@@ -883,7 +886,10 @@ impl Ev {
             }
             Node::Prime(inner) => {
                 let empty = self.empty();
-                self.eval(inner, s1, &empty)
+                self.prime_depth.set(self.prime_depth.get() + 1);
+                let r = self.eval(inner, s1, &empty);
+                self.prime_depth.set(self.prime_depth.get() - 1);
+                r
             }
             Node::Unchanged(inner) => {
                 let cur = self.eval(inner, s0, s1)?;

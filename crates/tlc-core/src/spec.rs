@@ -327,7 +327,13 @@ cannot be used as a spec",
                 }
             }
             SPEC_ERR.with(|c| *c.borrow_mut() = None);
+            SUBSCRIPTS.with(|v| v.borrow_mut().clear());
             analyze_spec_formula(&b, &mut inits, &mut nexts, &mut temporals, 0);
+            // Java: processConfigSpec: the subscript collector follows definitions (and the definitions configured for them); a cycle through `<-` overrides ends in a StackOverflowError
+            let subs: Vec<sem::Expr> = SUBSCRIPTS.with(|v| v.borrow().clone());
+            if subs.iter().any(|x| subscript_overflows(&setup.comp.overrides, x, 0)) {
+                return serr(ec::SYSTEM_STACK_OVERFLOW, "stack overflow while collecting the variables of a subscript");
+            }
             if let Some(loc) = SPEC_ERR.with(|c| c.borrow_mut().take()) {
                 return serr(ec::TLC_LIVE_CANNOT_HANDLE_FORMULA, format!("TLC cannot handle the temporal formula {}{}", loc, def.module));
             }
@@ -854,8 +860,31 @@ fn classify_property(
 /// Port of `SpecProcessor.processConfigSpec`: split the temporal formula `Spec` into the initial predicate(s), the
 /// next-state relation and the remaining (fairness) conjuncts. INSTANCE substitutions met on the way wrap the parts.
 thread_local! {
+    /// the subscripts of the `[][A]_v` conjuncts `analyze_rec` met
+    static SUBSCRIPTS: std::cell::RefCell<Vec<sem::Expr>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+thread_local! {
     /// the first formula `analyze_rec` found that TLC cannot handle in a SPECIFICATION (location text without the module)
     static SPEC_ERR: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
+}
+
+/// does following the definitions (after the `<-` overrides) of a subscript never end?
+fn subscript_overflows(ov: &HashMap<usize, Rc<sem::OpDef>>, e: &sem::Expr, depth: u32) -> bool {
+    if depth > 400 {
+        return true;
+    }
+    match &e.kind {
+        EKind::Apply(Callee::Def(d), a) if a.is_empty() => {
+            let d2 = ov.get(&d.id).or_else(|| ov.get(&d.original().id)).cloned().unwrap_or_else(|| d.clone());
+            match d2.body() {
+                Some(b) => subscript_overflows(ov, &b, depth + 1),
+                None => false,
+            }
+        }
+        EKind::Tuple(items) => items.iter().any(|x| subscript_overflows(ov, x, depth + 1)),
+        _ => false,
+    }
 }
 
 fn analyze_spec_formula(e: &sem::Expr, inits: &mut Vec<sem::Expr>, nexts: &mut Vec<(sem::Expr, String)>, temporals: &mut Vec<sem::Expr>, depth: usize) {
@@ -961,7 +990,8 @@ fn analyze_rec(
         }
         EKind::Label(_, _, b) => analyze_rec(b, inits, nexts, temporals, depth + 1, wraps, env),
         EKind::Bi(B::Always, args) => match &args[0].kind {
-            EKind::ActionSub { boxed: true, act, .. } => {
+            EKind::ActionSub { boxed: true, act, sub } => {
+                SUBSCRIPTS.with(|v| v.borrow_mut().push(sub.clone()));
                 let name = match &act.kind {
                     EKind::Apply(Callee::Def(d), a) if a.is_empty() => d.name.to_string(),
                     // Java: an action that is not a definition is named "Action"

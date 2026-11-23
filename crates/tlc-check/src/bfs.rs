@@ -348,8 +348,14 @@ The postcondition evaluated to the non-boolean value
             self.rep.error(mp::NOT_PORTED, &e.msg);
             return 199;
         }
-        let text = format!("{}\nWhile working on the initial state:\n{}", e.msg, self.state_text(st));
-        self.rep.error(ec::TLC_INITIAL_STATE, &text);
+        if is_eval_exception(e.code) {
+            // Java: an `EvalException` (thrown by the TLC modules) is not a `TLCRuntimeException`: `doInit` does not record the
+            // initial state, so the failure is reported without it
+            self.rep.error(ec::GENERAL, &e.msg);
+        } else {
+            let text = format!("{}\nWhile working on the initial state:\n{}", e.msg, self.state_text(st));
+            self.rep.error(ec::TLC_INITIAL_STATE, &text);
+        }
         self.rep.error(
             ec::TLC_NESTED_EXPRESSION,
             "The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\nThe error call stack is empty.",
@@ -363,7 +369,8 @@ The postcondition evaluated to the non-boolean value
             self.rep.error(mp::NOT_PORTED, &e.msg);
             return 199;
         }
-        self.rep.error(e.code, &e.msg);
+        let msg: &str = if e.code == ec::SYSTEM_STACK_OVERFLOW { STACK_OVERFLOW_TEXT } else { &e.msg };
+        self.rep.error(e.code, msg);
         match e.code {
             ec::TLC_VALUE_ASSERT_FAILED => ec::exit_status::VIOLATION_ASSERT,
             ec::TLC_CONFIG_VALUE_NOT_ASSIGNED_TO_CONSTANT_PARAM => ec::exit_status::ERROR_CONFIG_PARSE,
@@ -701,6 +708,16 @@ The postcondition evaluated to the non-boolean value
                 })
             });
             if let Err(e) = r {
+                if e.code == ec::SYSTEM_STACK_OVERFLOW {
+                    // Java: modelCheckImpl: the exception is reported as GENERAL and the replay names the (empty) call stack
+                    self.flush_output();
+                    self.rep.error(ec::GENERAL, STACK_OVERFLOW_TEXT);
+                    self.rep.error(
+                        ec::TLC_NESTED_EXPRESSION,
+                        "The error occurred when TLC was evaluating the nested\nexpressions at the following positions:\nThe error call stack is empty.",
+                    );
+                    return Err(Stop::Exit(ec::error_constant_to_exit_status(ec::TLC_NESTED_EXPRESSION)));
+                }
                 let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
                 return Err(Stop::Exit(code));
             }
@@ -729,6 +746,8 @@ The postcondition evaluated to the non-boolean value
         self.flush_output();
         let mut distinct_init = 0u64;
         let mut first_violation: Option<(usize, String, bool)> = None;
+        // Java: the initial states have level 1 (TLCGet("level") is 0 only while the initial predicate is evaluated)
+        self.set_counters(1, 0);
         for st in inits {
             // constraints are applied to the initial states as well
             match self.in_model(&st) {
@@ -1425,6 +1444,25 @@ fn stop_sampler(s: Sampler) {
     }
 }
 
+
+/// does Java throw an `EvalException` (not an `Assert.fail` `TLCRuntimeException`) for this error?  (the TLC modules do)
+fn is_eval_exception(code: i32) -> bool {
+    matches!(
+        code,
+        ec::TLC_MODULE_ARGUMENT_ERROR
+            | ec::TLC_MODULE_ARGUMENT_ERROR_AN
+            | ec::TLC_MODULE_ONE_ARGUMENT_ERROR
+            | ec::TLC_MODULE_APPLYING_TO_WRONG_VALUE
+            | ec::TLC_MODULE_OVERFLOW
+            | ec::TLC_MODULE_TLCGET_UNDEFINED
+            | ec::TLC_MODULE_COMPARE_VALUE
+            | ec::TLC_MODULE_CHECK_MEMBER_OF
+            | ec::TLC_MODULE_TRANSITIVE_CLOSURE
+    )
+}
+
+/// Java: `MP` text of `EC.SYSTEM_STACK_OVERFLOW`
+const STACK_OVERFLOW_TEXT: &str = "This was a Java StackOverflowError. It was probably the result\nof an incorrect recursive function definition that caused TLC to enter\nan infinite loop when trying to compute the function or its application\nto an element in its putative domain.";
 
 pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, start: std::time::Instant) -> i32 {
     let mut ck = Checker {

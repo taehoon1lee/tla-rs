@@ -203,7 +203,7 @@
   (CheckpointCoordinationFailure, MultiPaxos_small got slower with the exhaustive form). Top-level function images are cached per perm
   (`ImgCache`, cap 512); a function over a closed domain permuted onto itself keeps the `dom` Rc and only reorders values (binary search);
   `Fcn.has_model` memoizes `contains_model`. Remaining profile is flat (eval_inner, permute_opt ~10 %, hash_into, cmp_val_slow, clone/alloc).
-- tt/ pass (verdict 304 -> 345/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
+- tt/ pass (verdict 304 -> 349/364): `_POSSIBLE` + POSTCONDITION(S) are real now. `spec::process_config_possible` generates the module text of
   `SpecProcessor.processConfigPossible` and analyses it with `tla_sany::analyze_generated_module` (loads `_Possible` + its LOCAL INSTANCEs);
   state-level predicates become model constraints, action-level ones action constraints (the generated defs get the level of the tracked predicate,
   otherwise the compiler folds them: SANY gives `_Track(P, n)` constant level). `bfs::check_postconditions` runs after the BFS (2404/2405/2780, exit 10).
@@ -222,7 +222,7 @@
   SPECIFICATION naming a state variable = 2236; `[]S` with state-level S in a SPEC = 2213; unnamed next-state actions are called `Action`.
 - Fingerprints of strings only see the low byte of each UTF-16 char (`FP64.Extend(fp, String)`): "é" and "ǩ" are one state (`str_fp_class`).
 - ENABLED / primed INSTANCE access: `actions::target_var` and `var_of` follow SubstIn and nullary definitions (Java `getPrimedVar` / `getVar`).
-- Still open in tt/ (19): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
+- Still open in tt/ (15): lazy normalization of set enumerations / SUBSET / kSubset ("*AssumeTest", RandomSubset*, ModuleSemanticsAssume),
   Java classes (UserModuleOverride), `Randomization` natives, TLCGet("spec") coverage + level (TLCGetLevel), parameterized INSTANCE in
   SPECIFICATION (Github687specA/D), 2102/2103 call stacks and the
   exit-255 variants (Github696b, CyclicRedefine*, FingerprintException*), config constant `A <- diameter` evaluated at startup (TLCGetNamedUndefined).
@@ -230,3 +230,7 @@
 - Also: a constant substituted by a definition that reads variables/TLCGet is evaluated at startup (`Ev.setup_phase`: TLCGet("distinct") etc. are undefined
   then) -> 2281; a constant-Boolean conjunct of a SPECIFICATION that is FALSE -> 2237; arguments of operators met while the SPECIFICATION / a temporal
   property is analysed are inlined by name (`spec::INLINE_PARAMS/INLINE_OPS`, used by the compiler for otherwise unbound parameters).
+- Init errors by Java exception class: `Assert.fail` (TLCRuntimeException) -> 2102 with the state; `new EvalException` (TLC modules: TLC_MODULE_* codes) -> plain 1000 (`bfs::is_eval_exception`); StackOverflowError at init -> 1000 + 2103 + exit 75, in the
+  subscript collector (cycle through `<-` overrides) -> 1005 + exit 255 before init.  TLCGet("level"): 0 in Init, 1 for initial states, `TLCGet("level")'` = successor level (`Ev.prime_depth`).
+- Not worth porting: *AssumeTest (hundreds of ASSUMEs that pin exact Java error texts incl. reflection signatures), RandomSubset* (Java's LCG `SubsetEnumerator` + RandomGenerator.nextPrime),
+  UserModuleOverride (loads a Java class).
