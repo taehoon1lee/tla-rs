@@ -124,3 +124,7 @@ Next: re-run `ab.py time --set full` to refresh STANDING; remaining over Java al
 SpanTreeRandom 4.44 -> 2.05 s (x0.46, Java alone x0.47): `Nbrs(n)` reaches `Edges == .. RandomElement(..)`, which runs once (cached), so `Nbrs` is now remembered by its argument.
 `AB RESULT` (full, 2 reps): REJECT only because of MCDisruptor_MPMC x1.136; re-measured `--reps 5`: x0.991 (noise, longer run is final). Others within +-3 %. gate: no regressions.
 Next: every model of the full set is now <= Java alone; lower the geomean further (H2 disjunction/failing guards, H4 TypeOK membership, `EWD998!vars` 12 % of PCal).
+
+## 2026-11-26 perf H8 -- ACCEPT: memo of more pure operators + cheaper value comparison (Sonnet 5.5)
+Huang x0.66, MCKVsnap x0.85, SpanTreeRandom x0.83, Sailfish x0.91; 14 slowest models -10.4 % wall. `AB RESULT: ACCEPT (geomean new/base 0.958, best 0.829, worst 1.048, models 15, reps 2)`; gate -j 2 rc 0 (check levels 364/364). H9, H10 NEUTRAL.
+Found while testing: a lazy `1..MaxInt` argument must never be hashed for a memo key (`Value::hash_is_cheap`); identical source built in another directory differs up to +12 % on short models (compare same-path builds only). Next: H11 Huang liveness, H12 symmetry delta hash. See loop/PERF_RESEARCH.md.

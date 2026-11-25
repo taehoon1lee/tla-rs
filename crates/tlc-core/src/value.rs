@@ -63,15 +63,31 @@ static MODEL_NEXT: AtomicU32 = AtomicU32::new(0);
 pub fn register_model(id: u32) {
     if let Some(slot) = MODEL_IDX.get(id as usize) {
         if slot.load(AtomicOrdering::Relaxed) == 0 {
-            slot.store(MODEL_NEXT.fetch_add(1, AtomicOrdering::Relaxed) + 1, AtomicOrdering::Relaxed);
+            let typed = (model_type(id).is_some() as u32) << 31;
+            slot.store((MODEL_NEXT.fetch_add(1, AtomicOrdering::Relaxed) + 1) | typed, AtomicOrdering::Relaxed);
         }
+    }
+}
+
+/// bit 31 of a `MODEL_IDX` entry: the model value is typed (`A_x`), so comparing it can fail
+const TYPED_MASK: u32 = 0x7FFF_FFFF;
+
+/// both registered and both untyped (no error possible): their order is the creation order; `None` = take the general path
+#[inline(always)]
+fn model_cmp_fast(a: u32, b: u32) -> Option<Ordering> {
+    let x = MODEL_IDX.get(a as usize)?.load(AtomicOrdering::Relaxed);
+    let y = MODEL_IDX.get(b as usize)?.load(AtomicOrdering::Relaxed);
+    if x != 0 && y != 0 && (x | y) <= TYPED_MASK {
+        Some(x.cmp(&y))
+    } else {
+        None
     }
 }
 
 #[inline]
 fn model_cmp(a: u32, b: u32) -> Ordering {
     if let (Some(x), Some(y)) = (MODEL_IDX.get(a as usize), MODEL_IDX.get(b as usize)) {
-        let (x, y) = (x.load(AtomicOrdering::Relaxed), y.load(AtomicOrdering::Relaxed));
+        let (x, y) = (x.load(AtomicOrdering::Relaxed) & TYPED_MASK, y.load(AtomicOrdering::Relaxed) & TYPED_MASK);
         if x != 0 && y != 0 {
             return x.cmp(&y);
         }
@@ -1384,6 +1400,10 @@ impl Value {
         match (self, o) {
             (Value::Int(a), Value::Int(b)) => Ok(a.cmp(b)),
             (Value::Str(a), Value::Str(b)) => Ok(a.cmp(b)),
+            (Value::Model(a), Value::Model(b)) => match model_cmp_fast(*a, *b) {
+                Some(c) => Ok(c),
+                None => self.cmp_val_slow(o),
+            },
             _ => self.cmp_val_slow(o),
         }
     }
@@ -1395,6 +1415,19 @@ impl Value {
             (Set(a), Set(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
             (Tuple(a), Tuple(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
             (Fcn(a), Fcn(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
+            // the general set arm below enumerates both sets (a clone of the `Rc` each) and compares size, then elements
+            (Set(a), Set(b)) => {
+                if a.len() != b.len() {
+                    return Ok(a.len().cmp(&b.len()));
+                }
+                for (x, y) in a.iter().zip(b.iter()) {
+                    let c = x.cmp_val(y)?;
+                    if c != Ordering::Equal {
+                        return Ok(c);
+                    }
+                }
+                Ok(Ordering::Equal)
+            }
             (Int(a), Int(b)) => Ok(a.cmp(b)),
             (Str(a), Str(b)) => Ok(a.cmp(b)),
             (Bool(a), Bool(b)) => Ok(a.cmp(b)),
@@ -2000,6 +2033,30 @@ impl Value {
         }
     }
 
+    /// Can `hash_into` fingerprint this value in bounded time?  A lazy set is enumerated by it (`1..MaxInt` visits 2^31 elements), so a call
+    /// whose arguments are not cheap is not remembered by the values of its arguments (`call_def`).  Only scalars, small intervals and
+    /// sets / tuples / functions of such values are cheap; every other lazy value is not.
+    pub fn hash_is_cheap(&self) -> bool {
+        fn go(v: &Value, budget: &mut i64) -> bool {
+            *budget -= 1;
+            if *budget < 0 {
+                return false;
+            }
+            match v {
+                Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) | Value::Undef => true,
+                Value::Interval(lo, hi) => {
+                    *budget -= (*hi as i64 - *lo as i64 + 1).max(0);
+                    *budget >= 0
+                }
+                Value::Set(e) | Value::Tuple(e) => e.iter().all(|x| go(x, budget)),
+                // the hash of a function is cached in `fp` once computed
+                Value::Fcn(f) => f.fp.get() != 0 || (f.dom.iter().all(|x| go(x, budget)) && f.vals.iter().all(|x| go(x, budget))),
+                _ => false,
+            }
+        }
+        go(self, &mut 100_000)
+    }
+
     /// a `SUBSET S` that stays lazy when it is bound to a variable (Java keeps the `SubsetValue`, which prints as `SUBSET S`): more
     /// than 2^16 elements (the ones TLC would never enumerate are in it)
     pub fn is_huge_subset(&self) -> bool {
@@ -2523,6 +2580,37 @@ mod tests {
         assert!(t.apply_ref(&Value::Int(0)).is_none());
         assert!(t.apply_ref(&Value::Int(3)).is_none());
         assert!(Value::Int(1).apply_ref(&Value::Int(1)).is_none());
+    }
+
+    /// a lazy huge set must not be enumerated just to build a memo key (`1..MaxInt` has 2^31 elements)
+    #[test]
+    fn hash_is_cheap_rejects_huge_lazy_sets() {
+        assert!(Value::Int(3).hash_is_cheap());
+        assert!(Value::Interval(1, 100).hash_is_cheap());
+        assert!(!Value::Interval(1, i32::MAX - 1).hash_is_cheap());
+        let small = Value::set_from(vec![Value::tuple(vec![Value::Int(1), Value::Bool(false)]), Value::tuple(vec![Value::Int(2), Value::Bool(true)])]).unwrap();
+        assert!(small.hash_is_cheap());
+        let nested = Value::tuple(vec![Value::Int(1), Value::Interval(1, i32::MAX - 1)]);
+        assert!(!nested.hash_is_cheap());
+        assert!(!Value::NatSet.hash_is_cheap());
+    }
+
+    /// `Set` vs `Set` compares size first, then the elements in order; model values by creation order
+    #[test]
+    fn set_and_model_comparison_fast_paths() {
+        use std::cmp::Ordering::*;
+        let s = |v: &[i32]| Value::set_from(v.iter().map(|i| Value::Int(*i)).collect()).unwrap();
+        assert_eq!(s(&[1, 2]).cmp_val(&s(&[1, 2, 3])).unwrap(), Less);
+        assert_eq!(s(&[1, 3]).cmp_val(&s(&[1, 2])).unwrap(), Greater);
+        assert_eq!(s(&[1, 2]).cmp_val(&s(&[1, 2])).unwrap(), Equal);
+        let (ia, ib) = (intern::intern("fastcmp_b"), intern::intern("fastcmp_a"));
+        register_model(ia);
+        register_model(ib);
+        let (a, b) = (Value::Model(ia), Value::Model(ib));
+        // creation order, not name order
+        assert_eq!(a.cmp_val(&b).unwrap(), Less);
+        assert_eq!(b.cmp_val(&a).unwrap(), Greater);
+        assert_eq!(a.cmp_val(&a).unwrap(), Equal);
     }
 
     #[test]

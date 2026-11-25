@@ -742,7 +742,7 @@ impl Ev {
                     let vals: Option<Vec<Value>> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
                     if let Some(vals) = vals {
                         let mut h = Hasher::new();
-                        if vals.iter().all(|v| v.hash_into(&mut h).is_ok()) {
+                        if vals.iter().all(|v| v.hash_is_cheap()) && vals.iter().all(|v| v.hash_into(&mut h).is_ok()) {
                             let key = h.finish();
                             d.memo_calls.set(d.memo_calls.get() + 1);
                             if let Some(bucket) = d.memo.borrow().get(&key) {

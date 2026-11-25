@@ -39,7 +39,7 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
     match &e.kind {
         EKind::Unsupported(_) => return false,
         EKind::SubstIn(..) => st.subst_in = true,
-        EKind::SubsetOf(..) | EKind::SetOfAll(..) | EKind::SetOfFcns(..) => st.heavy = true,
+        EKind::SubsetOf(..) | EKind::SetOfAll(..) | EKind::SetOfFcns(..) | EKind::BQuant { .. } | EKind::Choose(..) | EKind::FcnCons(..) => st.heavy = true,
         EKind::Bi(B::Subset, _) => st.heavy = true,
         EKind::Apply(callee, args) => {
             for a in args {
@@ -99,7 +99,7 @@ pub fn memoizable(d: &std::rc::Rc<OpDef>) -> Option<Option<Vec<usize>>> {
     let body = d.body()?;
     let mut st = Scan { seen: HashSet::new(), heavy: false, steps: 0, decls: Vec::new(), subst_in: false, frozen: 0 };
     st.seen.insert(d.id);
-    if scan(&body, &mut st) && st.heavy {
+    if scan(&body, &mut st) && (st.heavy || st.steps >= 12) {
         Some(if st.subst_in { None } else { Some(st.decls) })
     } else {
         None
