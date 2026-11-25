@@ -8,23 +8,24 @@ Edit this file freely: tick backlog items, add LEDGER rows, refresh STANDING. Ke
 2. Then keep lowering the geomean of rust/base with accepted hypotheses (each must pass `ab.py compare --set full` = ACCEPT).
 
 ## STANDING (rust vs Java alone, sequential, min of 2; refresh with `python tools/ab.py time --set full`)
-measured 2026-11-25 on the dev box, HEAD c2dd7d2 (after H3); worst first. Only SpanTreeRandom is still above Java alone:
+measured 2026-11-25, HEAD 0744ec2 (after H3 + H7): EVERY model of the full set is below Java alone (goal 1 reached). Worst first:
 
 | model | rust/java alone |
 |---|---|
-| ex/SpanningTree/SpanTreeRandom | x1.022 |
-| ex/lamport_mutex/MCLamportMutex | x0.968 |
-| ex/SlidingPuzzles/SlidingPuzzles | x0.906 |
-| ex/ewd998/EWD998Small | x0.888 |
-| ex/Bakery-Boulangerie/MCBakery | x0.817 |
-| ex/Disruptor/MCDisruptor_MPMC | x0.795 |
-| ex/TeachingConcurrency/SimpleRegular | x0.728 |
-| ex/YoYo/YoYoAllGraphs | x0.668 |
-| ex/allocator/AllocatorImplementation | x0.609 |
-| ex/KeyValueStore/MCKVsnap | x0.497 |
-| ex/FlashProtocol/MCFlashWithMutexLive, MCbtree, bcastByz, VoteProof, ElevatorLivenessMedium | x0.16 .. x0.36 |
+| ex/lamport_mutex/MCLamportMutex | x0.971 |
+| ex/SlidingPuzzles/SlidingPuzzles | x0.919 |
+| ex/ewd998/EWD998Small | x0.883 |
+| ex/Bakery-Boulangerie/MCBakery | x0.820 |
+| ex/Disruptor/MCDisruptor_MPMC | x0.790 |
+| ex/TeachingConcurrency/SimpleRegular | x0.724 |
+| ex/YoYo/YoYoAllGraphs | x0.676 |
+| ex/allocator/AllocatorImplementation | x0.605 |
+| ex/KeyValueStore/MCKVsnap | x0.509 |
+| ex/SpanningTree/SpanTreeRandom | x0.495 |
+| ex/FlashProtocol/MCFlashWithMutexLive, MCbtree, bcastByz, VoteProof, ElevatorLivenessMedium | x0.17 .. x0.37 |
 
 Not in the FULL set: `ex/ewd998/EWD998PCal` 19.6 s vs Java alone 29.7 s = x0.66 after H3 (was x1.08).
+Goal 2 (lower the geomean) continues: MCLamportMutex (x0.97) and SlidingPuzzles are the closest to Java.
 
 ## Do NOT retry (measured and rejected; details in NOTES.md "Perf ...")
 - `lto = "fat"` + `codegen-units = 1`; `-C target-cpu=native` (no gain on this box).
