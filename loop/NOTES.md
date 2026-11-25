@@ -319,3 +319,10 @@
   sampling profile (`tools/prof.py`) for proportions. Under Git Bash, an id filter like `/MCBakery` is rewritten to a Windows path: pass it without `/`.
 - Still open: EWD998PCal is ~10 % slower than Java alone (32.5 vs 29.7 s): the refinement mapping (`token` = CHOOSE over the network, `pending`) is re-evaluated
   per transition; closures capture the whole frame (free-variable analysis, see "Remaining perf ideas"); `enum_action_inner` disjunction path.
+
+## Perf pass 7 (2026-11-26, H8-H11)
+- Java short-circuits `<A>_e` / `[A]_e` (Tool.eval OPCODE_aa/sa): `e` is not evaluated when A decides. The port evaluated `vars` twice per fairness action and edge (Huang: 10 WF actions x 1.17M edges).
+- A nullary state-level definition that only builds a tuple of variables (`vars`) must not go through the state caches: 3 variable hashes + lookup cost more than the 3-tuple (`CompiledDef::cheap_body`).
+- Value-keyed memo keys must never hash a lazy huge set (`Value::hash_is_cheap`): `SingletonOf(RandomSubset(..), 1..(MaxInt-1))` hung `tt/ModuleSemanticsAssumeTest` once H8 made such operators memoizable.
+- Identical sources built in different directories differ by up to +12 % on 1-3 s models; compare same-path builds, re-measure a lone REJECT with `--reps 5`.
+- Details of the H8 research (profile aggregate, rejected E4/E5, PGO impossible): `loop/PERF_RESEARCH.md`.

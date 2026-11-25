@@ -128,3 +128,7 @@ Next: every model of the full set is now <= Java alone; lower the geomean furthe
 ## 2026-11-26 perf H8 -- ACCEPT: memo of more pure operators + cheaper value comparison (Sonnet 5.5)
 Huang x0.66, MCKVsnap x0.85, SpanTreeRandom x0.83, Sailfish x0.91; 14 slowest models -10.4 % wall. `AB RESULT: ACCEPT (geomean new/base 0.958, best 0.829, worst 1.048, models 15, reps 2)`; gate -j 2 rc 0 (check levels 364/364). H9, H10 NEUTRAL.
 Found while testing: a lazy `1..MaxInt` argument must never be hashed for a memo key (`Value::hash_is_cheap`); identical source built in another directory differs up to +12 % on short models (compare same-path builds only). Next: H11 Huang liveness, H12 symmetry delta hash. See loop/PERF_RESEARCH.md.
+
+## 2026-11-26 perf H11 -- ACCEPT: `<<A>>_vars` short-circuit + cheap tuple-of-variables definitions (Sonnet 5.5)
+Huang 20.66 -> 17.86 s (liveness part -31 %), EWD998PCal x0.84, ElevatorLivenessMedium x0.89. `AB RESULT: ACCEPT (geomean new/base 0.967, best 0.888, worst 1.029, models 15, reps 2)`; gate -j 2 rc 0 (364/364).
+(quick showed SimpleRegular x1.078 REJECT; `--reps 5` x0.965 = layout noise, as before.) Next: H13 (Huang `TypeOK` = 50 % of what is left: `Sum` with `FoldFunction(Add, ..)`), H12 symmetry.

@@ -167,6 +167,9 @@ pub struct CompiledDef {
     /// calls looked up / found in `memo`: remembering stops when fewer than half of the calls are found
     pub memo_calls: Cell<u32>,
     pub memo_hits: Cell<u32>,
+    /// state-level definition without parameters whose body only builds a tuple of variables / constants (`vars == <<a, b, c>>`):
+    /// 0 = not analysed yet, 1 = cheaper to evaluate than to look up in the state caches, 2 = not
+    pub cheap_body: Cell<u8>,
     /// constant declarations the memoized operator can reach (`memo::memoizable`); `None` = it contains INSTANCE substitutions,
     /// so its calls are only remembered when no substitution is in scope
     pub memo_decls: RefCell<Option<Vec<usize>>>,

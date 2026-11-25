@@ -660,6 +660,31 @@ impl Ev {
             }
     }
 
+    /// `vars == <<x, y, z>>`: building the tuple costs less than the lookups of the state-level caches below (state pointer, variable
+    /// values, hash of the values); such a definition is evaluated directly
+    #[inline]
+    fn cheap_def(d: &CompiledDef) -> bool {
+        match d.cheap_body.get() {
+            1 => true,
+            2 => false,
+            _ => Self::classify_cheap_def(d),
+        }
+    }
+
+    #[inline(never)]
+    fn classify_cheap_def(d: &CompiledDef) -> bool {
+        fn cheap(n: &Node) -> bool {
+            match n {
+                Node::Var(_) | Node::PrimedVar(..) | Node::Const(_) => true,
+                Node::Tuple(v) => v.len() <= 8 && v.iter().all(|e| cheap(e)),
+                _ => false,
+            }
+        }
+        let ok = d.body.borrow().as_ref().map_or(false, |b| cheap(b));
+        d.cheap_body.set(if ok { 1 } else { 2 });
+        ok
+    }
+
     fn call_def(&self, d: &Rc<CompiledDef>, args: &[Arg], s0: &[Value], s1: &[Value]) -> R<Value> {
         if d.native.get().is_none() {
             let cacheable = d.nparams == 0 && d.level == sem::Level::Const;
@@ -670,7 +695,7 @@ impl Ev {
             }
             // a state-level definition without parameters: its value depends only on the state and on the INSTANCE
             // substitutions in scope (the same substitution list object = the same scope)
-            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State;
+            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State && !Self::cheap_def(d);
             if state_cacheable {
                 if let Some(c) = &*d.state_cache.borrow() {
                     if c.s0_ptr == s0.as_ptr() as usize && c.s0_len == s0.len() && c.epoch == self.epoch.get() && c.substs.same(&self.substs.borrow()) {
@@ -1911,6 +1936,10 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
             }
             Node::ActionSub { boxed, act, sub } => {
                 let a = self.eval(act, s0, s1)?.as_bool()?;
+                // Java: Tool.eval OPCODE_aa / OPCODE_sa: `<A>_e` is false when A is and `[A]_e` is true when A is; `e` is not evaluated then
+                if a == *boxed {
+                    return Ok(Value::Bool(a));
+                }
                 let unchanged = {
                     let cur = self.eval(sub, s0, s1)?;
                     let empty = self.empty();
