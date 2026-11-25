@@ -1257,6 +1257,24 @@ impl Value {
         }
     }
 
+    /// `f[x]` by reference for the plain lookups (a tuple, or a function value in normal form, that has the element): no clone.
+    /// `None` for everything else (outside the domain, lazy function, error while searching): the caller falls back to `apply`,
+    /// which produces the value or the error.
+    #[inline]
+    pub fn apply_ref(&self, arg: &Value) -> Option<&Value> {
+        match self {
+            Value::Tuple(t) => match arg {
+                Value::Int(i) if *i >= 1 && (*i as usize) <= t.len() => Some(&t[*i as usize - 1]),
+                _ => None,
+            },
+            Value::Fcn(f) => match Self::search(&f.dom, arg) {
+                Ok(Some(i)) => Some(&f.vals[i]),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     fn search(dom: &[Value], x: &Value) -> R<Option<usize>> {
         // integer and string keys (array indexes, record fields) are compared inline; dense integer domains are indexed
         match x {
@@ -1936,6 +1954,9 @@ impl Value {
                 }
             }
             Value::Fcn(f) => {
+                if f.norm_ok.get() {
+                    return Ok(self.clone());
+                }
                 if f.vals.iter().any(|e| e.needs_normalize()) || f.dom.iter().any(|e| e.needs_normalize()) {
                     let mut vals = Vec::with_capacity(f.vals.len());
                     for e in f.vals.iter() {
@@ -1943,6 +1964,7 @@ impl Value {
                     }
                     Ok(Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), vals))))
                 } else {
+                    f.norm_ok.set(true);
                     Ok(self.clone())
                 }
             }
@@ -2480,6 +2502,28 @@ impl Default for Hasher {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `apply_ref` finds exactly the elements `apply` finds (same value, no clone), and is `None` where `apply` fails
+    #[test]
+    fn apply_ref_agrees_with_apply() {
+        let row = |a: i32, b: i32| Value::fcn_from(vec![(Value::Int(1), Value::Int(a)), (Value::Int(3), Value::Int(b))]).unwrap();
+        let (s7, s2, s9) = (Value::str("apply_ref_a"), Value::str("apply_ref_b"), Value::str("apply_ref_c"));
+        let f = Value::fcn_from(vec![(s7.clone(), row(10, 11)), (s2.clone(), row(20, 21))]).unwrap();
+        for k in [s7.clone(), s2, s9, Value::Int(1)] {
+            match f.apply_ref(&k) {
+                Some(r) => assert!(r.eq_val(&f.apply(&k).unwrap()).unwrap()),
+                None => assert!(f.apply(&k).is_err()),
+            }
+        }
+        let inner = f.apply_ref(&s7).unwrap();
+        assert!(matches!(inner.apply_ref(&Value::Int(3)), Some(Value::Int(11))));
+        assert!(inner.apply_ref(&Value::Int(2)).is_none());
+        let t = Value::tuple(vec![Value::Int(5), Value::Int(6)]);
+        assert!(matches!(t.apply_ref(&Value::Int(2)), Some(Value::Int(6))));
+        assert!(t.apply_ref(&Value::Int(0)).is_none());
+        assert!(t.apply_ref(&Value::Int(3)).is_none());
+        assert!(Value::Int(1).apply_ref(&Value::Int(1)).is_none());
+    }
 
     #[test]
     fn set_normalization_and_membership() {

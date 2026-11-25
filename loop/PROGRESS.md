@@ -107,3 +107,11 @@ Two regressions of the parity passes were found by timing old binaries (`git wor
 (1) `thread_local!` in value comparison (`model_cmp`, `model_type`, `str_fp_class`) and in `note_source` (a Vec::remove(0) per lazy set): on windows-gnu each access runs a destructor guard (~10 ns); now static atomic tables / a static ring;
 (2) the per-eval error check that records the call stack (`TlcErr.frames`) cost 6-14 %: now `Ev.tracking` (off) is read once at the entry of `eval_inner`, and a failure that needs its call stack is REPLAYED with tracking on
 (`Ev::replay`, `Checker::replay_next`, init enumeration, `fp_stack_of_fp`; Java does the same with `CallStackTool`). The replay's output is dropped.
+
+## 2026-11-25 perf: borrowed read paths (Sonnet 5.5)
+Java alone (sequential) is faster than its goldens (those were timed with 3-4 JVMs in parallel): before this pass Rust was x1.09 / x1.07 / x1.04 SLOWER than Java alone on MCLamportMutex / EWD998PCal / EWD998Small (see NOTES.md "Perf review").
+`Value::apply_ref` + `Ev::place`: `x[a][b]` chains over state variables are followed by reference (no clone/drop per step) in the left operand of `=`, `#`, `\in`, `\notin`, in `r.field`, in the chain itself and in the `natives::Fast` arguments (`Len/Head/Tail/Append/Cardinality`); a path that does not apply returns `None` and the old code runs (same errors).
+Also `normalize()` returns early for `Fcn.norm_ok` and `TLCGet("duration")` is computed on read.
+Sequential, interleaved, min of 2 (26 of the longest models): total x0.98; MCbtree -16 %, MCBakery -11 %, MCLamportMutex -9 % (11.1 s = Java alone), SimpleRegular -7 %, EWD998Small -3 %; no model > 3 % slower. EWD998PCal unchanged (32.0 s vs Java alone 29.7 s: the refinement mapping `token`/`pending` dominates).
+Rejected (NOTES.md): fat LTO, target-cpu=native, call-path tweaks, 8-entry dep_cache (PCal +5 %).
+gate (-j 2): no regressions (verdict 364/364, trace 364/364, perf 364/364).
