@@ -61,6 +61,54 @@ pub fn node_kind(n: &Node) -> String {
     }
 }
 
+/// hash of the values of the variables `deps` in `s0`; `None` when one of them is unassigned or cannot be hashed
+fn dep_key(deps: &[u32], s0: &[Value]) -> Option<u64> {
+    let mut h = Hasher::new();
+    for &i in deps {
+        let v = s0.get(i as usize)?;
+        if matches!(v, Value::Undef) {
+            return None;
+        }
+        v.hash_into(&mut h).ok()?;
+    }
+    Some(h.finish())
+}
+
+/// `CompiledDef::memo` for a state-level definition without parameters: its value for the values of the variables it reads
+/// (no counterpart in Java). Switched off (`memo_kind` = 2) when fewer than a quarter of the lookups hit.
+#[inline(never)]
+fn dep_memo_get(d: &CompiledDef, deps: &[u32], s0: &[Value]) -> Option<Value> {
+    let key = dep_key(deps, s0)?;
+    d.memo_calls.set(d.memo_calls.get() + 1);
+    if let Some(bucket) = d.memo.borrow().get(&key) {
+        for (a, r) in bucket {
+            if a.len() == deps.len() && deps.iter().zip(a.iter()).all(|(&i, v)| s0[i as usize].eq_val(v).unwrap_or(false)) {
+                d.memo_hits.set(d.memo_hits.get() + 1);
+                return Some(r.clone());
+            }
+        }
+    }
+    if d.memo_calls.get() >= 256 && d.memo_hits.get() * 4 < d.memo_calls.get() {
+        d.memo_kind.set(2);
+        d.memo.borrow_mut().clear();
+        d.memo_n.set(0);
+    }
+    None
+}
+
+#[inline(never)]
+fn dep_memo_put(d: &CompiledDef, deps: &[u32], s0: &[Value], v: &Value) {
+    if let Some(key) = dep_key(deps, s0) {
+        if d.memo_n.get() >= 65_536 {
+            d.memo.borrow_mut().clear();
+            d.memo_n.set(0);
+        }
+        let vals: Vec<Value> = deps.iter().map(|&i| s0[i as usize].clone()).collect();
+        d.memo.borrow_mut().entry(key).or_default().push((vals, v.clone()));
+        d.memo_n.set(d.memo_n.get() + 1);
+    }
+}
+
 #[derive(Clone)]
 pub struct Captured {
     pub frame: Rc<Vec<Slot>>,
@@ -601,6 +649,17 @@ impl Ev {
 
     // ------------------------------------------------------------------ calls
 
+    /// may the value-keyed memo of `d` be used here?  Only while no INSTANCE substitution in scope substitutes a constant `d` reaches.
+    #[inline(never)]
+    fn dep_memo_scope(&self, d: &CompiledDef) -> bool {
+        let ss = self.substs.borrow();
+        ss.is_empty()
+            || match d.dep_decls.get() {
+                Some(ds) => !ss.iter().any(|e| ds.contains(&e.decl)),
+                None => false,
+            }
+    }
+
     fn call_def(&self, d: &Rc<CompiledDef>, args: &[Arg], s0: &[Value], s1: &[Value]) -> R<Value> {
         if d.native.get().is_none() {
             let cacheable = d.nparams == 0 && d.level == sem::Level::Const;
@@ -619,13 +678,25 @@ impl Ev {
                     }
                 }
                 // the variables the definition reads still have the values it was computed with (see `deps`)
-                if let Some(deps) = d.deps.get_or_init(|| crate::deps::state_reads(d).map(Rc::new)) {
+                if let Some(deps) = d.deps.get_or_init(|| {
+                    crate::deps::state_reads_decls(d).map(|(vars, decls)| {
+                        let _ = d.dep_decls.set(decls);
+                        Rc::new(vars)
+                    })
+                }) {
                     if let Some(dc) = &*d.dep_cache.borrow() {
                         if dc.substs.same(&self.substs.borrow())
                             && deps.iter().zip(dc.vals.iter()).all(|(&i, v)| s0.get(i as usize).map_or(false, |x| x.eq_val(v).unwrap_or(false)))
                         {
                             let v = dc.val.clone();
                             *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone(), substs: dc.substs.clone() });
+                            return Ok(v);
+                        }
+                    }
+                    // other states with the same values of the variables it reads (a duplicate successor): remembered by value
+                    if d.memo_kind.get() != 2 && self.dep_memo_scope(d) {
+                        if let Some(v) = dep_memo_get(d, deps, s0) {
+                            *d.state_cache.borrow_mut() = Some(LazyCache { s0_ptr: s0.as_ptr() as usize, s0_len: s0.len(), epoch: self.epoch.get(), val: v.clone(), substs: self.substs.borrow().clone() });
                             return Ok(v);
                         }
                     }
@@ -731,6 +802,9 @@ impl Ev {
                 if let Some(Some(deps)) = d.deps.get() {
                     if deps.iter().all(|&i| (i as usize) < s0.len()) {
                         let vals: Vec<Value> = deps.iter().map(|&i| s0[i as usize].clone()).collect();
+                        if d.memo_kind.get() != 2 && self.dep_memo_scope(d) {
+                            dep_memo_put(d, deps, s0, &v);
+                        }
                         *d.dep_cache.borrow_mut() = Some(DepCache { vals, val: v.clone(), substs: self.substs.borrow().clone() });
                     }
                 }

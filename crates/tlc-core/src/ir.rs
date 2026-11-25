@@ -175,6 +175,9 @@ pub struct CompiledDef {
     pub deps: std::cell::OnceCell<Option<Rc<Vec<u32>>>>,
     /// value of the definition for the values the variables in `deps` had when it was computed
     pub dep_cache: RefCell<Option<DepCache>>,
+    /// constant declarations the definition can reach (`deps::state_reads_decls`): `dep_memo` is only used while no INSTANCE
+    /// substitution in scope substitutes one of them
+    pub dep_decls: std::cell::OnceCell<Vec<usize>>,
 }
 
 /// see `CompiledDef::dep_cache`

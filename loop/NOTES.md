@@ -44,6 +44,21 @@
 ## Design decisions
 - Output protocol = TLC's own `-tool` text (so tlc-rs is usable as a drop-in TLC). See harness/SCHEMA.md.
 
+## Perf pass 6 (2026-11-25, perf loop H1/H3)
+- Measure before building: a throw-away counter patch (static `AtomicU64` per site, printed just before `process::exit` in tlc-cli: `Drop` of `Ev` never runs)
+  showed 0 frame copies in `eval_arg`/`capture`/lambda closures on PCal, EWD998Small, MCLamportMutex -> the "free-variable analysis" idea (H1) had nothing to save.
+- `profnode.py` DEFS section (innermost user definition) found the real cost of EWD998PCal: `pending` 24 %, `token` 22 %, `EWD998!vars` 12 %. The property
+  `EWD998!Init /\ [][EWD998!Next]_EWD998!vars` evaluates the refinement mapping on the primed state of EVERY transition (2.8M) while only 321k distinct values of
+  `network` exist. `Prime(e)` evaluates `e` with s0 := s1; the per-state `state_cache` (state pointer) never hits for a fresh successor.
+- Fix (`eval.rs` `dep_memo_get/put`, `deps::state_reads_decls`): a state-level nullary definition is also remembered by the VALUES of the variables it reads
+  (hash via `hash_into`, which caches the hash per `Fcn`, + `eq_val` check; so no collision question), <= 65536 entries per definition, switched off when < 25 % of 256+
+  lookups hit. EWD998PCal 32.05 -> 19.62 s, VoteProof 6.57 -> 3.39 s, EWD998Small 24.7 -> 22.4 s. Full A/B geomean 0.950, no model slower than noise.
+- Pitfall that hid it for one build: the memo was first guarded by `substs.is_empty()`. The arguments of an INSTANCE substitution (`SubstIn`) are evaluated with the
+  substitutions pushed so far in scope, so the list is never empty there. The guard is now "no substitution in scope substitutes a constant the definition reaches"
+  (`CompiledDef.dep_decls`, collected by `deps::Walk` from `Node::Decl`; a substituted VARIABLE declaration already makes `state_reads` fail).
+- Other ideas this opens: the same value-keyed memo for `Node::Memo`-like state-level subexpressions and for defs that currently get `deps = None` because of
+  `SubstIn`/primed reads (`EWD998!vars` is still 12 % of PCal: five `Decl(..)` lookups per tuple, twice per transition).
+
 ## HARNESS ISSUES (write evidence here instead of editing harness/)
 
 ## SANY port notes (2026-11-22)
