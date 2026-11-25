@@ -42,11 +42,11 @@ Over Java alone: SpanTreeRandom (x1.057, liveness graph build), EWD998Small (x1.
 - Anything that changes enumeration order, set normalization order, CHOOSE, fingerprints, or messages.
 
 ## BACKLOG (top = next; expected gain is a guess to be checked with the profile)
-- [ ] H1 Free-variable analysis for closures / by-name arguments: `capture`, `eval_arg`, `run_captured_in` copy the WHOLE frame;
+- [x] H1 (REJECT, premise false: 0 frame copies measured) Free-variable analysis for closures / by-name arguments: `capture`, `eval_arg`, `run_captured_in` copy the WHOLE frame;
       capture only the slots the code reads (compile time analysis, `FrameCtx`). Target EWD998PCal, EWD998Small, MCLamportMutex. ~3-8 %.
 - [ ] H2 `enum_action_inner` disjunction path and failing guards (a failing guard costs ~118 ns: ~34 test, ~33 call, ~51
       disjunction/quantifier): avoid per-branch frame/state setup when the first conjunct already fails. Target MCLamportMutex, MCBakery.
-- [ ] H3 EWD998PCal: profile first (`tools/prof.py ex/ewd998/EWD998PCal --top 25 --lines ...`), the refinement mapping
+- [x] H3 (ACCEPT, see LEDGER H3) EWD998PCal: profile first (`tools/prof.py ex/ewd998/EWD998PCal --top 25 --lines ...`), the refinement mapping
       (`token` = CHOOSE over the network, `pending`) is re-evaluated per transition (~10 % slower than Java alone). Find the dominant
       node, remove one copy/allocation/re-evaluation there. Do not use a bigger dep_cache (see above).
 - [ ] H4 Invariant `TypeOK` on MCLamportMutex costs ~1.3 s of 12 s: membership in function/record/sequence sets
@@ -69,3 +69,5 @@ Over Java alone: SpanTreeRandom (x1.057, liveness graph build), EWD998Small (x1.
 | s8 | REJECT | 8-entry `dep_cache` per state-level definition | EWD998PCal 32.6 -> 34.1 s | n/a | refinement mapping rarely repeats a network value; a miss scans 8 |
 | s9 | REJECT | hand-written `Clone for Value` with inline scalar fast path | slower | n/a | code bloat |
 | s10 | REJECT | place probes inline in `eval_inner` | EWD998PCal +4 % | n/a | probe hit rate ~1 %; fixed by checking operand kind first |
+| H1 | REJECT (no code) | free-variable analysis for closures / by-name args | 0 frame copies (`eval_arg` x2, `capture`, Lambda closure) counted on PCal, EWD998Small, MCLamportMutex | n/a | premise false: every by-name arg is `closed` (no frame copy) or strict; nothing to save. Counter patch idea: static AtomicU64 per site, dump before `process::exit` in tlc-cli |
+| H3 | ACCEPT | value-keyed multi-entry memo (`CompiledDef.memo`, hash of the variables in `deps` + `eq_val`, <= 65536 entries, switched off below 25 % hits after 256 lookups) for state-level nullary defs (`dep_memo_get/put` in `eval.rs`), allowed while no INSTANCE substitution in scope substitutes a constant the def reaches (`deps::state_reads_decls`, `dep_decls`) | EWD998PCal 32.05 -> 19.62 s (x0.61), VoteProof x0.52, EWD998Small x0.91 | 0.950 (15 models) | PCal profile: `pending` 24 % + `token` 22 % + `EWD998!vars` 12 % of the time; `token'`/`pending'` ran for every successor (2.8M) although only 321k distinct network values exist. The old 1-entry `dep_cache` missed, and the substitution-list check (`substs.same`) blocked reuse (args of a SubstIn see the earlier substitutions) |

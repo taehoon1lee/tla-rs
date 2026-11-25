@@ -115,3 +115,7 @@ Also `normalize()` returns early for `Fcn.norm_ok` and `TLCGet("duration")` is c
 Sequential, interleaved, min of 2 (26 of the longest models): total x0.98; MCbtree -16 %, MCBakery -11 %, MCLamportMutex -9 % (11.1 s = Java alone), SimpleRegular -7 %, EWD998Small -3 %; no model > 3 % slower. EWD998PCal unchanged (32.0 s vs Java alone 29.7 s: the refinement mapping `token`/`pending` dominates).
 Rejected (NOTES.md): fat LTO, target-cpu=native, call-path tweaks, 8-entry dep_cache (PCal +5 %).
 gate (-j 2): no regressions (verdict 364/364, trace 364/364, perf 364/364).
+
+## 2026-11-25 perf H3 -- ACCEPT: value-keyed memo of state-level nullary definitions (Sonnet 5.5)
+EWD998PCal 32.05 -> 19.62 s (x0.61, Java alone 29.7 s), VoteProof x0.52, EWD998Small x0.91; `AB RESULT: ACCEPT (geomean new/base 0.950, best 0.516, worst 1.036, models 15)`. H1 rejected without code (0 frame copies measured).
+Next: re-run `ab.py time --set full` to refresh STANDING; remaining over Java alone: SpanTreeRandom (x1.02, liveness graph build, H6); then `EWD998!vars` (12 % of PCal) and H2.

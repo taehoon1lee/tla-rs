@@ -25,11 +25,13 @@ struct Walk {
     slots_read: Vec<u32>,
     slots_bound: Vec<u32>,
     depth: u32,
+    /// constant declarations (ids) the expression reaches: an INSTANCE substitution of one of them changes its value
+    decls: Vec<usize>,
 }
 
 impl Walk {
     fn new(allow_primed: bool) -> Walk {
-        Walk { vars: Vec::new(), seen: HashSet::new(), steps: 0, allow_primed, v1: Vec::new(), slots_read: Vec::new(), slots_bound: Vec::new(), depth: 0 }
+        Walk { vars: Vec::new(), seen: HashSet::new(), steps: 0, allow_primed, v1: Vec::new(), slots_read: Vec::new(), slots_bound: Vec::new(), depth: 0, decls: Vec::new() }
     }
     fn bind(&mut self, slot: u32, n: u32) {
         if self.depth == 0 {
@@ -79,6 +81,19 @@ pub fn state_reads(d: &Rc<CompiledDef>) -> Option<Vec<u32>> {
     w.vars.sort_unstable();
     w.vars.dedup();
     Some(w.vars)
+}
+
+/// `state_reads` plus the constant declarations (ids) the definition can reach (see `CompiledDef::dep_decls`)
+pub fn state_reads_decls(d: &Rc<CompiledDef>) -> Option<(Vec<u32>, Vec<usize>)> {
+    let mut w = Walk::new(false);
+    if !w.def(d) {
+        return None;
+    }
+    w.vars.sort_unstable();
+    w.vars.dedup();
+    w.decls.sort_unstable();
+    w.decls.dedup();
+    Some((w.vars, w.decls))
 }
 
 /// the expression reads state variables, constants and frame slots only: no primed variables, no impure natives, no
@@ -165,7 +180,12 @@ impl Walk {
             Node::PrimedVar(..) | Node::Prime(_) | Node::Unchanged(_) => false,
             // a constant declaration: its value is fixed by the configuration or by the INSTANCE substitutions in scope
             // (the cache is only used under the same substitution list); a variable declaration may be substituted
-            Node::Decl(dr) => !dr.is_var,
+            Node::Decl(dr) => {
+                if !dr.is_var {
+                    self.decls.push(dr.id);
+                }
+                !dr.is_var
+            }
             Node::CallDecl(..) | Node::CallLocal(..) => false,
             Node::Call(d, args, _) => args.iter().all(|a| self.arg(a)) && self.def(d),
             Node::Bi(b, es) => bi_pure(*b) && self.all(es),
@@ -330,5 +350,33 @@ mod memo_tests {
         assert!(memo_spec(&n(Node::Bi(B::Union, vec![n(Node::Unchanged(n(Node::Var(0)))), n(Node::Var(0))]))).is_none());
         assert!(memo_spec(&n(Node::Bi(B::Union, vec![n(Node::Bi(B::Enabled, vec![n(Node::Var(0))])), n(Node::Var(0))]))).is_none());
         assert!(memo_spec(&n(Node::Bi(B::Union, vec![n(Node::CallLocal(0, vec![])), n(Node::Var(0))]))).is_none());
+    }
+}
+
+#[cfg(test)]
+mod decl_tests {
+    use super::*;
+
+    fn n(x: Node) -> Ex {
+        Rc::new(x)
+    }
+
+    fn decl(id: usize, is_var: bool) -> Ex {
+        n(Node::Decl(Rc::new(DeclRef { id, name: tla_sany::sem::Name::from("D"), is_var, var_index: 0, arity: 0 })))
+    }
+
+    #[test]
+    fn collects_the_constant_declarations_a_definition_reaches() {
+        // x \in {c1, c2} /\ c1 # c2   reaches the declarations 7 and 4; a substituted variable declaration is not analysable
+        let e = n(Node::And(vec![
+            n(Node::In(n(Node::Var(1)), n(Node::SetEnum(vec![decl(7, false), decl(4, false)])))),
+            n(Node::Neq(decl(7, false), decl(4, false))),
+        ]));
+        let mut w = Walk::new(false);
+        assert!(w.node(&e));
+        w.decls.sort_unstable();
+        w.decls.dedup();
+        assert_eq!((w.vars, w.decls), (vec![1], vec![4, 7]));
+        assert!(!Walk::new(false).node(&decl(3, true)));
     }
 }
