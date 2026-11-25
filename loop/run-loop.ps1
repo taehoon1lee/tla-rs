@@ -17,6 +17,8 @@
 .EXAMPLE
   pwsh -File loop/run-loop.ps1                         # haiku, up to 100 iterations
   pwsh -File loop/run-loop.ps1 -MaxIterations 5 -IterationTimeoutMin 30
+  # performance loop: a rejected/neutral experiment is a notes-only commit, so allow more of them in a row
+  pwsh -File loop/run-loop.ps1 -PromptName loop\PROMPT_PERF.md -Model sonnet -IterationTimeoutMin 75 -MaxNoProgress 8
   New-Item loop/STOP                                   # graceful stop after the current iteration
 #>
 [CmdletBinding()]
@@ -26,6 +28,8 @@ param(
     [int]$IterationTimeoutMin = 45,
     [int]$MaxNoProgress = 4,
     [double]$MaxBudgetUsdPerIter = 0,
+    # Prompt fed to the agent, relative to the repo root: "loop\PROMPT.md" (port/parity) or "loop\PROMPT_PERF.md" (performance).
+    [string]$PromptName = "loop\PROMPT.md",
     [switch]$NoGate,
     # Testing only: path to a .ps1 that stands in for the claude agent (driver self-test).
     [string]$Agent = ""
@@ -40,7 +44,7 @@ $env:PYTHONUTF8 = "1"
 $Logs = Join-Path $Root "loop\logs"
 New-Item -ItemType Directory -Force $Logs | Out-Null
 $DriverLog = Join-Path $Logs "driver.log"
-$PromptFile = Join-Path $Root "loop\PROMPT.md"
+$PromptFile = Join-Path $Root $PromptName
 $Rejected = Join-Path $Root "loop\LAST_REJECTED.md"
 $AgentSettings = Join-Path $Root "loop\haiku-settings.json"
 
@@ -48,7 +52,7 @@ $AgentSettings = Join-Path $Root "loop\haiku-settings.json"
 $Protected = @(
     "harness/golden", "harness/common.py", "harness/check.py", "harness/tlcout.py", "harness/corpus.py",
     "harness/gen_golden.py", "harness/setup.py", "harness/oracle.py", "harness/corpus.json", "harness/quick.txt",
-    "harness/SCHEMA.md", "loop/PROMPT.md", "loop/run-loop.ps1", "loop/haiku-settings.json", "CLAUDE.md",
+    "harness/SCHEMA.md", "loop/PROMPT.md", "loop/PROMPT_PERF.md", "tools/ab.py", "loop/run-loop.ps1", "loop/haiku-settings.json", "CLAUDE.md",
     ".claude/settings.json", ".gitattributes", ".gitignore", ".gitmodules", "reference"
 )
 
