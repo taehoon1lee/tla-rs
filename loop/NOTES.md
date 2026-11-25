@@ -58,6 +58,10 @@
   (`CompiledDef.dep_decls`, collected by `deps::Walk` from `Node::Decl`; a substituted VARIABLE declaration already makes `state_reads` fail).
 - Other ideas this opens: the same value-keyed memo for `Node::Memo`-like state-level subexpressions and for defs that currently get `deps = None` because of
   `SubstIn`/primed reads (`EWD998!vars` is still 12 % of PCal: five `Decl(..)` lookups per tuple, twice per transition).
+- H7 (SpanTreeRandom 4.44 -> 2.05 s): `memo::memoizable` rejected `Nbrs(n) == {m \in Nodes : {m, n} \in Edges}` because it reaches `Edges == UNION {.. RandomElement(..)}`.
+  A constant-level definition without parameters is evaluated once and cached (`call_def`: `cacheable`), so impure natives inside it run once; `Scan.frozen` lets
+  the scan pass through them. Parameterized impure operators (a `Print`/`RandomElement` in `Nbrs` itself) are still rejected. First call of `Nbrs` is a miss, so the
+  random draws happen in the same order as in Java (scratch spec `tmp/frz/Frz.tla`: oracle diff IDENTICAL).
 
 ## HARNESS ISSUES (write evidence here instead of editing harness/)
 
