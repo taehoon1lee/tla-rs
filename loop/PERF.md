@@ -8,29 +8,23 @@ Edit this file freely: tick backlog items, add LEDGER rows, refresh STANDING. Ke
 2. Then keep lowering the geomean of rust/base with accepted hypotheses (each must pass `ab.py compare --set full` = ACCEPT).
 
 ## STANDING (rust vs Java alone, sequential, min of 2; refresh with `python tools/ab.py time --set full`)
-measured 2026-11-25 on the dev box, HEAD 3e5661b (tools/ab.py time --set full --reps 2); worst first:
+measured 2026-11-25 on the dev box, HEAD c2dd7d2 (after H3); worst first. Only SpanTreeRandom is still above Java alone:
 
-| model | rust/java alone | java alone s | rust s |
-|---|---|---|---|
-| ex/SpanningTree/SpanTreeRandom | x1.057 | 4.36 | 4.61 |
-| ex/ewd998/EWD998Small | x1.002 | 25.36 | 25.41 |
-| ex/lamport_mutex/MCLamportMutex | x0.999 | 11.39 | 11.38 |
-| ex/SlidingPuzzles/SlidingPuzzles | x0.935 | 1.53 | 1.43 |
-| ex/Disruptor/MCDisruptor_MPMC | x0.841 | 3.08 | 2.59 |
-| ex/Bakery-Boulangerie/MCBakery | x0.838 | 7.79 | 6.53 |
-| ex/TeachingConcurrency/SimpleRegular | x0.738 | 3.75 | 2.77 |
-| ex/byzpaxos/VoteProof | x0.684 | 9.90 | 6.77 |
-| ex/YoYo/YoYoAllGraphs | x0.658 | 5.29 | 3.48 |
-| ex/allocator/AllocatorImplementation | x0.615 | 6.88 | 4.23 |
-| ex/KeyValueStore/MCKVsnap | x0.502 | 8.96 | 4.50 |
-| ex/btree/MCbtree | x0.391 | 26.24 | 10.26 |
-| ex/FlashProtocol/MCFlashWithMutexLive | x0.388 | 11.02 | 4.28 |
-| ex/bcastByz/bcastByz | x0.360 | 11.67 | 4.20 |
-| ex/MultiCarElevator/ElevatorLivenessMedium | x0.165 | 18.16 | 3.00 |
+| model | rust/java alone |
+|---|---|
+| ex/SpanningTree/SpanTreeRandom | x1.022 |
+| ex/lamport_mutex/MCLamportMutex | x0.968 |
+| ex/SlidingPuzzles/SlidingPuzzles | x0.906 |
+| ex/ewd998/EWD998Small | x0.888 |
+| ex/Bakery-Boulangerie/MCBakery | x0.817 |
+| ex/Disruptor/MCDisruptor_MPMC | x0.795 |
+| ex/TeachingConcurrency/SimpleRegular | x0.728 |
+| ex/YoYo/YoYoAllGraphs | x0.668 |
+| ex/allocator/AllocatorImplementation | x0.609 |
+| ex/KeyValueStore/MCKVsnap | x0.497 |
+| ex/FlashProtocol/MCFlashWithMutexLive, MCbtree, bcastByz, VoteProof, ElevatorLivenessMedium | x0.16 .. x0.36 |
 
-Not in the FULL set (too long for one A/B run; add it to `ab.py compare <id> --reps 3` when your hypothesis targets it):
-`ex/ewd998/EWD998PCal` x1.08 (Rust 32.0 s vs Java alone 29.7 s, from NOTES.md) = the slowest model relative to Java.
-Over Java alone: SpanTreeRandom (x1.057, liveness graph build), EWD998Small (x1.002), EWD998PCal (x1.08).
+Not in the FULL set: `ex/ewd998/EWD998PCal` 19.6 s vs Java alone 29.7 s = x0.66 after H3 (was x1.08).
 
 ## Do NOT retry (measured and rejected; details in NOTES.md "Perf ...")
 - `lto = "fat"` + `codegen-units = 1`; `-C target-cpu=native` (no gain on this box).
@@ -53,7 +47,7 @@ Over Java alone: SpanTreeRandom (x1.057, liveness graph build), EWD998Small (x1.
       (`f \in [S -> T]`, `\in Seq(..)`) must not build the set or copy `f`; keep error behaviour identical.
 - [ ] H5 Per-state BFS overhead of a trivial transition (~600 ns/state): profile a `c' = c + 1` spec under `tools/prof.py`
       (state allocation, fingerprint, queue push, counters); fewer allocations per successor.
-- [ ] H6 Liveness graph build (SpanTreeRandom, ~250k evaluations of `<<Next>>_vars` of its `WF`): evaluate the action
+- [x] H6 (superseded by H7: the profile of SpanTreeRandom was set operations of `Nbrs(n)`, not the graph build) Liveness graph build (SpanTreeRandom, ~250k evaluations of `<<Next>>_vars` of its `WF`): evaluate the action
       predicate of an edge without re-enumerating Next from scratch when the edge is known to come from Next. Only if identical results.
 
 ## LEDGER (append one row per experiment; newest at the bottom; seeded from NOTES.md)
@@ -71,3 +65,4 @@ Over Java alone: SpanTreeRandom (x1.057, liveness graph build), EWD998Small (x1.
 | s10 | REJECT | place probes inline in `eval_inner` | EWD998PCal +4 % | n/a | probe hit rate ~1 %; fixed by checking operand kind first |
 | H1 | REJECT (no code) | free-variable analysis for closures / by-name args | 0 frame copies (`eval_arg` x2, `capture`, Lambda closure) counted on PCal, EWD998Small, MCLamportMutex | n/a | premise false: every by-name arg is `closed` (no frame copy) or strict; nothing to save. Counter patch idea: static AtomicU64 per site, dump before `process::exit` in tlc-cli |
 | H3 | ACCEPT | value-keyed multi-entry memo (`CompiledDef.memo`, hash of the variables in `deps` + `eq_val`, <= 65536 entries, switched off below 25 % hits after 256 lookups) for state-level nullary defs (`dep_memo_get/put` in `eval.rs`), allowed while no INSTANCE substitution in scope substitutes a constant the def reaches (`deps::state_reads_decls`, `dep_decls`) | EWD998PCal 32.05 -> 19.62 s (x0.61), VoteProof x0.52, EWD998Small x0.91 | 0.950 (15 models) | PCal profile: `pending` 24 % + `token` 22 % + `EWD998!vars` 12 % of the time; `token'`/`pending'` ran for every successor (2.8M) although only 321k distinct network values exist. The old 1-entry `dep_cache` missed, and the substitution-list check (`substs.same`) blocked reuse (args of a SubstIn see the earlier substitutions) |
+| H7 | ACCEPT | `memo::scan`: the body of a constant-level definition WITHOUT parameters (evaluated once, value cached in `CompiledDef::cache`) may contain impure natives (`RandomElement`): `Nbrs(n)` of SpanTreeRandom (reaches `Edges` = `RandomElement(SUBSET ..)`) is now remembered by its argument | SpanTreeRandom 4.44 -> 2.05 s (x0.46, Java alone x0.47) | 0.955 (15 models; the 2-rep full run printed REJECT only because of MCDisruptor_MPMC x1.136, re-measured with `--reps 5`: 2.49 -> 2.47 s = x0.991, noise; the longer run is final) | profile: 45 % in set ops (`cmp_val_slow` 17, `member_impl` 7.5, `model_type` 6, `set_from` 5, `enumerate` 5) rebuilding `{m \in Nodes : {m, n} \in Edges}` for every `\E m \in Nbrs(n)`; the old scan rejected the operator because of `RandomElement` although `Edges` runs once |

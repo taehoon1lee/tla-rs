@@ -119,3 +119,8 @@ gate (-j 2): no regressions (verdict 364/364, trace 364/364, perf 364/364).
 ## 2026-11-25 perf H3 -- ACCEPT: value-keyed memo of state-level nullary definitions (Sonnet 5.5)
 EWD998PCal 32.05 -> 19.62 s (x0.61, Java alone 29.7 s), VoteProof x0.52, EWD998Small x0.91; `AB RESULT: ACCEPT (geomean new/base 0.950, best 0.516, worst 1.036, models 15)`. H1 rejected without code (0 frame copies measured).
 Next: re-run `ab.py time --set full` to refresh STANDING; remaining over Java alone: SpanTreeRandom (x1.02, liveness graph build, H6); then `EWD998!vars` (12 % of PCal) and H2.
+
+## 2026-11-25 perf H7 -- ACCEPT: `memo::scan` passes through constant nullary definitions (Sonnet 5.5)
+SpanTreeRandom 4.44 -> 2.05 s (x0.46, Java alone x0.47): `Nbrs(n)` reaches `Edges == .. RandomElement(..)`, which runs once (cached), so `Nbrs` is now remembered by its argument.
+`AB RESULT` (full, 2 reps): REJECT only because of MCDisruptor_MPMC x1.136; re-measured `--reps 5`: x0.991 (noise, longer run is final). Others within +-3 %. gate: no regressions.
+Next: every model of the full set is now <= Java alone; lower the geomean further (H2 disjunction/failing guards, H4 TypeOK membership, `EWD998!vars` 12 % of PCal).

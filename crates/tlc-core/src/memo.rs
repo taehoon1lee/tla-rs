@@ -26,6 +26,9 @@ struct Scan {
     decls: Vec<usize>,
     /// an INSTANCE substitution occurs (its value expressions are not visited by `Expr::children`)
     subst_in: bool,
+    /// > 0 while scanning the body of a constant-level definition without parameters: it is evaluated once and its value
+    /// is cached (`CompiledDef::cache`), so an impure native in it (`RandomElement`) runs once, before any call is remembered
+    frozen: u32,
 }
 
 fn scan(e: &Expr, st: &mut Scan) -> bool {
@@ -48,20 +51,22 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
                 Callee::Def(d) => {
                     let o = d.original();
                     if crate::natives::lookup(&o.module, &o.name).is_some() {
-                        if !pure_native(&o.module, &o.name) {
+                        if !pure_native(&o.module, &o.name) && st.frozen == 0 {
                             return false;
                         }
                     } else if st.seen.insert(d.id) {
                         if d.params.borrow().iter().any(|p| p.arity > 0) {
                             return false;
                         }
-                        match d.body() {
-                            Some(b) => {
-                                if !scan(&b, st) {
-                                    return false;
-                                }
-                            }
-                            None => return false,
+                        let freeze = d.params.borrow().is_empty() && d.level.get() == Level::Const;
+                        st.frozen += freeze as u32;
+                        let ok = match d.body() {
+                            Some(b) => scan(&b, st),
+                            None => false,
+                        };
+                        st.frozen -= freeze as u32;
+                        if !ok {
+                            return false;
                         }
                     }
                 }
@@ -92,7 +97,7 @@ pub fn memoizable(d: &std::rc::Rc<OpDef>) -> Option<Option<Vec<usize>>> {
         return None;
     }
     let body = d.body()?;
-    let mut st = Scan { seen: HashSet::new(), heavy: false, steps: 0, decls: Vec::new(), subst_in: false };
+    let mut st = Scan { seen: HashSet::new(), heavy: false, steps: 0, decls: Vec::new(), subst_in: false, frozen: 0 };
     st.seen.insert(d.id);
     if scan(&body, &mut st) && st.heavy {
         Some(if st.subst_in { None } else { Some(st.decls) })
