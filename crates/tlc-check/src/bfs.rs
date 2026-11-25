@@ -177,8 +177,9 @@ impl<'a> Checker<'a> {
     /// publish the counters TLCGet reads
     fn set_counters(&self, level: i64, queue: i64) {
         let ev = &self.setup.ev;
-        let secs = self.start.elapsed().as_secs() as i64;
-        ev.counters.set([level, self.generated as i64, self.fps.len() as i64, queue, self.max_level as i64, secs]);
+        // the duration (index 5) is computed from `Ev::start_time` when `TLCGet("duration")` reads it
+        ev.start_time.set(Some(self.start));
+        ev.counters.set([level, self.generated as i64, self.fps.len() as i64, queue, self.max_level as i64, 0]);
     }
 
     // ---- POSTCONDITION with the counterexample (Java: Worker.doPostCondition, LiveWorker.printTrace, ModelChecker.modelCheckImpl)

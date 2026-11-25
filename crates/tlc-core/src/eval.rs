@@ -189,6 +189,8 @@ pub struct Ev {
     pub slot_pool: RefCell<Vec<Vec<Slot>>>,
     /// TLCGet("level"|"generated"|"distinct"|"queue"|"diameter"|"duration") (maintained by the model checker)
     pub counters: Cell<[i64; 6]>,
+    /// start of the model checking run: `TLCGet("duration")` is computed from it when it is read (not on every state)
+    pub start_time: Cell<Option<std::time::Instant>>,
     /// Java: the value `TLCExt!CounterExample` is bound to while the POSTCONDITION is evaluated (`Tool.checkPostConditionWithCounterExample`)
     /// Java: `CallStackTool`: while set, every failure records the nodes it passes (`TlcErr::frames`); set only while a failure is replayed
     pub tracking: Cell<bool>,
@@ -345,6 +347,7 @@ impl Ev {
             epoch: Cell::new(1),
             slot_pool: RefCell::new(Vec::new()),
             counters: Cell::new([0; 6]),
+            start_time: Cell::new(None),
             tracking: Cell::new(false),
             track_skip: Cell::new(false),
             counter_example: RefCell::new(None),
@@ -739,15 +742,37 @@ impl Ev {
             match d.fast.get() {
                 crate::natives::Fast::F1(g) if args.len() == 1 => {
                     if let Arg::Val(e, false) = &args[0] {
-                        let x = self.eval(e, s0, s1)?;
-                        return g(&x);
+                        // a read path over the state (`Len(net[p][q])`) is passed by reference
+                        let xo;
+                        let x: &Value = match self.place(e, s0) {
+                            Some(p) => p,
+                            None => {
+                                xo = self.eval(e, s0, s1)?;
+                                &xo
+                            }
+                        };
+                        return g(x);
                     }
                 }
                 crate::natives::Fast::F2(g) if args.len() == 2 => {
                     if let (Arg::Val(e0, false), Arg::Val(e1, false)) = (&args[0], &args[1]) {
-                        let x = self.eval(e0, s0, s1)?;
-                        let y = self.eval(e1, s0, s1)?;
-                        return g(&x, &y);
+                        let xo;
+                        let x: &Value = match self.place(e0, s0) {
+                            Some(p) => p,
+                            None => {
+                                xo = self.eval(e0, s0, s1)?;
+                                &xo
+                            }
+                        };
+                        let yo;
+                        let y: &Value = match self.place(e1, s0) {
+                            Some(p) => p,
+                            None => {
+                                yo = self.eval(e1, s0, s1)?;
+                                &yo
+                            }
+                        };
+                        return g(x, y);
                     }
                 }
                 _ => {}
@@ -953,6 +978,146 @@ impl Ev {
             _ => {}
         }
         self.eval_inner(e, s0, s1)
+    }
+
+    /// `a = b` / `a # b`.  A left operand that is a read path over the state is compared in place (no clone / drop):
+    /// `eval_eq_placed`.  Kept out of `eval_inner` so that its stack frame stays small; the other operands take the plain code.
+    #[inline(never)]
+    fn eval_eq(&self, a: &Ex, b: &Ex, neg: bool, s0: &[Value], s1: &[Value]) -> R<Value> {
+        if matches!(&**a, Node::Var(_) | Node::FcnApply(..)) {
+            return self.eval_eq_placed(a, b, neg, s0, s1);
+        }
+        let x = self.eval(a, s0, s1)?;
+        // a constant right-hand side is compared in place (no clone / drop of the constant)
+        if let Node::Const(c) = &**b {
+            return Ok(Value::Bool(x.eq_val(c)? != neg));
+        }
+        let y = self.eval(b, s0, s1)?;
+        Ok(Value::Bool(x.eq_val(&y)? != neg))
+    }
+
+    #[inline(never)]
+    fn eval_eq_placed(&self, a: &Ex, b: &Ex, neg: bool, s0: &[Value], s1: &[Value]) -> R<Value> {
+        let xo;
+        let x: &Value = match self.place(a, s0) {
+            Some(p) => p,
+            None => {
+                xo = self.eval(a, s0, s1)?;
+                &xo
+            }
+        };
+        if let Node::Const(c) = &**b {
+            return Ok(Value::Bool(x.eq_val(c)? != neg));
+        }
+        if matches!(&**b, Node::Var(_) | Node::FcnApply(..)) {
+            if let Some(y) = self.place(b, s0) {
+                return Ok(Value::Bool(x.eq_val(y)? != neg));
+            }
+        }
+        let y = self.eval(b, s0, s1)?;
+        Ok(Value::Bool(x.eq_val(&y)? != neg))
+    }
+
+    /// `a \in b` / `a \notin b` (a left operand that is a read path over the state: `eval_in_placed`)
+    #[inline(never)]
+    fn eval_in(&self, a: &Ex, b: &Ex, neg: bool, s0: &[Value], s1: &[Value]) -> R<Value> {
+        if matches!(&**a, Node::Var(_) | Node::FcnApply(..)) {
+            return self.eval_in_placed(a, b, neg, s0, s1);
+        }
+        let x = self.eval(a, s0, s1)?;
+        self.in_rhs(&x, b, neg, s0, s1)
+    }
+
+    #[inline(never)]
+    fn eval_in_placed(&self, a: &Ex, b: &Ex, neg: bool, s0: &[Value], s1: &[Value]) -> R<Value> {
+        let xo;
+        let x: &Value = match self.place(a, s0) {
+            Some(p) => p,
+            None => {
+                xo = self.eval(a, s0, s1)?;
+                &xo
+            }
+        };
+        self.in_rhs(x, b, neg, s0, s1)
+    }
+
+    /// `x \in b`: a constant or a state variable as the set is used in place
+    #[inline(always)]
+    fn in_rhs(&self, x: &Value, b: &Ex, neg: bool, s0: &[Value], s1: &[Value]) -> R<Value> {
+        match &**b {
+            Node::Const(c) => return Ok(Value::Bool(c.member(x)? != neg)),
+            Node::Var(i) => {
+                if let Some(v) = s0.get(*i as usize) {
+                    if !matches!(v, Value::Undef) {
+                        return Ok(Value::Bool(v.member(x)? != neg));
+                    }
+                }
+            }
+            _ => {}
+        }
+        let y = self.eval(b, s0, s1)?;
+        Ok(Value::Bool(y.member(x)? != neg))
+    }
+
+    /// `r.field` (a record that is a read path over the state is not cloned: `eval_record_placed`)
+    #[inline(never)]
+    fn eval_record(&self, r: &Ex, field: u32, s0: &[Value], s1: &[Value]) -> R<Value> {
+        if matches!(&**r, Node::Var(_) | Node::FcnApply(..)) {
+            if let Some(rv) = self.place(r, s0) {
+                return Self::record_field(rv, field);
+            }
+        }
+        let rv = self.eval(r, s0, s1)?;
+        Self::record_field(&rv, field)
+    }
+
+    fn record_field(rv: &Value, field: u32) -> R<Value> {
+        match rv {
+            Value::Fcn(f) => {
+                for (d, v) in f.dom.iter().zip(f.vals.iter()) {
+                    if let Value::Str(id) = d {
+                        if *id == field {
+                            return Ok(v.clone());
+                        }
+                    }
+                }
+                fail(format!("Attempted to access nonexistent field '{}' of record\n{}", intern::name_of(field), rv.to_tla()))
+            }
+            Value::FcnLam(_) => rv.apply(&Value::Str(field)),
+            _ => fail(format!("Attempted to access field '{}' of the non-record value\n{}", intern::name_of(field), rv.to_tla())),
+        }
+    }
+
+    /// The value of a pure read path over the current state (`x`, `x[a]`, `x[a][b]`, ... with constant, frame-slot or state-variable
+    /// arguments) as a reference into `s0`: no clone / drop per step.  `None` = not such a path, or a step does not apply (outside the
+    /// domain, lazy function, ...): the caller evaluates the expression the normal way, which yields the value or the error.
+    fn place<'a>(&self, e: &Ex, s0: &'a [Value]) -> Option<&'a Value> {
+        match &**e {
+            Node::Var(i) => match s0.get(*i as usize) {
+                Some(Value::Undef) | None => None,
+                Some(v) => Some(v),
+            },
+            Node::FcnApply(f, a) => {
+                let base = self.place(f, s0)?;
+                match &**a {
+                    Node::Const(v) => base.apply_ref(v),
+                    Node::Local(i) => match &self.stack.borrow()[self.base.get() + *i as usize] {
+                        Slot::V(v) => base.apply_ref(v),
+                        _ => None,
+                    },
+                    Node::Var(i) => match s0.get(*i as usize) {
+                        Some(Value::Undef) | None => None,
+                        Some(v) => base.apply_ref(v),
+                    },
+                    Node::FcnApply(..) => {
+                        let av = self.place(a, s0)?;
+                        base.apply_ref(av)
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
     }
 
     /// Java: `CallStack.toString`: `0. Line .., column .. to line .., column .. in Module` for the expressions the error passed, outermost first;
@@ -1230,56 +1395,10 @@ impl Ev {
                 let y = self.eval(b, s0, s1)?.as_bool()?;
                 Ok(Value::Bool(x == y))
             }
-            Node::Eq(a, b) => {
-                let x = self.eval(a, s0, s1)?;
-                // a constant right-hand side is compared in place (no clone / drop of the constant)
-                if let Node::Const(c) = &**b {
-                    return Ok(Value::Bool(x.eq_val(c)?));
-                }
-                let y = self.eval(b, s0, s1)?;
-                Ok(Value::Bool(x.eq_val(&y)?))
-            }
-            Node::Neq(a, b) => {
-                let x = self.eval(a, s0, s1)?;
-                if let Node::Const(c) = &**b {
-                    return Ok(Value::Bool(!x.eq_val(c)?));
-                }
-                let y = self.eval(b, s0, s1)?;
-                Ok(Value::Bool(!x.eq_val(&y)?))
-            }
-            Node::In(a, b) => {
-                let x = self.eval(a, s0, s1)?;
-                // a constant or a state variable as the set is used in place
-                match &**b {
-                    Node::Const(c) => return Ok(Value::Bool(c.member(&x)?)),
-                    Node::Var(i) => {
-                        if let Some(v) = s0.get(*i as usize) {
-                            if !matches!(v, Value::Undef) {
-                                return Ok(Value::Bool(v.member(&x)?));
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                let y = self.eval(b, s0, s1)?;
-                Ok(Value::Bool(y.member(&x)?))
-            }
-            Node::NotIn(a, b) => {
-                let x = self.eval(a, s0, s1)?;
-                match &**b {
-                    Node::Const(c) => return Ok(Value::Bool(!c.member(&x)?)),
-                    Node::Var(i) => {
-                        if let Some(v) = s0.get(*i as usize) {
-                            if !matches!(v, Value::Undef) {
-                                return Ok(Value::Bool(!v.member(&x)?));
-                            }
-                        }
-                    }
-                    _ => {}
-                }
-                let y = self.eval(b, s0, s1)?;
-                Ok(Value::Bool(!y.member(&x)?))
-            }
+            Node::Eq(a, b) => self.eval_eq(a, b, false, s0, s1),
+            Node::Neq(a, b) => self.eval_eq(a, b, true, s0, s1),
+            Node::In(a, b) => self.eval_in(a, b, false, s0, s1),
+            Node::NotIn(a, b) => self.eval_in(a, b, true, s0, s1),
             Node::Tuple(es) => {
                 let mut v = Vec::with_capacity(es.len());
                 for x in es {
@@ -1295,6 +1414,12 @@ impl Ev {
                 Value::set_lit(v)
             }
             Node::FcnApply(f, a) => {
+                // `x[a][b]...`: every step is a reference into the state, only the result is cloned
+                if matches!(&**f, Node::FcnApply(..)) {
+                    if let Some(v) = self.place(e, s0) {
+                        return Ok(v.clone());
+                    }
+                }
                 // a state variable or a constant is applied in place (no reference-count traffic): the argument is evaluated
                 // first (a variable or constant read has no effect and cannot fail on its own)
                 match &**f {
@@ -1316,23 +1441,7 @@ impl Ev {
                 let av = self.eval(a, s0, s1)?;
                 fv.apply(&av)
             }
-            Node::Record(r, field) => {
-                let rv = self.eval(r, s0, s1)?;
-                match &rv {
-                    Value::Fcn(f) => {
-                        for (d, v) in f.dom.iter().zip(f.vals.iter()) {
-                            if let Value::Str(id) = d {
-                                if id == field {
-                                    return Ok(v.clone());
-                                }
-                            }
-                        }
-                        fail(format!("Attempted to access nonexistent field '{}' of record\n{}", intern::name_of(*field), rv.to_tla()))
-                    }
-                    Value::FcnLam(_) => rv.apply(&Value::Str(*field)),
-                    _ => fail(format!("Attempted to access field '{}' of the non-record value\n{}", intern::name_of(*field), rv.to_tla())),
-                }
-            }
+            Node::Record(r, field) => self.eval_record(r, *field, s0, s1),
             Node::If(c, t, f) => {
                 if self.eval(c, s0, s1)?.as_bool()? {
                     self.eval(t, s0, s1)

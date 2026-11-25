@@ -274,3 +274,29 @@
 - Call stacks are replayed, not recorded (2026-11-24): `TlcErr.frames` is only filled while `Ev.tracking` is set (`Ev::with_tracking`/`tracked_quiet`/`replay`); a check of the result after every `eval` costs 6-14 % even when `#[cold]`.
   New code that needs the nodes of a failure must re-run the failing evaluation inside `ev.replay(e, || ...)` (see `replay_next`, init enumeration in `bfs.rs`). Do not add `thread_local!` (or any per-eval result check) to value comparison / eval paths:
   per-id tables are statics (`value.rs`: `MODEL_IDX`, `TYPES`, `CLASSES`, `SRC_RING`). Compare binaries with `tmp/timeit.py`-style interleaved min-of-N runs: single runs differ by 5-10 % from noise alone.
+
+## Perf review of the 5 highest-ratio models (2026-11-25): Java ALONE is faster than its golden
+- The goldens' Java wall times come from 3-4 JVMs running in parallel. Java alone (`tmp/javatime.py`: harness command line, min of 2) vs Rust
+  (min of 3, sequential): MCLamportMutex 11.1 / 12.1 s (Rust x1.09 SLOWER), EWD998PCal 29.7 / 31.6 (x1.07), EWD998Small 24.2 / 25.2 (x1.04),
+  SlidingPuzzles 1.46 / 1.36 (x0.93), MCBakery 7.56 / 7.14 (x0.94). The harness perf level (golden times) is optimistic by 7-19 % on these.
+- Phase split MCLamportMutex (node-profile build, +20 % overhead): successor generation 68 %, invariants 16 % (TypeOK 1.3 s + BoundedNetwork/Mutex 1.1 s
+  of 12 s), constraint 8 %, fingerprint 6 %, FpSet 1 %. A failing action guard costs ~118 ns: ~34 test expr + ~33 call + ~51 disjunction/quantifier.
+  A trivial transition (`c' = c+1`, UNCHANGED net) costs ~600 ns/state of BFS overhead.
+- Tried and NOT helpful (all measured interleaved, min of 3-6, sequential): `lto="fat"` + `codegen-units=1` (LamportMutex 12.12 -> 12.42 s);
+  `-C target-cpu=native` (12.08 -> 12.10); `enum_def_call` without `self.empty()` per argument / `first_test` by reference / by-name flag in the argument
+  loop (microbench 839 -> 847 ms, LamportMutex 12.15 -> 12.29); a 8-entry `dep_cache` per state-level definition (EWD998PCal 32.6 -> 34.1 s: the refinement
+  mapping `token`/`pending` rarely repeats a network value, a miss now scans 8 entries).
+- Applied: `normalize()` returns early for `Fcn.norm_ok` and `TLCGet("duration")` is computed on read (`Ev::start_time`) instead of `Instant::now()` per state
+  in `set_counters` (trivial-transition BFS -9 %).
+- Applied (structural): borrowed read paths. `Value::apply_ref` (tuple / normal-form function element by reference) + `Ev::place` follow `x`, `x[a]`, `x[a][b]`
+  (arguments: constant, frame slot, state variable, nested path) as references into the state; used by `=`/`#`/`\in`/`\notin` (left operand), `r.field`, the
+  chain `x[a][b]` and the `natives::Fast` arguments (`Len/Head/Tail/Append/Cardinality`). A path that does not apply returns `None` and the normal code runs
+  (so error texts / order are unchanged). LamportMutex -9 %, MCBakery -11 %, MCbtree -16 %, EWD998Small -3 %.
+- Pitfall: the first version (place probes inline in `eval_inner`, then in helpers that always probed) made EWD998PCal 4 % SLOWER although the probe hit
+  rate there is ~1 % (99 % of the operands are not `Var`/`FcnApply`). Fix: check the operand kind first; only a `Var`/`FcnApply` operand goes to the
+  separate `#[inline(never)]` `*_placed` function, every other operand runs the code that existed before. Keep `eval_inner` free of new locals.
+- `Fcn.fp` already caches the hash of every function value (hierarchical fingerprint); do not add another hash cache for functions.
+- `profnode.py` is distorted by its own `PROF_CUR.swap` (an `xchg` per `eval`): leaf nodes (`Local`, `Var`, `Const`) look 2-3x too expensive; use the
+  sampling profile (`tools/prof.py`) for proportions. Under Git Bash, an id filter like `/MCBakery` is rewritten to a Windows path: pass it without `/`.
+- Still open: EWD998PCal is ~10 % slower than Java alone (32.5 vs 29.7 s): the refinement mapping (`token` = CHOOSE over the network, `pending`) is re-evaluated
+  per transition; closures capture the whole frame (free-variable analysis, see "Remaining perf ideas"); `enum_action_inner` disjunction path.

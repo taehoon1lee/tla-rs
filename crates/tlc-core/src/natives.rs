@@ -789,6 +789,11 @@ fn tlc_get(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
                     return fail_code(ec::TLC_MODULE_TLCGET_UNDEFINED, format!("TLCGet({}) was undefined.", name));
                 }
                 let mut v = ev.counters.get()[i];
+                if i == 5 {
+                    if let Some(t) = ev.start_time.get() {
+                        v = t.elapsed().as_secs() as i64;
+                    }
+                }
                 if i == 0 {
                     // Java: the level of the successor state under a prime
                     v += ev.prime_depth.get() as i64;
