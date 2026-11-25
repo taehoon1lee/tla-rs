@@ -132,3 +132,7 @@ Found while testing: a lazy `1..MaxInt` argument must never be hashed for a memo
 ## 2026-11-26 perf H11 -- ACCEPT: `<<A>>_vars` short-circuit + cheap tuple-of-variables definitions (Sonnet 5.5)
 Huang 20.66 -> 17.86 s (liveness part -31 %), EWD998PCal x0.84, ElevatorLivenessMedium x0.89. `AB RESULT: ACCEPT (geomean new/base 0.967, best 0.888, worst 1.029, models 15, reps 2)`; gate -j 2 rc 0 (364/364).
 (quick showed SimpleRegular x1.078 REJECT; `--reps 5` x0.965 = layout noise, as before.) Next: H13 (Huang `TypeOK` = 50 % of what is left: `Sum` with `FoldFunction(Add, ..)`), H12 symmetry.
+
+## 2026-11-26 perf H12 -- ACCEPT (targeted): one-traversal symmetry signatures (Sonnet 5.5)
+MultiPaxos_MC_small x0.85, FastPaxos x0.87, MCCheckpointCoordinationFailure x0.91 (`ab.py compare` of the 4 symmetry models: ACCEPT geomean 0.900). `--set full` = NEUTRAL 1.007 only because the FULL set has one symmetry model; gate -j 2 rc 0 (364/364).
+Next: H13 (Huang `TypeOK`, ~50 % of what is left); add symmetry models (MultiPaxos_MC_small, FastPaxos) and Huang to `tools/ab.py` FULL (judge file: not editable by the loop).

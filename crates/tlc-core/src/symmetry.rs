@@ -339,6 +339,136 @@ fn uf_find(parent: &mut HashMap<u32, u32>, x: u32) -> u32 {
     r
 }
 
+/// the number of symmetric model values `AbsAll` follows at once
+const ABS_K: usize = 8;
+
+/// one-traversal version of `SymGroup::abs_hash` (see `SymGroup::signatures_all`)
+struct AbsAll<'a> {
+    g: &'a SymGroup,
+    /// the symmetric model values met so far; the index is the slot used in the `marks` arrays and masks
+    ids: Vec<u32>,
+    /// more than `ABS_K` symmetric values: the result is void
+    over: bool,
+}
+
+/// the slots whose bit is set in `m`
+#[inline]
+fn bits(mut m: u32) -> impl Iterator<Item = usize> {
+    std::iter::from_fn(move || {
+        if m == 0 {
+            None
+        } else {
+            let s = m.trailing_zeros() as usize;
+            m &= m - 1;
+            Some(s)
+        }
+    })
+}
+
+impl<'a> AbsAll<'a> {
+    /// the neutral hash of `v`; for every slot in `mask` (set by this call), `marks[slot]` is the hash with that value marked
+    fn go(&mut self, v: &Value, marks: &mut [u64; ABS_K], mask: &mut u32) -> R<u64> {
+        Ok(match v {
+            Value::Bool(b) => mix(1, *b as u64),
+            Value::Int(i) => mix(2, *i as i64 as u64),
+            Value::Str(id) => mix(3, *id as u64),
+            Value::Model(id) => match self.g.orbit_dense.get(*id as usize) {
+                Some(&o) if o != u32::MAX => {
+                    let s = match self.ids.iter().position(|x| x == id) {
+                        Some(s) => s,
+                        None => {
+                            self.ids.push(*id);
+                            self.ids.len() - 1
+                        }
+                    };
+                    if s >= ABS_K {
+                        self.over = true;
+                        return Ok(0);
+                    }
+                    marks[s] = mix(4, 0);
+                    *mask |= 1 << s;
+                    mix(5, o as u64)
+                }
+                _ => mix(6, *id as u64),
+            },
+            Value::Set(s) => self.set(s, marks, mask)?,
+            Value::Tuple(t) => {
+                // order-sensitive chain: a value first met at element j has the neutral chain before j
+                let mut hn = mix(8, t.len() as u64);
+                let (mut hm, mut seen) = ([0u64; ABS_K], 0u32);
+                for e in t.iter() {
+                    let (mut cm, mut cmask) = ([0u64; ABS_K], 0u32);
+                    let ne = self.go(e, &mut cm, &mut cmask)?;
+                    for s in bits(seen) {
+                        hm[s] = mix(hm[s], if cmask >> s & 1 == 1 { cm[s] } else { ne });
+                    }
+                    for s in bits(cmask & !seen) {
+                        hm[s] = mix(hn, cm[s]);
+                    }
+                    seen |= cmask;
+                    hn = mix(hn, ne);
+                }
+                for s in bits(seen) {
+                    marks[s] = hm[s];
+                }
+                *mask |= seen;
+                hn
+            }
+            Value::Fcn(f) => {
+                let (mut accn, mut delta, mut all) = (0u64, [0u64; ABS_K], 0u32);
+                for (d, x) in f.dom.iter().zip(f.vals.iter()) {
+                    let ((mut dm, mut dmask), (mut xm, mut xmask)) = (([0u64; ABS_K], 0u32), ([0u64; ABS_K], 0u32));
+                    let nd = self.go(d, &mut dm, &mut dmask)?;
+                    let nx = self.go(x, &mut xm, &mut xmask)?;
+                    let t = mix(nd, nx);
+                    accn = accn.wrapping_add(t);
+                    for s in bits(dmask | xmask) {
+                        let (hd, hx) = (if dmask >> s & 1 == 1 { dm[s] } else { nd }, if xmask >> s & 1 == 1 { xm[s] } else { nx });
+                        delta[s] = delta[s].wrapping_add(mix(hd, hx).wrapping_sub(t));
+                    }
+                    all |= dmask | xmask;
+                }
+                let head = mix(9, f.dom.len() as u64);
+                for s in bits(all) {
+                    marks[s] = mix(head, accn.wrapping_add(delta[s]));
+                }
+                *mask |= all;
+                mix(head, accn)
+            }
+            Value::Interval(lo, hi) => mix(mix(10, *lo as i64 as u64), *hi as i64 as u64),
+            Value::Undef => 11,
+            Value::FcnLam(_) => self.go(&v.force_fcn()?, marks, mask)?,
+            v if v.is_set_like() => {
+                let e = v.enumerate()?;
+                self.set(&e, marks, mask)?
+            }
+            v => return fail(format!("Attempted to permute the unsupported value {}", v.to_tla())),
+        })
+    }
+
+    /// a set: the hash is a sum over the elements, so the marked hash differs from the neutral one by the terms of the elements that
+    /// contain the value
+    fn set(&mut self, es: &[Value], marks: &mut [u64; ABS_K], mask: &mut u32) -> R<u64> {
+        let (mut accn, mut delta, mut all) = (0u64, [0u64; ABS_K], 0u32);
+        for e in es {
+            let (mut cm, mut cmask) = ([0u64; ABS_K], 0u32);
+            let ne = self.go(e, &mut cm, &mut cmask)?;
+            let t = mix(7, ne);
+            accn = accn.wrapping_add(t);
+            for s in bits(cmask) {
+                delta[s] = delta[s].wrapping_add(mix(7, cm[s]).wrapping_sub(t));
+            }
+            all |= cmask;
+        }
+        let n = es.len() as u64;
+        for s in bits(all) {
+            marks[s] = mix(accn.wrapping_add(delta[s]), n);
+        }
+        *mask |= all;
+        Ok(mix(accn, n))
+    }
+}
+
 impl SymGroup {
     pub fn new(perms: Vec<MvPerm>) -> SymGroup {
         // orbits by union-find over the moved values
@@ -458,20 +588,17 @@ impl SymGroup {
         }
     }
 
-    /// The canonical form of `vals` (always a vector, possibly equal to `vals`).
-    pub fn canonical_fast(&self, vals: &[Value]) -> R<Vec<Value>> {
-        let has: Vec<bool> = vals.iter().map(contains_model).collect();
-        // present symmetric values
-        let mut present_v: Vec<u32> = Vec::new();
+    /// the signature of every symmetric model value present in `vals`: the sum over the variables that mention a model value of
+    /// `mix(i + 100, abs_hash(var, m))`; one traversal per value (the reference for `signatures_all`)
+    fn signatures_ref(&self, vals: &[Value], has: &[bool]) -> R<Vec<(u32, u64)>> {
+        let mut present: Vec<u32> = Vec::new();
         for (v, h) in vals.iter().zip(has.iter()) {
             if *h {
-                Self::collect_models(v, &mut present_v);
+                Self::collect_models(v, &mut present);
             }
         }
-        present_v.sort_unstable();
-        present_v.dedup();
-        let present = present_v;
-        // signatures
+        present.sort_unstable();
+        present.dedup();
         let mut sig: Vec<(u32, u64)> = Vec::with_capacity(present.len());
         for &m in &present {
             if !matches!(self.orbit_dense.get(m as usize), Some(&o) if o != u32::MAX) {
@@ -485,6 +612,46 @@ impl SymGroup {
             }
             sig.push((m, h));
         }
+        Ok(sig)
+    }
+
+    /// The same values as `signatures_ref` (in another order) from ONE traversal of each variable: every subtree yields its hash with
+    /// all symmetric values abstracted ("neutral") and, for each symmetric value inside it, the hash with that value marked; the hash
+    /// of a parent with a marked value differs from the neutral one only in the children that contain the value.
+    /// `None` when more than `ABS_K` symmetric values occur.
+    fn signatures_all(&self, vals: &[Value], has: &[bool]) -> R<Option<Vec<(u32, u64)>>> {
+        let mut cx = AbsAll { g: self, ids: Vec::new(), over: false };
+        let mut per_var: Vec<(u64, u64, [u64; ABS_K], u32)> = Vec::with_capacity(vals.len());
+        for (i, v) in vals.iter().enumerate() {
+            if !has[i] {
+                continue;
+            }
+            let (mut marks, mut mask) = ([0u64; ABS_K], 0u32);
+            let n = cx.go(v, &mut marks, &mut mask)?;
+            if cx.over {
+                return Ok(None);
+            }
+            per_var.push((i as u64 + 100, n, marks, mask));
+        }
+        let mut sig = Vec::with_capacity(cx.ids.len());
+        for (s, &m) in cx.ids.iter().enumerate() {
+            let mut h = 0u64;
+            for (tag, n, marks, mask) in &per_var {
+                h = h.wrapping_add(mix(*tag, if mask >> s & 1 == 1 { marks[s] } else { *n }));
+            }
+            sig.push((m, h));
+        }
+        Ok(Some(sig))
+    }
+
+    /// The canonical form of `vals` (always a vector, possibly equal to `vals`).
+    pub fn canonical_fast(&self, vals: &[Value]) -> R<Vec<Value>> {
+        let has: Vec<bool> = vals.iter().map(contains_model).collect();
+        // signatures: all symmetric values in one traversal of the state (more than `ABS_K` of them: one traversal per value)
+        let sig = match self.signatures_all(vals, &has)? {
+            Some(s) => s,
+            None => self.signatures_ref(vals, &has)?,
+        };
         // blocks per orbit: present values sorted by signature, then the absent ones (fixed)
         let mut classes: Vec<(Vec<u32>, Vec<u32>)> = vec![]; // (tied members, the positions they can take)
         let mut fixed: Vec<(u32, u32)> = vec![];
@@ -599,5 +766,56 @@ impl SymGroup {
             return Ok(Some(self.canonical_fast(vals)?));
         }
         canonical_with(vals, &self.perms, if self.perms.len() == 1 { Some(&self.img_cache) } else { None })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn model(name: &str) -> Value {
+        Value::Model(tla_sany::intern::intern(name))
+    }
+
+    fn id(v: &Value) -> u32 {
+        match v {
+            Value::Model(i) => *i,
+            _ => unreachable!(),
+        }
+    }
+
+    /// the signatures of the one-traversal version are the signatures of one traversal per symmetric value
+    #[test]
+    fn signatures_all_equal_signatures_ref() {
+        let (a, b, c, d) = (model("sym_a"), model("sym_b"), model("sym_c"), model("sym_not_in_group"));
+        let (ia, ib, ic) = (id(&a), id(&b), id(&c));
+        let g = SymGroup::new(vec![MvPerm::from_pairs(vec![(ia, ib), (ib, ia)]), MvPerm::from_pairs(vec![(ib, ic), (ic, ib)])]);
+        let t = |x: &Value, n: i32| Value::tuple(vec![x.clone(), Value::Int(n)]);
+        let set = |v: Vec<Value>| Value::set_from(v).unwrap();
+        let fcn = |kv: Vec<(Value, Value)>| Value::fcn_from(kv).unwrap();
+        let states: Vec<Vec<Value>> = vec![
+            // sets of tuples, a function over the symmetric values, a tuple, a variable without models, a set of sets
+            vec![
+                set(vec![t(&a, 1), t(&b, 1), t(&a, 2)]),
+                fcn(vec![(a.clone(), set(vec![b.clone()])), (b.clone(), set(vec![])), (c.clone(), set(vec![a.clone(), c.clone()]))]),
+                Value::tuple(vec![b.clone(), a.clone(), Value::Int(7), d.clone()]),
+                Value::Int(5),
+                set(vec![set(vec![a.clone(), b.clone()]), set(vec![c.clone()]), set(vec![])]),
+            ],
+            // a value that occurs in no variable but the last one, and a non-symmetric model value everywhere
+            vec![set(vec![d.clone()]), fcn(vec![(Value::Int(1), t(&c, 3)), (Value::Int(2), t(&d, 3))]), Value::Bool(true)],
+            // records keyed by strings that hold symmetric values
+            vec![fcn(vec![(Value::str("src"), a.clone()), (Value::str("dst"), b.clone())]), set(vec![fcn(vec![(Value::str("src"), c.clone()), (Value::str("dst"), c.clone())])])],
+            // nothing symmetric at all
+            vec![Value::Int(1), set(vec![d.clone()])],
+        ];
+        for vals in states {
+            let has: Vec<bool> = vals.iter().map(contains_model).collect();
+            let mut r = g.signatures_ref(&vals, &has).unwrap();
+            let mut n = g.signatures_all(&vals, &has).unwrap().expect("at most ABS_K symmetric values");
+            r.sort_unstable();
+            n.sort_unstable();
+            assert_eq!(r, n);
+        }
     }
 }
