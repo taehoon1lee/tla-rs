@@ -3,7 +3,7 @@
 use crate::par;
 use crate::{finish, now_str};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use crate::live::HashMap;
 use std::rc::Rc;
 use tlc_core::actions::Mode;
 use tlc_core::ec;
@@ -1462,6 +1462,7 @@ Reason:
         }
         // ---- breadth-first search
         let next = setup.next.first();
+        let mut next_label: Option<LabelSpec> = None;
         let mut head = 0usize;
         self.bfs_start = std::time::Instant::now();
         while head < self.states.len() {
@@ -1489,7 +1490,9 @@ Reason:
             let t_enum = prof_now();
             if let Some(nx) = next {
                 let buf = RefCell::new(vec![Value::Undef; nvars]);
-                *ev.cur_label.borrow_mut() = Some(LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], pnames: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+                // the label of the whole next-state relation: shared by every expanded state (`set_stop` replaces `base`, never mutates it)
+                let l0 = next_label.get_or_insert_with(|| LabelSpec { base: Rc::new(tlc_core::eval::LabelBase { name: std::sync::Arc::from(nx.name.as_str()), params: vec![], pnames: vec![] }), stop: Rc::as_ptr(&nx.ex) as usize });
+                *ev.cur_label.borrow_mut() = Some(l0.clone());
                 ev.splitting.set(false);
                 let r = ev.with_frame(nx.nslots.get(), |ev| {
                     ev.enum_action(&nx.ex, Mode::Next, &cur, &buf, &mut || {
@@ -1671,10 +1674,9 @@ Reason:
                             self.max_level = level;
                         }
                         let idx = self.states.len() - 1;
-                        let vals = self.states[idx].vals.clone();
                         let t_i = prof_now();
                         prof_phase_on("inv");
-                        let inv_r = self.check_invariants(&vals);
+                        let inv_r = self.check_invariants(&self.states[idx].vals);
                         prof_phase_off();
                         prof_add(4, t_i);
                         match inv_r {
@@ -2418,7 +2420,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
         live_sc: Vec::new(),
         live_edge: Vec::new(),
         live_inits: Vec::new(),
-        fp_index: HashMap::new(),
+        fp_index: HashMap::default(),
         fmt_exc: None,
         proc_log: Vec::new(),
         init_fail: None,

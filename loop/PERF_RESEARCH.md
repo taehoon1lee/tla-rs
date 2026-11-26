@@ -97,3 +97,56 @@ Micro-benchmarks: one operation repeated in an `ASSUME` (`tmp`-script `micro.py`
 4. cheap hasher (`PtrHasher`-style multiplicative) for the `live.rs` / `fp_index` maps: ~3-5 % of liveness runs. -> H16
 5. EXCEPT copy cost (`except1`): in-place update when the `Rc` is unique, otherwise a bulk copy; also skip `Fcn::new` work. -> H17
 6. state storage (fp + parent + level per state, states re-derived for traces; Java `getState(fp, pred)`): memory ceiling, not speed.
+
+# Java vs Rust review, second pass (2026-11-27, HEAD a7d3ab2; read-only, nothing committed)
+
+Method: 25 micro-benchmarks, one operation repeated inside `ASSUME \A i \in 1..n : ...` (the body depends on `i`: a constant body is
+cached by Rust and would not measure anything), n calibrated so Rust runs ~1 s, `-workers 1`, min of 2, JVM start-up (B.tla, n = 1)
+subtracted from both sides. Java is only ~1 s warm (C2 not fully warmed): treat ratios as +-15 %, direction is what counts.
+Scripts: `tmp/review_micro/{run2.py,cases2.txt,head.tla.txt}` (untracked scratch).
+
+| case | rust/java (net) | cause (M = sampling profile) |
+|---|---|---|
+| `Len(Tail(Append(Seq50, i)))` | **6.4** | M: `append2` 38 % + `tail1` 30 % + `drop_glue<Value>` 12 % = per-element `Value::clone` / drop of a `Vec<Value>`; Java does `System.arraycopy` |
+| `Append(Seq50, k) \in Seq(1..50)` | **5.2** | same copy + membership |
+| `Seq50 \o <<i>>` | **3.8** | `natives::concat`: `to_vec()` of BOTH operands, `s.extend(t)` reallocates, no `Fast` path |
+| `Cardinality(DOMAIN [F EXCEPT ![1] = i])` (20 entries) | 2.7 | `except1` `f.vals.clone()` + drop (= H17) |
+| `Cardinality(Set100 \cup {i + 1000})` | **2.5** | M: `set_from` 56 % + `enumerate_inner` 22 %: `SetCup` = `to_vec` + `extend` + stable sort of two sorted runs + dedup pass; Java `cup` appends the non-members and sorts lazily. A linear merge is O(n+m) |
+| `[F EXCEPT ![1] = k] \in [1..20 -> 1..20]` | 2.1 | except1 + membership |
+| `Cardinality((1..100) \cap ((i % 50) .. 150))` | 2.1 | `SetCap` builds an `Rc` pair, enumerates both intervals into `Vec<Value>` |
+| `Cardinality(DOMAIN (F @@ (30 :> i)))` | 2.3 | function merge through `fcn_from` (sort) |
+| `Cardinality(UNION {{y, y+i} : y \in Set20})` | 1.9 | `BigUnion` -> concat + `set_from` sort |
+| `Cardinality(Set100 \ {..})` | 1.6 | `SetDiff` = per-element `member` (binary search) instead of a merge |
+| record EXCEPT / record build / function constructor / `<<a,b>> \in S \X T` | 1.4 - 1.7 | allocation (Rc box + Vec buffer = 2 allocs per Set/Tuple/Fcn) and Java's escape analysis removing the temporary; not a bug |
+| `\E` / `\A` / filter / map over 100 elements, CHOOSE, CASE, string compare | 1.2 - 1.5 | interpretive overhead, flat |
+| user operator call (3 args), recursive `Fact`, `LET` | **0.57 / 0.78 / 0.79** | Rust faster than Java |
+
+Whole corpus (harness latest.json, HEAD 1bf86dc): Rust 247 s vs Java 756 s (Java measured with parallel JVMs). Closest to Java:
+MCLamportMutex x0.90 and EWD998Small x0.89, both sequence heavy (`Append`/`Tail`/`\o`: LamportMutex.tla has 12 uses, EWD998.tla 9) -
+that matches the table: sequence/function copies are where Rust is slowest.
+
+Structural findings from reading the code (C = not measured):
+- `bfs.rs` per new state: `self.states[idx].vals.clone()` (l.1674) only to call `check_invariants(&self, ..)` (a shared borrow suffices); per expanded
+  state: `cur = vals.clone()` (l.1482), `vec![Undef; nvars]` (l.1491), `Rc<LabelBase>` + `Arc<str>` (l.1492; same in `par.rs` l.325). C, ~1-2 %.
+- `bfs.rs` `Rec` keeps every state for the whole run (queue = `states`, traces walk `parent`): 374-1558 B/state; Java keeps (fp, parent) on disk
+  and re-derives states. Ceiling, not speed (Elevator/KVS Medium die at 5 GB).
+- `live.rs`: every map (`index`, `texist`, `cons`, `bits`, `leaf`, `edge_checks`, `fp_index`) is a SipHash `HashMap` on small integer keys (= H16);
+  `bits`/`state_checks` clone a `Vec<bool>` per use and the same bits are stored twice (`bits` + `GNode.check_action`); `Vec<bool>` instead of bitsets;
+  `live_succ[head].contains(&target)` is O(deg^2) (bfs.rs l.1655).
+- `par.rs`: a pass that meets any violation/error is thrown away and the level is redone sequentially (SlidingPuzzles +20 %); one `Setup` (SANY +
+  spec processing) per thread; one `Mutex` lock per successor fingerprint. Liveness models never go parallel.
+- `value.rs`: `set_lit` clones the element vector (l.2114) and `set_from` clones it again when elements are model values / mixed kinds (l.390);
+  `SetOfFcns::enumerate` copies the domain `Vec` for every function (`fcn_sorted(doms.to_vec(), ..)`, l.644) instead of sharing the `Rc`;
+  `Rc<Vec<Value>>` = 2 allocations and 2 pointer hops per Set/Tuple (an `Rc<[Value]>` is 1).
+- `eval.rs`: `capture` (l.463) copies the frame and both states; `run_frame_in` (l.482) re-copies the captured frame per call (= H15);
+  `FcnCons` over > 16 elements or a non-pure body stays lazy and pays this per element when it is forced.
+- `actions.rs`: `Node::Unchanged` allocates a `Vec` per evaluation (l.436), the general `[A]_v` subscript does `s0.to_vec()` (l.474).
+- SANY (`tla-sany`): lexer allocates `Vec<char>` per identifier run (lexer.rs l.384) and an `Arc<str>` per token; measured fine (2.9 MB in 0.3 s, 6-17x Java).
+- `alloc.rs`: blocks > 4 KB go to the process heap (lock); small free lists are never returned to the OS. OK for these workloads.
+
+Candidates, in the order I would try them (each needs `tools/ab.py compare`; none changes enumeration order, normalization order or messages if the
+fast path is limited to same-kind, non-model elements):
+1. merge-based `\cup` / `\cap` / `\` of two normalized sets of the same scalar kind (and the same for `UNION`, `@@`): -50..60 % of those ops.
+2. sequence natives (`Append`, `Tail`, `SubSeq`, `\o`, `Head`): one allocation, `concat` with `with_capacity(|x|+|y|)` and a `Fast` entry;
+   a bulk "all scalars" copy for `Vec<Value>` (needs `unsafe` or a typed vector) - s9 rejected a global fast `Clone`, a slice-level helper was not tried.
+3. H17 `except1`, H16 hasher for `live.rs`, H15 closures (already in the backlog), plus the per-state clones above.

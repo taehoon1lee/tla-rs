@@ -1029,6 +1029,17 @@ impl Ev {
                         return Ok(vals[0].clone());
                     }
                 }
+                // two normalized sets: one merge (`Value::merge_sets`); a failing comparison takes the general path below
+                if let (Value::Set(x), Value::Set(y)) = (&vals[0], &vals[1]) {
+                    let op = match b {
+                        B::Union => SetOp::Cup,
+                        B::Intersect => SetOp::Cap,
+                        _ => SetOp::Diff,
+                    };
+                    if let Some(v) = merge_sets(op, x, y) {
+                        return Ok(Value::Set(Rc::new(v)));
+                    }
+                }
                 let p = Rc::new((vals[0].clone(), vals[1].clone()));
                 // eagerly normalize when both operands are cheap finite sets
                 let v = match b {

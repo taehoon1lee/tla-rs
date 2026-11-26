@@ -342,3 +342,22 @@
 - Measured (16 cores, one model run alone): MCLamportMutex 11.4 s (1 worker) -> 6.98 / 3.48 / 2.09 / 1.63 s (2 / 4 / 8 / 16); Java `-workers 8`: 3.6 s.
 - Unrelated finding: for a spec that EXTENDS Integers Java uses `Integers.Divide` (floor, and `-2147483648 \div -1` is an overflow error), the port always uses the
   Naturals semantics: `(0-1) \div 7` gives 0 (Java: -1). Not fixed (needs the module of the extending spec in `natives::lookup`).
+
+## Perf pass 8 (2026-11-27, H18): store-to-load forwarding stalls in `Value` moves (geomean 0.888, every model of the full set faster)
+- Root cause found with an assembly dump of a plain `Vec<Value>` clone loop (`tmp/vbench`, `cargo rustc --release -- --emit asm`):
+  rustc builds a `Value` in a stack temporary with a 1-byte tag store and a 4/8-byte payload store (`movb $2,40(%rsp)` / `movl %eax,44(%rsp)`)
+  and then moves it with ONE 16-byte load (`movups 40(%rsp),%xmm0`). A load that spans two smaller stores cannot be store-forwarded: ~25 cycles
+  per value (7 ns per element of `Vec<Value>::clone`, 50 `Int`s: 391 ns; Java does an `arraycopy`). LLVM's `X86AvoidStoreForwardingBlocks` does not
+  fire because the stores are in other basic blocks (a jump table per variant).
+- Fix: `Clone for Value` / `Slot` = bump the `Rc` count of the variant, then `ptr::read(self)` (a 16-byte copy of the SOURCE, written long ago, so
+  nothing to forward). 50 `Int`s: 391 -> 164 ns; with a plain-data bulk `copy_nonoverlapping` 104 ns (of which drop 67 ns). The earlier "hand-written
+  Clone with a scalar fast path" (PERF.md s9) still built the new enum from partial stores, which is why it did not help.
+- The same hazard applies to every freshly built `Value` that is then moved as a whole (return slots of `eval`, `Slot::V(v)` pushes, `Vec::push`).
+  Not fixed: constructors are `Value::Int(..)` at thousands of sites. Idea (open): construct scalars with one 8-byte store (`#[repr(u8)]` layout +
+  a transmute helper) in the hottest producers (`Arith`, comparisons).
+- Other pieces of H18: `\o` has a `Fast::F2` entry and allocates once; `Value::merge_sets` (linear merge / binary search + segment copies) for
+  `\cup` `\cap` `\` of two `Set`s (micro `Cardinality(S \cup {x})` was 2.5x Java: 56 % in `set_from`'s sort+dedup); no `vals.clone()` before
+  `check_invariants`; the next-state label is shared by all expanded states; `FxHasher` (multiplicative) for the maps of `live.rs` and `fp_index`.
+- Method: micro-benchmarks that run one operation inside `ASSUME \A i \in 1..n : ...` must depend on `i` (a constant body is cached by Rust and by nothing
+  in Java); `ab.py compare` must run on an idle box - editing files or running scripts during an A/B turned two models x1.2 (REJECT) that measured
+  x0.80 / x0.91 when re-run idle.

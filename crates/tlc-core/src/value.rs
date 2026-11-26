@@ -183,7 +183,6 @@ pub struct FcnLam {
     pub body: Option<Rc<dyn std::any::Any>>,
 }
 
-#[derive(Clone)]
 pub enum Value {
     Bool(bool),
     Int(i32),
@@ -216,6 +215,50 @@ pub enum Value {
     StringSet,
     /// value of a variable that is not (yet) assigned in a state
     Undef,
+}
+
+/// `Value::clone` = bump the reference count of the `Rc` the variant holds (if any), then copy the 16 bytes as they are.
+///
+/// Perf (H18, see loop/PERF.md): the derived `Clone` builds the new enum in a stack temporary with a 1-byte tag store and a
+/// 4/8-byte payload store and then moves it with one 16-byte load; the load cannot be forwarded from the two smaller stores, so
+/// every clone paid a store-forwarding stall (~25 cycles: 7 ns per element in `Vec<Value>::clone`).  Reading the source value
+/// as a whole has no such stall.
+///
+/// Safety argument: every variant is either plain data (`Copy`-like: bool, ints, interned ids, intervals, constants) or exactly one
+/// `Rc`.  After `Rc::increment_strong_count` the bitwise copy is a second owner that is accounted for in the count, which is
+/// what `Rc::clone` does.  Nothing else in `Value` owns a resource.
+impl Clone for Value {
+    #[inline]
+    fn clone(&self) -> Value {
+        self.bump_rc();
+        // SAFETY: see above
+        unsafe { std::ptr::read(self) }
+    }
+}
+
+impl Value {
+    /// add one strong reference to the `Rc` held by this value (nothing for plain-data variants)
+    #[inline(always)]
+    pub(crate) fn bump_rc(&self) {
+        macro_rules! bump {
+            ($r:expr) => {
+                // SAFETY: `$r` is a live `Rc`, so the pointer comes from a valid `Rc` allocation
+                unsafe { Rc::increment_strong_count(Rc::as_ptr($r)) }
+            };
+        }
+        match self {
+            Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) | Value::Interval(..) => {}
+            Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::Undef => {}
+            Value::Set(r) | Value::Tuple(r) | Value::SetU(r) | Value::SetOfTuples(r) => bump!(r),
+            Value::Fcn(r) => bump!(r),
+            Value::SetPred(r) => bump!(r),
+            Value::FcnLam(r) => bump!(r),
+            Value::Subset(r) | Value::BigUnion(r) | Value::SeqOf(r) => bump!(r),
+            Value::KSubset(r) => bump!(r),
+            Value::SetOfFcns(r) | Value::SetCup(r) | Value::SetCap(r) | Value::SetDiff(r) => bump!(r),
+            Value::SetOfRcds(r) => bump!(r),
+        }
+    }
 }
 
 /// The subsets of the normalized set `base` in the normalized order of sets (by size, then lexicographically by element),
@@ -2091,6 +2134,112 @@ impl Value {
 }
 
 
+// ---------------------------------------------------------------------------------------------- set operations on sorted lists
+
+/// the set operation `merge_sets` computes
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SetOp {
+    /// `a \cup b`
+    Cup,
+    /// `a \cap b`
+    Cap,
+    /// `a \ b`
+    Diff,
+}
+
+/// `a op b` for two normalized (sorted, duplicate-free) element lists.  A linear merge: |a| + |b| comparisons and one allocation of
+/// the result (the general path concatenates, sorts and removes duplicates: three passes and two allocations).  A small `b`
+/// (`S \cup {x}`, `S \ {x}`) is located in `a` by binary search and the stretches in between are copied.  The elements of the
+/// result are `a`'s where both lists hold an equal element (what the stable sort of the general path keeps).
+/// `None` when a comparison fails: the caller then takes the general path, which reports the error exactly as before.
+pub fn merge_sets(op: SetOp, a: &[Value], b: &[Value]) -> Option<Vec<Value>> {
+    if b.len() <= 4 && a.len() >= 16 {
+        // first index of `a[from..]` that is >= x, and whether it equals x
+        let locate = |from: usize, x: &Value| -> Option<(usize, bool)> {
+            let (mut lo, mut hi) = (from, a.len());
+            while lo < hi {
+                let mid = lo + (hi - lo) / 2;
+                match a[mid].cmp_val(x).ok()? {
+                    Ordering::Less => lo = mid + 1,
+                    _ => hi = mid,
+                }
+            }
+            let found = lo < a.len() && a[lo].cmp_val(x).ok()? == Ordering::Equal;
+            Some((lo, found))
+        };
+        let mut out: Vec<Value> = Vec::with_capacity(if op == SetOp::Cap { b.len() } else { a.len() + b.len() });
+        let mut start = 0usize;
+        for y in b {
+            let (pos, found) = locate(start, y)?;
+            match op {
+                SetOp::Cup => {
+                    out.extend_from_slice(&a[start..pos]);
+                    if found {
+                        out.push(a[pos].clone());
+                        start = pos + 1;
+                    } else {
+                        out.push(y.clone());
+                        start = pos;
+                    }
+                }
+                SetOp::Diff => {
+                    out.extend_from_slice(&a[start..pos]);
+                    start = if found { pos + 1 } else { pos };
+                }
+                SetOp::Cap => {
+                    if found {
+                        out.push(a[pos].clone());
+                        start = pos + 1;
+                    } else {
+                        start = pos;
+                    }
+                }
+            }
+        }
+        if op != SetOp::Cap {
+            out.extend_from_slice(&a[start..]);
+        }
+        return Some(out);
+    }
+    let cap = match op {
+        SetOp::Cup => a.len() + b.len(),
+        SetOp::Cap => a.len().min(b.len()),
+        SetOp::Diff => a.len(),
+    };
+    let mut out: Vec<Value> = Vec::with_capacity(cap);
+    let (mut i, mut j) = (0usize, 0usize);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp_val(&b[j]).ok()? {
+            Ordering::Less => {
+                if op != SetOp::Cap {
+                    out.push(a[i].clone());
+                }
+                i += 1;
+            }
+            Ordering::Greater => {
+                if op == SetOp::Cup {
+                    out.push(b[j].clone());
+                }
+                j += 1;
+            }
+            Ordering::Equal => {
+                if op != SetOp::Diff {
+                    out.push(a[i].clone());
+                }
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    if op != SetOp::Cap {
+        out.extend_from_slice(&a[i..]);
+    }
+    if op == SetOp::Cup {
+        out.extend_from_slice(&b[j..]);
+    }
+    Some(out)
+}
+
 // ---------------------------------------------------------------------------------------------- unnormalized set enumerations
 
 /// Java: `SetEnumValue.member` of a set that is not normalized: the stored elements are compared with `equals`, in order
@@ -2751,5 +2900,87 @@ mod size_tests {
         eprintln!("size Value = {}", std::mem::size_of::<super::Value>());
         eprintln!("size Slot = {}", std::mem::size_of::<crate::ir::Slot>());
         eprintln!("size Node = {}", std::mem::size_of::<crate::ir::Node>());
+    }
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+
+    fn ints(v: &[i32]) -> Vec<Value> {
+        v.iter().map(|&i| Value::Int(i)).collect()
+    }
+
+    /// the general path: concatenate, sort, remove duplicates (`set_from`), filter by membership
+    fn reference(op: SetOp, a: &[Value], b: &[Value]) -> Vec<Value> {
+        match op {
+            SetOp::Cup => {
+                let mut all = a.to_vec();
+                all.extend(b.iter().cloned());
+                match Value::set_from(all).unwrap() {
+                    Value::Set(r) => r.to_vec(),
+                    _ => unreachable!(),
+                }
+            }
+            SetOp::Cap => a.iter().filter(|x| b.iter().any(|y| y.eq_val(x).unwrap())).cloned().collect(),
+            SetOp::Diff => a.iter().filter(|x| !b.iter().any(|y| y.eq_val(x).unwrap())).cloned().collect(),
+        }
+    }
+
+    fn same(x: &[Value], y: &[Value]) -> bool {
+        x.len() == y.len() && x.iter().zip(y).all(|(p, q)| p.eq_val(q).unwrap())
+    }
+
+    #[test]
+    fn merge_sets_agrees_with_the_general_path() {
+        // a deterministic pseudo random generator is enough: small sets of a small universe, sizes around the small-`b` threshold
+        let mut seed = 12345u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 33) as u32
+        };
+        for round in 0..400 {
+            let na = (next() % 40) as usize;
+            let nb = if round % 2 == 0 { (next() % 6) as usize } else { (next() % 40) as usize };
+            let mut a: Vec<i32> = (0..na).map(|_| (next() % 60) as i32).collect();
+            let mut b: Vec<i32> = (0..nb).map(|_| (next() % 60) as i32).collect();
+            a.sort();
+            a.dedup();
+            b.sort();
+            b.dedup();
+            let (a, b) = (ints(&a), ints(&b));
+            for op in [SetOp::Cup, SetOp::Cap, SetOp::Diff] {
+                let got = merge_sets(op, &a, &b).expect("integers are comparable");
+                assert!(same(&got, &reference(op, &a, &b)), "{:?} {} {}", op, a.len(), b.len());
+            }
+        }
+    }
+
+    #[test]
+    fn merge_sets_gives_up_on_incomparable_elements() {
+        let a: Vec<Value> = (0..20).map(Value::Int).collect();
+        let b = vec![Value::str("x")];
+        for op in [SetOp::Cup, SetOp::Cap, SetOp::Diff] {
+            assert!(merge_sets(op, &a, &b).is_none());
+            assert!(merge_sets(op, &b, &a).is_none());
+        }
+    }
+
+    #[test]
+    fn clone_is_a_second_owner() {
+        let s = Value::set_from(vec![Value::Int(1), Value::Int(2)]).unwrap();
+        let t = Value::tuple(vec![s.clone(), s.clone()]);
+        let u = t.clone();
+        drop(t);
+        drop(s);
+        match &u {
+            Value::Tuple(v) => assert!(v[0].eq_val(&v[1]).unwrap()),
+            _ => unreachable!(),
+        }
+        if let Value::Tuple(v) = &u {
+            if let Value::Set(r) = &v[0] {
+                assert_eq!(Rc::strong_count(r), 1 + 1); // v[0] and v[1] share the set
+            }
+        }
     }
 }

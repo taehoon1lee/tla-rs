@@ -136,3 +136,7 @@ Huang 20.66 -> 17.86 s (liveness part -31 %), EWD998PCal x0.84, ElevatorLiveness
 ## 2026-11-26 perf H12 -- ACCEPT (targeted): one-traversal symmetry signatures (Sonnet 5.5)
 MultiPaxos_MC_small x0.85, FastPaxos x0.87, MCCheckpointCoordinationFailure x0.91 (`ab.py compare` of the 4 symmetry models: ACCEPT geomean 0.900). `--set full` = NEUTRAL 1.007 only because the FULL set has one symmetry model; gate -j 2 rc 0 (364/364).
 Next: H13 (Huang `TypeOK`, ~50 % of what is left); add symmetry models (MultiPaxos_MC_small, FastPaxos) and Huang to `tools/ab.py` FULL (judge file: not editable by the loop).
+
+## 2026-11-27 perf H18 -- ACCEPT: store-forwarding-free `Clone` for `Value`/`Slot` + merge-based set ops + `\o` + FxHasher in live.rs (Sonnet 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.888, best 0.787 bcastByz, worst 0.975 SimpleRegular, models 15, reps 2)`: every model of the full set is faster; gate see below.
+Cause: the derived `Clone` moved a freshly built enum with a wide load after two narrow stores (store-forwarding stall, 7 ns per `Vec<Value>` element). Next: more stall sites (scalar constructors in `Arith`/comparisons), `except1` bulk copy, H15 closures.
