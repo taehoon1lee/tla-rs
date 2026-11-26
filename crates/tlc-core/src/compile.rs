@@ -926,6 +926,9 @@ impl Compiler {
                             r"\leq" => Some(ArithOp::Le),
                             r"\geq" => Some(ArithOp::Ge),
                             ".." => Some(ArithOp::DotDot),
+                            "%" => Some(ArithOp::Mod),
+                            r"\div" => Some(ArithOp::Div),
+                            "^" => Some(ArithOp::Pow),
                             _ => None,
                         };
                         if let (Some(op), SArg::Expr(x), SArg::Expr(y)) = (op, &args[0], &args[1]) {

@@ -66,3 +66,34 @@ known SANY mismatches parse 1132/1140 and parse_msg 1126/1140 showed up as "regr
 `python harness/check.py --gate -j 2` -> **rc 0** (syntax 1140/1140, parse 1132/1140, parse_msg 1126/1140 = baseline; front/init/verdict/trace/perf 364/364),
 and `python tools/ab.py compare --set full` -> **AB RESULT: ACCEPT (geomean 0.958, best 0.829 SpanTreeRandom, worst 1.048 MCFlashWithMutexLive, 15 models, 2 reps)**.
 Unit tests: `cargo test -q` ok (29 in tlc-core, 2 new: `hash_is_cheap_rejects_huge_lazy_sets`, `set_and_model_comparison_fast_paths`).
+
+# Java vs Rust, module by module (2026-11-26, read-only review)
+
+Evidence levels: **M** = measured here (timing / peak memory / sampling profile), **C** = read in the code only (no number).
+Micro-benchmarks: one operation repeated in an `ASSUME` (`tmp`-script `micro.py`), Java warm-up ~0.46 s subtracted.
+
+| module | Java | Rust | verdict |
+|---|---|---|---|
+| `tla-sany` (lexer, parser, modules, semantic) | SANY, JVM | hand-written recursive descent | OK. **M** 6-17x faster than Java incl. JVM start (2.9 MB `tt/Bug156/TE`: 302 ms vs 1818 ms; 68-258 KB modules 23-52 ms vs 340-740 ms) |
+| `value.rs` representation | Value objects, `FcnRcdValue` with `intv` for `1..n` domains | `Value` 16 B, `Slot` 16 B, `Node` 72 B (**M** `size_of`), sorted `Rc<Vec>` sets, binary-search member | OK (as Java) |
+| `value.rs` EXCEPT (`except1`) | `takeExcept`: reference-array copy | `f.vals.clone()` = per-element `Clone` dispatch + per-element `Drop` | **slower.** **M** `[F EXCEPT ![k] = i][1]` over 100 entries: 1.0 s vs Java 0.27 s net per 1M (x3.7); profile `except1` 56 % + `drop` 17 % + `clone` 6 % |
+| `value.rs` `set_from` | insertion sort | sorts, but when an element is a model value or kinds differ it first `clone()`s the whole vector (only to reproduce Java's error order) | **C** extra O(n) allocation per set built from model values (symmetry specs); can be skipped when all elements are registered untyped model values (no error possible) |
+| `eval.rs` function constructor | shares the domain | `[x \in S |-> e]` over <= 16 elements: `elems.to_vec()` copies the domain per function; larger domains: lazy `FcnLam` + `capture()` copies frame + both states | **C** domain `Rc` not shared (records do share); `capture` copies where Java keeps references (H1 counted 0 hits in 3 models, so only structural) |
+| `eval.rs`/`compile.rs` arithmetic | `%`, `\div`, `^` are built-in operators | only `+ - * < > <= >= ..` are inline `Node::Arith`; `%`, `\div`, `^` go through the generic native call (arg slots, `call_def`, `int_arg`) | **slower.** **M** `\E j \in 1..50 : j = (i % 50) + 1`: 2.30 s vs Java 1.32 s net (x1.7); profile `eval_arg` 15 + `call_def` 13 + `int_arg` 11 + `modulo` 6 + `eval_eq` 12 %. Huang node profile: `Call(\div)` 4.8 %, `Call(^)` 3.2 %. The inline path already falls back to the native with the evaluated values, so errors stay identical |
+| `eval.rs` operator arguments / LAMBDA | `Context` chain | each call: `Vec<Slot>` + `assigns: Vec<(u32,Slot)>` + `Captured` + `run_frame_in` clones the whole captured frame onto the stack | **slower.** **M** `SelectSeq(S, LAMBDA e: ..)` over 200 elements: x3.3 vs Java warm; profile `select_seq` + `eval_arg` + `Vec<Slot>::extend` + `run_frame_in`. SlidingPuzzles (`ChooseOne(board, LAMBDA ..)`): `run_frame_in`, `Slot` extend/drop/into_iter, `apply_closure`, alloc = ~12 % |
+| `actions.rs` | `getNextStates` with `ActionItemList` | continuation-passing `enum_action_inner` | same shape. open: a failing guard costs ~118 ns (H2) |
+| `symmetry.rs` | all permutations | signature canonical form | was k traversals of the state per symmetric value; fixed by H12 (one traversal). `permute_opt_raw` (13 % of MultiPaxos) remains |
+| `natives.rs` | `tlc2.module.*` | Rust natives | OK. **M** micro: 13 of 16 cases 5-30x faster than Java (Java `UNION` of 150k sets took 31.8 s, quadratic) |
+| `bfs.rs` memory | fingerprints in FPSet, queue and trace on disk | **every state** (`Rec.vals`) in memory | **M** peak 374 B/state (EWD998Small 1.5M states, 542 MB), 678 B (MCLamportMutex), 1558 B (Sailfish); Elevator/KVS Medium were killed at 5 GB; Java stays flat (disk) |
+| `bfs.rs` parallelism | `-workers N` | parsed, ignored (`auto` = 1), evaluator is `Rc`/`RefCell` (not `Send`) | **largest gap.** **M** Java `-workers 8`: MCLamportMutex 11.5 -> 3.6 s (x3.2), EWD998Small 24.8 -> 5.3 s (x4.7); Rust 1 thread: 10.9 / 22.5 s |
+| `bfs.rs` per state | `Worker` | `vals.clone()` of the new state only to call `check_invariants(&self, ..)` (a shared borrow is enough); `Rc<LabelBase>` + `Arc<str>` allocated per expanded state; `live_succ.contains` O(deg^2) | **C** ~100-200 ns per new state, 1-2 % |
+| `live.rs` (liveness graph) | `LiveWorker`, `DiskGraph`, compact node tables | `std::HashMap` with SipHash for `(u32,u32)` / fingerprint keys (`bits`, `leaf`, `cons`, `index`, `texist`, `fp_index`); per graph node 3 `Vec`s; `bits.get(..)` clones a `Vec<bool>` | **M** Huang liveness profile: `sip::Hasher::write` 2.0 % + `RandomState::hash_one` 1.9 % + `eval_memo` 5.0 % (map probing). `eval.rs` already has a cheap `PtrHasher`, these maps do not use one |
+| `alloc.rs` | JVM heap | per-thread size-class free lists via the TEB (<= 4 KB, 16-byte classes), bigger blocks to the Windows heap | OK; **C** sets > 256 elements and big frames hit the slow heap, free lists are never returned |
+
+## Ranking (gain x breadth)
+1. parallel BFS (3-5x on multi-core; architectural: `Rc`/`RefCell` evaluator, shared state table). Out of scope while the loop is single-worker.
+2. inline `%`, `\div`, `^` in `Node::Arith` (tens of lines, same fallback): up to ~8 % of Huang, more on modular-arithmetic specs. -> H14
+3. LAMBDA / operator-argument calls without per-call `Vec` allocations and without copying the captured frame. ~12 % on SlidingPuzzles-like specs. -> H15
+4. cheap hasher (`PtrHasher`-style multiplicative) for the `live.rs` / `fp_index` maps: ~3-5 % of liveness runs. -> H16
+5. EXCEPT copy cost (`except1`): in-place update when the `Rc` is unique, otherwise a bulk copy; also skip `Fcn::new` work. -> H17
+6. state storage (fp + parent + level per state, states re-derived for traces; Java `getState(fp, pred)`): memory ceiling, not speed.

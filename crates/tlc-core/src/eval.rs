@@ -1424,6 +1424,31 @@ impl Ev {
                         ArithOp::Le => return Ok(Value::Bool(p <= q)),
                         ArithOp::Ge => return Ok(Value::Bool(p >= q)),
                         ArithOp::DotDot => return Ok(Value::Interval(p, q)),
+                        // the natives (`Naturals.%`, `\div`, `^`) handle the error cases: a non-positive modulus, a zero divisor, a
+                        // negative exponent, `0^0` and an overflow fall through to them with the evaluated values
+                        ArithOp::Mod => {
+                            if q > 0 {
+                                let r = p % q;
+                                return Ok(Value::Int(if r < 0 { r + q } else { r }));
+                            }
+                        }
+                        ArithOp::Div => {
+                            if q != 0 {
+                                // Java: `Naturals.IntegerDivision`: truncating division corrected towards minus infinity
+                                let mut d = p.wrapping_div(q);
+                                if d < 0 && d.wrapping_mul(q) != p {
+                                    d -= 1;
+                                }
+                                return Ok(Value::Int(d));
+                            }
+                        }
+                        ArithOp::Pow => {
+                            if q >= 0 && !(p == 0 && q == 0) {
+                                if let Some(r) = p.checked_pow(q as u32) {
+                                    return Ok(Value::Int(r));
+                                }
+                            }
+                        }
                     }
                 }
                 nf(self, &mut vec![Slot::V(x), Slot::V(y)], s0, s1)

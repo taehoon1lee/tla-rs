@@ -259,6 +259,10 @@ pub enum ArithOp {
     Le,
     Ge,
     DotDot,
+    /// `%` (second operand > 0), `\div` (second operand != 0), `^` (exponent >= 0, not `0^0`, result fits an Int)
+    Mod,
+    Div,
+    Pow,
 }
 
 pub enum Node {
