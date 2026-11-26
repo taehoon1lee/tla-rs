@@ -326,3 +326,19 @@
 - Value-keyed memo keys must never hash a lazy huge set (`Value::hash_is_cheap`): `SingletonOf(RandomSubset(..), 1..(MaxInt-1))` hung `tt/ModuleSemanticsAssumeTest` once H8 made such operators memoizable.
 - Identical sources built in different directories differ by up to +12 % on 1-3 s models; compare same-path builds, re-measure a lone REJECT with `--reps 5`.
 - Details of the H8 research (profile aggregate, rejected E4/E5, PGO impossible): `loop/PERF_RESEARCH.md`.
+
+## Parallel search `-workers N` (2026-11-27, `crates/tlc-check/src/par.rs`, `crates/tlc-core/src/senc.rs`)
+- The harness always runs `-workers 1`: that path is unchanged (`par` is `None`). `-workers auto` still means 1.
+- Why not `Arc`: the evaluator (`Ev`, `Value`) is `Rc`/`RefCell`. Each worker thread builds its own `Setup` (`lib.rs: make_worker_setup`: SANY + `spec::setup`,
+  the `.cfg` text is parsed again because `ModelConfig` holds `Rc` values) and states cross threads as bytes (`senc::encode_state` / `decode_state`).
+- The sequential loop (`Checker::run`) hands the rest of the search over at a level boundary (`try_parallel`): >= 200 ms into the search and >= 256 states in
+  the level (`TLCRS_PAR_FORCE=1`: from level 1 on, for tests). The pass is level-synchronous (barrier per level), fingerprints are in 256 mutex-protected
+  shards (top byte), new states go to per-worker arenas. Generated / distinct / depth are exactly the sequential ones; only the out-degree statistics
+  depend on which worker found a state first (Java's differ run to run as well).
+- It only ever COMPLETES a violation-free exploration. Any violation, deadlock, evaluation error, incomplete successor, non-encodable value, panic, `Print`
+  output / warning / `TLCSet` register (checked after every state) makes it return `None`; the sequential loop then continues from the same level (the pass
+  changed nothing in `Checker`) and reports exactly what `-workers 1` reports. Cost of a failing pass: the work it did up to the abort.
+- Not used with liveness (`live`) or `RandomElement` (`uses_random`). `TLCGet("generated"|"distinct")` inside a spec sees approximate totals.
+- Measured (16 cores, one model run alone): MCLamportMutex 11.4 s (1 worker) -> 6.98 / 3.48 / 2.09 / 1.63 s (2 / 4 / 8 / 16); Java `-workers 8`: 3.6 s.
+- Unrelated finding: for a spec that EXTENDS Integers Java uses `Integers.Divide` (floor, and `-2147483648 \div -1` is an overflow error), the port always uses the
+  Naturals semantics: `(0-1) \div 7` gives 0 (Java: -1). Not fixed (needs the module of the extending spec in `natives::lookup`).

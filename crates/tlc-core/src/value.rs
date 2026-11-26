@@ -114,12 +114,19 @@ fn source_payload(v: &Value) -> Option<usize> {
 
 /// remember the node that built `v` (the last 64 lazy sets: a failure shows the sets that were just built)
 pub fn note_source(v: &Value, node: usize) {
+    if SRC_PAUSED.load(AtomicOrdering::Relaxed) {
+        return;
+    }
     if let Some(p) = source_payload(v) {
         let i = SRC_POS.fetch_add(1, AtomicOrdering::Relaxed) % SRC_N;
         SRC_RING[i].0.store(p, AtomicOrdering::Relaxed);
         SRC_RING[i].1.store(node, AtomicOrdering::Relaxed);
     }
 }
+
+/// while set, `note_source` records nothing: the worker threads of the parallel search build values the main thread never sees,
+/// and would push its remembered sources out of the ring
+pub static SRC_PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn lookup_source(p: usize) -> Option<usize> {
     let pos = SRC_POS.load(AtomicOrdering::Relaxed);

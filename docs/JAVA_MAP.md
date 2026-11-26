@@ -43,6 +43,7 @@ takes). Update the Rust column as you go.
 | Java | lines | Rust | notes |
 |---|---|---|---|
 | `S/tlc2/tool/ModelChecker.java`, `AbstractChecker.java`, `Worker.java` | 1264+742+678 | `bfs.rs` | BFS, invariants, deadlock, statistics, success message |
+| (no Java counterpart) `-workers N`, N > 1 | - | `par.rs` + `tlc-core/src/senc.rs` | level-synchronous parallel exploration: one `Setup` per thread, states exchanged as bytes, sharded fingerprint set; completes a violation-free search or hands back to `bfs.rs` |
 | `S/tlc2/tool/fp/*`, `S/tlc2/tool/queue/*` | | `fpset.rs`, `queue.rs` | in-memory structures are fine |
 | `S/tlc2/tool/TLCTrace.java` | 573 | `trace.rs` | counterexample reconstruction |
 | `S/tlc2/tool/liveness/*` | 12403 | `liveness/*.rs` | Liveness (formula processing), LiveCheck/LiveWorker (SCC), TBGraph/Tableau |

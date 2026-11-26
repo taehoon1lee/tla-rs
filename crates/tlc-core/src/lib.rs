@@ -29,6 +29,7 @@ pub mod natives;
 pub mod mp;
 pub mod options;
 pub mod pprint;
+pub mod senc;
 pub mod spec;
 pub mod symmetry;
 pub mod value;

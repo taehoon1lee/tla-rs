@@ -91,8 +91,8 @@ Micro-benchmarks: one operation repeated in an `ASSUME` (`tmp`-script `micro.py`
 | `alloc.rs` | JVM heap | per-thread size-class free lists via the TEB (<= 4 KB, 16-byte classes), bigger blocks to the Windows heap | OK; **C** sets > 256 elements and big frames hit the slow heap, free lists are never returned |
 
 ## Ranking (gain x breadth)
-1. parallel BFS (3-5x on multi-core; architectural: `Rc`/`RefCell` evaluator, shared state table). Out of scope while the loop is single-worker.
-2. inline `%`, `\div`, `^` in `Node::Arith` (tens of lines, same fallback): up to ~8 % of Huang, more on modular-arithmetic specs. -> H14
+1. parallel BFS (3-5x on multi-core; architectural: `Rc`/`RefCell` evaluator, shared state table). **DONE (P1, 2026-11-27)**: `-workers N` only; per-thread `Setup`, states as bytes, level-synchronous. Measured x3-x6.7 at 4-16 workers. Open: liveness models stay sequential; a failing pass costs its own work (SlidingPuzzles +20 %).
+2. inline `%`, `\div`, `^` in `Node::Arith` (tens of lines, same fallback): up to ~8 % of Huang, more on modular-arithmetic specs. -> H14 **DONE (H14): Huang x0.979**
 3. LAMBDA / operator-argument calls without per-call `Vec` allocations and without copying the captured frame. ~12 % on SlidingPuzzles-like specs. -> H15
 4. cheap hasher (`PtrHasher`-style multiplicative) for the `live.rs` / `fp_index` maps: ~3-5 % of liveness runs. -> H16
 5. EXCEPT copy cost (`except1`): in-place update when the `Rc` is unique, otherwise a bulk copy; also skip `Fcn::new` work. -> H17
