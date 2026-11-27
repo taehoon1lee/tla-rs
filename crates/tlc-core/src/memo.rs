@@ -89,6 +89,82 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
     true
 }
 
+/// Can evaluating `e` do anything besides computing its value (print, `TLCSet`/`TLCGet`, a random choice, an operator this
+/// port does not know)?  `true`: no; its value is a function of the states it is evaluated on (state variables are allowed).
+/// The liveness checker shares the value of such a leaf between the orders of solution that contain it (`live.rs`).
+pub fn side_effect_free(e: &Expr) -> bool {
+    struct S {
+        seen: HashSet<usize>,
+        steps: usize,
+    }
+    fn callee(c: &Callee, st: &mut S) -> bool {
+        match c {
+            Callee::Def(d) => {
+                let o = d.original();
+                if crate::natives::lookup(&o.module, &o.name).is_some() {
+                    return pure_native(&o.module, &o.name);
+                }
+                if !st.seen.insert(d.id) {
+                    return true;
+                }
+                match d.body() {
+                    Some(b) => go(&b, st),
+                    None => false,
+                }
+            }
+            Callee::Decl(_) | Callee::Param(_) => true,
+        }
+    }
+    fn arg(a: &Arg, st: &mut S) -> bool {
+        match a {
+            Arg::Expr(e) => go(e, st),
+            Arg::Op(OpArg::Callee(c, _)) => callee(c, st),
+            Arg::Op(OpArg::Builtin(..)) => true,
+            Arg::Op(OpArg::Lambda(d)) => match d.body() {
+                Some(b) => go(&b, st),
+                None => false,
+            },
+        }
+    }
+    fn go(e: &Expr, st: &mut S) -> bool {
+        st.steps += 1;
+        if st.steps > 50_000 {
+            return false;
+        }
+        match &e.kind {
+            EKind::Unsupported(_) => return false,
+            // the substituted values are not children of the node
+            EKind::SubstIn(subs, _) => {
+                for s in subs.iter() {
+                    if !arg(&s.value, st) {
+                        return false;
+                    }
+                }
+            }
+            EKind::Apply(c, args) => {
+                if !callee(c, st) {
+                    return false;
+                }
+                for a in args {
+                    if let Arg::Op(_) = a {
+                        if !arg(a, st) {
+                            return false;
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        for c in e.children() {
+            if !go(&c, st) {
+                return false;
+            }
+        }
+        true
+    }
+    go(e, &mut S { seen: HashSet::new(), steps: 0 })
+}
+
 /// may calls of this constant-level, parameterized definition be remembered?  `Some(decls)`: yes; `decls` lists the constant
 /// declarations it can reach, or `None` when it contains INSTANCE substitutions (then calls are only remembered while no
 /// substitution is in scope: an enclosing INSTANCE may substitute the declarations it reaches)
@@ -103,5 +179,39 @@ pub fn memoizable(d: &std::rc::Rc<OpDef>) -> Option<Option<Vec<usize>>> {
         Some(if st.subst_in { None } else { Some(st.decls) })
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn side_effect_free_rejects_printing_and_tlc_registers() {
+        let dir = std::env::temp_dir().join(format!("tlcrs-memo-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let src = r#"---- MODULE SefTest ----
+EXTENDS Naturals, Sequences, TLC
+VARIABLE x
+Double(n) == n * 2
+Pure == x' = Double(x) /\ Len(<<x>>) = 1
+WithLambda == x' = [i \in {1} |-> x][1]
+Printing == PrintT(x) /\ x' = x
+Level == TLCGet("level") > 0
+Indirect == Pure /\ Printing
+====
+"#;
+        std::fs::write(dir.join("SefTest.tla"), src).unwrap();
+        let r = tla_sany::Resolver::new(&dir, vec![]);
+        let mut out = Vec::new();
+        let spec = tla_sany::frontend(&dir.join("SefTest.tla"), &r, &mut out).expect("module parses");
+        let sem = spec.sem.expect("semantic tree");
+        let body = |n: &str| sem.root.defs.borrow().iter().find(|d| &*d.name == n).and_then(|d| d.body()).expect(n);
+        assert!(side_effect_free(&body("Pure")));
+        assert!(side_effect_free(&body("WithLambda")));
+        assert!(!side_effect_free(&body("Printing")));
+        assert!(!side_effect_free(&body("Level")));
+        assert!(!side_effect_free(&body("Indirect")));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

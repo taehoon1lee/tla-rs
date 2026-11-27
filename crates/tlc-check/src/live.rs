@@ -100,10 +100,55 @@ pub struct Lasso {
     pub stuttering: bool,
 }
 
+/// Values of the side-effect-free leaves (`Leaf::shareable`), shared by the behavior graphs of all orders of solution.  The leaves
+/// are tagged once for the whole formula (`process_oss`: `tag_expr`), and the disjuncts of its normal form hold the same leaf
+/// objects, so a fairness condition common to several properties has the same tag in each order of solution.  Java evaluates it
+/// again for each of them (`LiveCheck.addNextState`: `oos.checkAction` per checker); the value is the same.  Keys use the index of
+/// a stored state (never the id of an actual state that SYMMETRY made differ from the stored one: such ids are per graph).
+#[derive(Default)]
+pub struct SharedMemo {
+    nstates: u32,
+    /// (state, tag) -> value of a state-level leaf
+    state: HashMap<(u32, u32), bool>,
+    /// (tag, source state, edge key) -> value of an action leaf that occurs in more than one order of solution
+    action: HashMap<(u32, u32, u32), bool>,
+    /// tag -> the action leaf occurs in more than one order of solution
+    multi: Vec<bool>,
+}
+
+impl SharedMemo {
+    fn new(nstates: usize, oss: &[Oos]) -> SharedMemo {
+        fn tags(ln: &tlc_core::liveness::ln::Ln, out: &mut Vec<u32>) {
+            use tlc_core::liveness::ln::LnNode;
+            match &*ln.0 {
+                LnNode::Action(a) => out.push(a.tag.get()),
+                LnNode::Neg(b) | LnNode::Even(b) | LnNode::All(b) | LnNode::Next(b) => tags(b, out),
+                LnNode::Conj(v) | LnNode::Disj(v) => v.iter().for_each(|x| tags(x, out)),
+                _ => {}
+            }
+        }
+        let mut count: Vec<u32> = vec![];
+        for oos in oss {
+            let mut t = vec![];
+            oos.check_action.iter().for_each(|c| tags(c, &mut t));
+            t.sort_unstable();
+            t.dedup();
+            for x in t {
+                if count.len() <= x as usize {
+                    count.resize(x as usize + 1, 0);
+                }
+                count[x as usize] += 1;
+            }
+        }
+        SharedMemo { nstates: nstates as u32, multi: count.iter().map(|&c| c > 1).collect(), ..Default::default() }
+    }
+}
+
 /// build the behavior graph of one order of solution (Java: `LiveChecker` / `TableauLiveChecker` fed by `addNextState`)
-pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
+#[allow(clippy::too_many_arguments)]
+pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>], shared: &mut SharedMemo) -> R<Graph> {
     if let (Some(gen), true) = (gen, oos.tableau.is_some()) {
-        return build_graph_incr(ev, store, succ, gen, gen_fn, inits, oos, pre);
+        return build_graph_incr(ev, store, succ, gen, gen_fn, inits, oos, pre, shared);
     }
     let alen = oos.check_action.len();
     let nstates = succ.len();
@@ -129,7 +174,7 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&
         let s1 = store.edge_vals(s, i).unwrap_or_else(|| store.vals(t));
         let mut v = Vec::with_capacity(oos.check_action.len());
         for c in oos.check_action.iter() {
-            v.push(eval_memo(c, ev, s, s0, s1, &mut leaf_memo)?);
+            v.push(eval_memo(c, ev, s, i as u32, s0, s1, &mut leaf_memo, shared)?);
         }
         edge_checks.insert((s, i as u32), v.clone());
         Ok(v)
@@ -230,8 +275,9 @@ fn build_graph_incr(
     inits: &[u32],
     oos: &Oos,
     pre: &[Option<Vec<bool>>],
+    shared: &mut SharedMemo,
 ) -> R<Graph> {
-    struct B<'a> {
+    struct B<'a, 'm> {
         ev: &'a Ev,
         store: &'a dyn States,
         oos: &'a Oos,
@@ -248,8 +294,9 @@ fn build_graph_incr(
         bits: HashMap<(u32, u32), Vec<bool>>,
         leaf: HashMap<(u32, u32), bool>,
         fresh: u32,
+        shared: &'m mut SharedMemo,
     }
-    impl<'a> B<'a> {
+    impl<'a, 'm> B<'a, 'm> {
         /// does the tableau node `t` accept the state `s` (`vals`: the actual state when it is not the one the node stores)?
         fn consistent(&mut self, s: u32, vals: Option<&[Value]>, t: usize) -> R<bool> {
             match vals {
@@ -277,7 +324,7 @@ fn build_graph_incr(
             }
             let mut v = Vec::with_capacity(self.oos.check_action.len());
             for c in self.oos.check_action.iter() {
-                v.push(eval_memo(c, self.ev, mid, v0, v1, &mut self.leaf)?);
+                v.push(eval_memo(c, self.ev, mid, key, v0, v1, &mut self.leaf, self.shared)?);
             }
             self.bits.insert((mid, key), v.clone());
             Ok(v)
@@ -397,6 +444,7 @@ fn build_graph_incr(
         bits: HashMap::default(),
         leaf: HashMap::default(),
         fresh: n as u32,
+        shared,
     };
     // addInitState: (state, tnode) is a root node if tnode is an initial tableau node consistent with the state
     for &s in inits {
@@ -462,11 +510,14 @@ fn build_graph_incr(
 }
 
 /// `Ln::eval` on the step `s0 -> s1` of the state `s`, remembering the value of every state predicate per state
-fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1: &[Value], memo: &mut HashMap<(u32, u32), bool>) -> R<bool> {
+/// `ek` identifies the step among the steps of `s` (the edge key of `SharedMemo::action`)
+#[allow(clippy::too_many_arguments)]
+fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, ek: u32, s0: &[Value], s1: &[Value], memo: &mut HashMap<(u32, u32), bool>, shared: &mut SharedMemo) -> R<bool> {
     use tlc_core::liveness::ln::LnNode;
     match &*ln.0 {
         LnNode::State(l) => {
             let key = (s, l.tag.get());
+            let memo = if l.leaf.shareable && s < shared.nstates { &mut shared.state } else { memo };
             if let Some(b) = memo.get(&key) {
                 return Ok(*b);
             }
@@ -474,10 +525,19 @@ fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1:
             memo.insert(key, b);
             Ok(b)
         }
-        LnNode::Neg(b) => Ok(!eval_memo(b, ev, s, s0, s1, memo)?),
+        LnNode::Action(a) if a.leaf.shareable && s < shared.nstates && shared.multi.get(a.tag.get() as usize).copied().unwrap_or(false) => {
+            let key = (a.tag.get(), s, ek);
+            if let Some(b) = shared.action.get(&key) {
+                return Ok(*b);
+            }
+            let b = ln.eval(ev, s0, s1)?;
+            shared.action.insert(key, b);
+            Ok(b)
+        }
+        LnNode::Neg(b) => Ok(!eval_memo(b, ev, s, ek, s0, s1, memo, shared)?),
         LnNode::Conj(v) => {
             for x in v {
-                if !eval_memo(x, ev, s, s0, s1, memo)? {
+                if !eval_memo(x, ev, s, ek, s0, s1, memo, shared)? {
                     return Ok(false);
                 }
             }
@@ -485,7 +545,7 @@ fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1:
         }
         LnNode::Disj(v) => {
             for x in v {
-                if eval_memo(x, ev, s, s0, s1, memo)? {
+                if eval_memo(x, ev, s, ek, s0, s1, memo, shared)? {
                     return Ok(true);
                 }
             }
@@ -886,7 +946,8 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
 /// the behavior graphs of all orders of solution (Java: the `LiveChecker`s after the state space has been explored)
 #[allow(clippy::too_many_arguments)]
 pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oss: &[Oos], pre: &[Vec<Option<Vec<bool>>>]) -> R<Vec<Graph>> {
-    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, gen_fn, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]))).collect()
+    let mut shared = SharedMemo::new(succ.len(), oss);
+    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, gen_fn, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]), &mut shared)).collect()
 }
 
 /// `LiveWorker.call` over all orders of solution: the first counterexample found

@@ -144,3 +144,7 @@ Cause: the derived `Clone` moved a freshly built enum with a wide load after two
 ## 2026-11-27 perf H19 (no code) -- NEUTRAL: bulk `Vec<Value>` copies, `needs_normalize` prefilter, shared `[S -> T]` domain (Sonnet 5.5)
 `AB RESULT: NEUTRAL (geomean 0.990 on LamportMutex/EWD998Small/Bakery/MCbtree, reps 3; quick 1.008 at `--reps 5`)`: after H18 the per-element clone is cheap enough that bulk copies are below the noise. Code reverted.
 Next: profile after H18 shows `hash_into` 7.5 %, `Value::clone` call overhead 5 % (out of line, jump table), `FpSet::insert` 2-3 %, `enum_def_call`/`enum_action_inner` 14 %: H15 closures, cheaper `hash_into`.
+
+## 2026-11-27 perf H20 -- ACCEPT: liveness leaves shared by all orders of solution (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.866, best 0.239 MCFlashWithMutexLive, worst 1.027, models 15, reps 2)`; Elevator x0.611, bcastByz x0.743, Huang x0.946; gate -j 2 rc 0 (verdict/trace 364/364).
+Found by rdtsc phase counters (loop/PERF_RESEARCH.md "Third pass"): fairness leaves were re-evaluated for every PROPERTY (12x on FlashMutexLive). Next: H21 SCC per PEM (Elevator), H22 invariant conjuncts on unchanged variables (BFS models), H23 eval-mode EXCEPT.

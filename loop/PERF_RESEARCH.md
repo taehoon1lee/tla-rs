@@ -150,3 +150,54 @@ fast path is limited to same-kind, non-model elements):
 2. sequence natives (`Append`, `Tail`, `SubSeq`, `\o`, `Head`): one allocation, `concat` with `with_capacity(|x|+|y|)` and a `Fast` entry;
    a bulk "all scalars" copy for `Vec<Value>` (needs `unsafe` or a typed vector) - s9 rejected a global fast `Clone`, a slice-level helper was not tried.
 3. H17 `except1`, H16 hasher for `live.rs`, H15 closures (already in the backlog), plus the per-state clones above.
+
+# Third pass (2026-11-27, HEAD 0059010 + H20): phase split, liveness duplicate work
+
+rdtsc phase counters (measurement build, `-workers 1`, harness arguments): share of `Checker::run` cycles. "rest" = everything outside
+the BFS phases (= the final liveness check for the models with PROPERTIES).
+
+| model | s | enum | constraint | fp | fpset | inv | rest |
+|---|---|---|---|---|---|---|---|
+| SlidingPuzzles | 1.6 | 94 | 0 | 3 | 0 | 2 | 1 |
+| SimpleRegular | 2.5 | 54 | 1 | 13 | 2 | 25 | 5 |
+| MCDisruptor_MPMC | 2.1 | 65 | 2 | 7 | 1 | 20 | 5 |
+| MCFlashWithMutexLive | 2.9 | 4 | 0 | 0 | 0 | 0 | **96** |
+| EWD998Small | 20.8 | 39 | 17 | 3 | 2 | 17 | 22 |
+| MCLamportMutex | 10.7 | 65 | 4 | 8 | 1 | 14 | 8 |
+| MCbtree | 8.7 | 70 | 0 | 8 | 1 | 18 | 3 |
+| MCBakery | 6.1 | 42 | 1 | 5 | 1 | 0 | 51 |
+| VoteProof | 3.3 | 84 | 0 | 2 | 0 | 6 | 8 |
+| SpanTreeRandom | 1.5 | 11 | 0 | 2 | 0 | 5 | **82** |
+| MCKVsnap | 3.5 | 6 | 0 | 8 | 0 | **55** | 31 |
+| AllocatorImplementation | 3.3 | 13 | 0 | 0 | 0 | 8 | **79** |
+| bcastByz | 3.1 | 24 | 0 | 2 | 0 | 1 | **73** |
+| YoYoAllGraphs | 3.2 | 20 | 0 | 1 | 0 | 28 | 51 |
+| ElevatorLivenessMedium | 2.4 | 3 | 0 | 0 | 0 | 1 | **96** |
+| Huang | 16.1 | 8 | 2 | 1 | 0 | 7 | 82 |
+| EWD998PCal | 13.5 | 24 | 4 | 2 | 1 | 0 | 70 |
+| MultiPaxos_MC_small | 11.7 | 36 | 0 | **47** | 0 | 16 | 1 |
+| TLCSailfish1 | 22.9 | 56 | 0 | 2 | 0 | **41** | 1 |
+| MCNanoMedium | 9.0 | 44 | 0 | 3 | 1 | **50** | 2 |
+| DijkstraMutex Safety-4 | 278 | 82 | 1 | 7 | 3 | 3 | 5 |
+| MCCheckpointCoordinationFailure | 8.1 | 26 | 3 | **66** | 0 | 4 | 1 |
+| FastPaxos | 6.5 | 29 | 0 | **69** | 0 | 1 | 1 |
+
+Liveness leaves (counter in `Leaf::eval_bool` / `eval_enabled`; share of the run, evaluations, cycles per evaluation):
+
+| model | Oos x action leaves | edges | action `<<A>>_v` | ENABLED | graph SCC |
+|---|---|---|---|---|---|
+| MCFlashWithMutexLive | 12 x 9 | 36k | 47 %, 1.03M x 4.5k | 35 %, 874k x 4.0k | small |
+| ElevatorLivenessMedium | 6 x 26 (256 PEMs each) | 15k | 31 %, 904k x 2.7k | 17 %, 445k x 2.9k | ~40 % |
+| SpanTreeRandom (`WF_vars(Next)`) | 1 x 1 | 253k | 69 %, 269k x 12k | 2 % | small |
+| AllocatorImplementation | 1 x 122 | 82k | 16 %, 340k x 4.9k | 31 %, 2.16M x 1.6k | |
+| bcastByz | 3 x 1 | 101k | 60 %, 275k x 22k | 9 % | |
+| YoYoAllGraphs | 1 x 1 | 75k | 36 %, 102k x 35k | 11 % | |
+| Huang | 2 x 10 | 626k | 18 %, 5.6M x 1.7k | 6 % | |
+
+Duplicate work: the ENABLED count of MCFlashWithMutexLive is exactly states x leaves x Oos (8096 x 9 x 12). Java does the same
+(`LiveCheck.addNextState` -> `oos.checkAction` per checker). Shared across Oos = H20: `ab.py compare --set full` ACCEPT 0.866.
+MCBakery's and EWD998PCal's "rest" is not leaf evaluation (0 leaf evaluations): still to be identified (implied actions / `[]` PROPERTY?).
+
+Next candidates (backlog H21-H23 in `loop/PERF.md`): SCC per PEM (Elevator ~70 % of what is left), invariant/constraint conjuncts
+skipped when their variables did not change (BFS models, 14-55 % in invariants), cheaper eval-mode `x' = [x EXCEPT ..]` (SpanTreeRandom).
+Symmetry `fp` (canonicalization) is 47-69 % of MultiPaxos / Checkpoint / FastPaxos (not in the FULL set).

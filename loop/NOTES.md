@@ -361,3 +361,16 @@
 - Method: micro-benchmarks that run one operation inside `ASSUME \A i \in 1..n : ...` must depend on `i` (a constant body is cached by Rust and by nothing
   in Java); `ab.py compare` must run on an idle box - editing files or running scripts during an A/B turned two models x1.2 (REJECT) that measured
   x0.80 / x0.91 when re-run idle.
+
+## Perf pass 9 (2026-11-27, H20): where the time goes per phase, and the liveness duplicate work
+- Measure phases with rdtsc counters in a THROW-AWAY build (`CARGO_TARGET_DIR=target-meas`, then `git checkout -- crates`): the
+  non-`prof` `prof_now`/`prof_add` in `bfs.rs` become `_rdtsc()` + static `AtomicU64` (single thread: Relaxed), dumped after `ck.run()`.
+  The `tlc-check/prof` feature is useless for this (a `getenv` per phase call); the sampling profile cannot attribute inclusive time
+  (80 % "?": no frame chain through leaf functions). `TLCRS_LIVE_DEBUG=1` prints the liveness stage times of the normal build.
+- Phase split of the FULL set + heavy models (table in `loop/PERF_RESEARCH.md`, "Third pass"): 7 of 15 FULL models spend > 50 % in the
+  final liveness check, mostly in leaf evaluation (`<<A>>_v` per edge, ENABLED per state); BFS models: invariants 14-55 %.
+- The liveness formula is translated and tagged ONCE (`process_oss`, `tag_expr(1)`); each PROPERTY (DNF disjunct) becomes its own Oos,
+  but the leaves are the same `Rc` objects with the same tags. Memo keys `(state, tag)` / `(tag, state, edge)` are therefore valid across
+  graphs; only the ids of SYMMETRY actual states (`fresh` in `build_graph_incr`) are per graph. H20 shares them (`SharedMemo`).
+- A leaf result may only be shared when the leaf cannot print / read TLC registers / draw random numbers: `memo::side_effect_free`
+  (like `memo::scan`, but state variables allowed; INSTANCE substitution values and operator arguments are scanned explicitly).

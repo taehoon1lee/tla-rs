@@ -100,7 +100,8 @@ impl<'a> Translator<'a> {
         let ex = self.wrap_expr(e);
         let params = self.params();
         let (code, nslots) = self.setup.comp.compile_top_bound(&ex, &params);
-        Leaf { ex: code, sub: None, nslots, bound: self.values(), text: loc_text(e, &self.setup.root.name) }
+        let shareable = crate::memo::side_effect_free(&ex);
+        Leaf { ex: code, sub: None, nslots, bound: self.values(), text: loc_text(e, &self.setup.root.name), shareable }
     }
 
     /// evaluate a constant-level expression in the current bound context
@@ -528,7 +529,8 @@ impl<'a> Translator<'a> {
         let s = self.wrap_expr(sub);
         let params = self.params();
         let (ex, sx, nslots) = self.setup.comp.compile_top_bound2(&a, Some(&s), &params);
-        let enabled_leaf = Leaf { ex, sub: sx, nslots, bound: self.values(), text: loc_text(act, &self.setup.root.name) };
+        let shareable = crate::memo::side_effect_free(&a) && crate::memo::side_effect_free(&s);
+        let enabled_leaf = Leaf { ex, sub: sx, nslots, bound: self.values(), text: loc_text(act, &self.setup.root.name), shareable };
         let en = Ln::neg(Ln::new(LnNode::State(Rc::new(StateLeaf { tag: Default::default(), leaf: enabled_leaf, enabled: true }))));
         // <<A>>_e
         let angle = Expr::new(EKind::ActionSub { boxed: false, act: act.clone(), sub: sub.clone() }, e.loc, Level::Action);

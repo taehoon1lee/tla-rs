@@ -8,24 +8,25 @@ Edit this file freely: tick backlog items, add LEDGER rows, refresh STANDING. Ke
 2. Then keep lowering the geomean of rust/base with accepted hypotheses (each must pass `ab.py compare --set full` = ACCEPT).
 
 ## STANDING (rust vs Java alone, sequential, min of 2; refresh with `python tools/ab.py time --set full`)
-measured 2026-11-25, HEAD 0744ec2 (after H3 + H7): EVERY model of the full set is below Java alone (goal 1 reached). Worst first:
+measured 2026-11-27 (after H20; `new/java` column of `ab.py compare --set full`, Java alone from `tmp/ab/java_alone.json`). Worst first:
 
 | model | rust/java alone |
 |---|---|
-| ex/lamport_mutex/MCLamportMutex | x0.971 |
-| ex/SlidingPuzzles/SlidingPuzzles | x0.919 |
-| ex/ewd998/EWD998Small | x0.883 |
-| ex/Bakery-Boulangerie/MCBakery | x0.820 |
-| ex/Disruptor/MCDisruptor_MPMC | x0.790 |
-| ex/TeachingConcurrency/SimpleRegular | x0.724 |
-| ex/YoYo/YoYoAllGraphs | x0.676 |
-| ex/allocator/AllocatorImplementation | x0.605 |
-| ex/KeyValueStore/MCKVsnap | x0.509 |
-| ex/SpanningTree/SpanTreeRandom | x0.495 |
-| ex/FlashProtocol/MCFlashWithMutexLive, MCbtree, bcastByz, VoteProof, ElevatorLivenessMedium | x0.17 .. x0.37 |
+| ex/lamport_mutex/MCLamportMutex | x0.881 |
+| ex/ewd998/EWD998Small | x0.803 |
+| ex/SlidingPuzzles/SlidingPuzzles | x0.778 |
+| ex/Bakery-Boulangerie/MCBakery | x0.714 |
+| ex/Disruptor/MCDisruptor_MPMC | x0.673 |
+| ex/TeachingConcurrency/SimpleRegular | x0.646 |
+| ex/YoYo/YoYoAllGraphs | x0.566 |
+| ex/allocator/AllocatorImplementation | x0.466 |
+| ex/KeyValueStore/MCKVsnap | x0.372 |
+| ex/btree/MCbtree, SpanTreeRandom, VoteProof | x0.32 .. x0.29 |
+| ex/bcastByz/bcastByz, ElevatorLivenessMedium, MCFlashWithMutexLive | x0.194, x0.077, x0.063 |
 
+(2026-11-25, after H3+H7, the worst were MCLamportMutex x0.971, SlidingPuzzles x0.919, EWD998Small x0.883.)
 Not in the FULL set: `ex/ewd998/EWD998PCal` 19.6 s vs Java alone 29.7 s = x0.66 after H3 (was x1.08).
-Goal 2 (lower the geomean) continues: MCLamportMutex (x0.97) and SlidingPuzzles are the closest to Java.
+Goal 2 (lower the geomean) continues: MCLamportMutex (x0.88) and EWD998Small (x0.80) are the closest to Java (BFS-bound: H22).
 
 ## Do NOT retry (measured and rejected; details in NOTES.md "Perf ...")
 - `lto = "fat"` + `codegen-units = 1`; `-C target-cpu=native` (no gain on this box).
@@ -59,6 +60,18 @@ Goal 2 (lower the geomean) continues: MCLamportMutex (x0.97) and SlidingPuzzles 
 - [ ] H15 LAMBDA / operator-argument calls (`apply_closure_slots`, `run_frame_in`): no `Vec<Slot>` + `Vec<(u32,Slot)>` per call, do not clone the whole captured frame per call. Micro `SelectSeq` x3.3 slower than Java warm; SlidingPuzzles ~12 % in this path.
 - [x] H16 (ACCEPT, part of LEDGER H18) cheap multiplicative hasher (like `PtrHasher`) for the `live.rs` maps and `bfs.rs` `fp_index`. SipHash ~4 % + `eval_memo` probing 5 % of the Huang liveness profile.
 - [~] H17 (the per-element clone is now 2.4x cheaper, see H18; an in-place / bulk-copy variant is still open) `Value::except1`: avoid the per-element clone/drop of `f.vals` (in place when the `Rc` is unique; fewer intermediate copies for multi-path EXCEPT). Micro `[F EXCEPT ![k] = i]` x3.7 slower than Java; profile except1 56 % + drop 17 %.
+- [x] H20 (ACCEPT, see LEDGER H20) liveness leaves shared by all orders of solution (one per PROPERTY / DNF disjunct; Java re-evaluates the fairness leaves for each).
+- [ ] H21 SCC search per PEM (`live.rs` `check_sccs`): ElevatorLivenessMedium has 6 Oos x 256 PEMs; after H20 the SCC part is ~1.0 of 1.4 s.
+      Flat graph (CSR `succ` + one bitset of action results per graph instead of 3 `Vec`s per `GNode`), `check_action_all` as a mask test,
+      PEMs with the same `ea_action` share one DFS (same component order, so the first counterexample is the same). Expected Elevator -30..50 %.
+- [ ] H22 Invariants / CONSTRAINT checked per conjunct, skipping the conjuncts that only read variables unchanged from the parent
+      (`Rc::ptr_eq` / scalar equality; the parent satisfied every conjunct, otherwise it would not be expanded; only `memo::side_effect_free`
+      conjuncts, never with `-continue` for invariants). Phase shares (rdtsc, 2026-11-27): inv KVsnap 55 %, MCNanoMedium 50 %, Sailfish 41 %,
+      YoYo 28 %, SimpleRegular 25 %, Disruptor 20 %, btree 18 %, EWD998Small 17 % (+ constraint 17 %), MultiPaxos 16 %, LamportMutex 14 %.
+- [ ] H23 Single-Oos liveness with `WF_vars(Next)` (SpanTreeRandom: 1 leaf x 253k edges = 69 % of the run, 3.4 us per edge; YoYo 36 %):
+      evaluate `x' = [x EXCEPT ![k] = v]` in eval mode without building the function (compare `s1.x` with `x` pointwise, same comparison
+      order and the existing fallback for any non-plain case). Do NOT answer `<<Next>>_v` from "the edge came from Next": eval mode can
+      raise a comparison error that enumeration never raised (a variable whose type changes between disjuncts).
 
 ## LEDGER (append one row per experiment; newest at the bottom; seeded from NOTES.md)
 | id | outcome | change | before -> after | full geomean | why |
@@ -85,3 +98,4 @@ Goal 2 (lower the geomean) continues: MCLamportMutex (x0.97) and SlidingPuzzles 
 | P1 | ACCEPT | `-workers N` (N > 1): at a level boundary >= 200 ms into the search and >= 256 states wide, `Checker::try_parallel` hands the rest to `par::explore`: one `Setup` per thread (SANY + spec processing again), states exchanged as bytes (`senc`), 256 mutex-protected fingerprint shards, barrier per level; it only completes violation-free searches (everything else falls back to the sequential loop from the same level, so messages and traces are those of `-workers 1`) | `-workers 1` unchanged (A/B full set geomean 1.004 NEUTRAL, gate: no regression). `-workers 1/4/8/16`: EWD998Small 23.4 / 7.6 / 4.6 / 3.5 s, MCbtree 9.2 / 3.4 / 2.1 / 1.6 s, MCLamportMutex 11.4 / 3.5 / 2.1 / 1.6 s, SimpleRegular 2.7 / 1.0 / 0.7 / 0.6 s (Java `-workers 8`: LamportMutex 3.6 s, EWD998Small 5.3 s) | n/a (the judge runs one worker) | generated / distinct / depth are those of the sequential search (checked on 373 corpus models with the pass forced from level 1 (11 sequential timeouts skipped): it ran on 174 (110 completed, 64 handed back), 199 never reached it (liveness, early failures); only differences: the spec asserts `worker = 1` (MCDieHardest) and a timing line); out-degree statistics vary with the schedule (Java's too) |
 | H18 | ACCEPT | **store-forwarding fix + 4 small removals, one bundle.** (a) `impl Clone for Value` / `Slot`: bump the `Rc` count of the variant, then `ptr::read` the 16 bytes (the derived `Clone` built the enum from a 1-byte tag store + 4/8-byte payload store and moved it with one 16-byte load: store-to-load forwarding fails, ~25 cycles = 7 ns per `Vec<Value>` element; the only `unsafe`, justified by the micro below). (b) `\o` = `concat2` (`Fast::F2`, one allocation of the final size instead of two `to_vec` + a growing `extend`). (c) `Value::merge_sets`: `\cup` / `\cap` / `\` of two normalized `Set`s by one merge, or binary search + segment copies when the second set has <= 4 elements (`S \cup {x}`); any failing comparison falls back to the old path. (d) `bfs.rs`: the label of the next-state relation is built once, no `vals.clone()` before `check_invariants`. (e) H16: `FxHasher` for the `live.rs` maps and `fp_index` (SipHash before) | full set (15 models, 2 reps, idle box): bcastByz x0.787, SpanTreeRandom x0.832, Bakery x0.862, AllocatorImpl x0.866, SlidingPuzzles x0.866, Disruptor x0.880, VoteProof x0.884, EWD998Small x0.894, MCLamportMutex x0.929, MCbtree x0.932; worst SimpleRegular x0.975 | **0.888** (every model faster) | micro (`tmp/vbench`, 50 `Int` elements, derive -> bit copy): `to_vec` 391 -> 164 ns, bulk `memcpy` clone 104 ns (of which drop 67 ns); asm of the derived clone: `movb $tag,40(%rsp); movl %eax,44(%rsp); movups 40(%rsp),%xmm0` = partial stores followed by a wide load. s9 (hand-written `Clone` with a scalar fast path) failed because it still built the new enum from partial stores; here the result is a copy of the SOURCE value, which was stored long ago. A first full run measured while files were being edited printed REJECT (SlidingPuzzles x1.20, YoYo x1.24): the same models re-measured idle, `--reps 5`, were x0.80 / x0.91 - never edit or run anything during an A/B |
 | H19 | NEUTRAL | `extend_vals` / `clone_vals` (one bitwise copy of the slice + one count bump per `Rc` element, `unsafe`) in `except1`, `Append`/`Tail`/`SubSeq`/`\o`, `merge_sets` segments and the successor-state clone of `bfs.rs`/`par.rs`; `needs_normalize` skips plain elements before the recursive call; `[S -> T]` enumeration shares the domain `Rc` (`fcn_sorted_rc`) | quick: MCFlashWithMutexLive x1.106 at 3 reps, x0.995 at `--reps 5` (noise); sequence models Bakery x0.993, MCbtree x0.988, EWD998Small x0.997, MCLamportMutex x0.984 | geomean 0.990 on those 4 (1.008 quick) | after H18 a derived-style `Vec<Value>` clone costs ~3 ns/element and the sequences of the corpus models are short: the saving (a few ns per EXCEPT / Append / successor) is below 1 % of a state's cost. micro: 50 `Int`s 164 -> 104 ns. Code reverted; worth revisiting only for models with sequences/functions of > 100 elements |
+| H20 | ACCEPT | **liveness leaves shared by all orders of solution.** `process_oss` tags every leaf once for the whole formula and the DNF disjuncts hold the same `Rc` leaves, so a fairness condition common to several PROPERTIES has one tag; but the memo of the state leaves (`(state, tag)`) and the per-edge action bits were per graph. `live.rs` `SharedMemo` (built in `build_all`): state leaves `(state, tag)` and action leaves that occur in > 1 Oos `(tag, source state, edge key)`, only for stored states (ids of SYMMETRY actual states are per graph) and only for `Leaf::shareable` = `memo::side_effect_free` (no Print/TLCGet/TLCSet/RandomElement/unknown operator; test `side_effect_free_rejects_printing_and_tlc_registers`). A stored value always comes from an evaluation that succeeded, so errors and their order are unchanged | MCFlashWithMutexLive 2.89 -> 0.69 s (x0.239; 12 Oos x 9 WF leaves, ENABLED evals 874k = 8096 x 9 x 12), ElevatorLivenessMedium x0.611 (6 Oos x 26), bcastByz x0.743 (3 Oos), Huang x0.946 (2 Oos, 3 reps) | **0.866** (15 models, 2 reps; worst AllocatorImpl x1.027 = noise, 1 Oos: the code path only adds a map) | found with rdtsc phase counters (measurement build only): in 7 of 15 FULL models > 50 % of `run()` is the final liveness check, and there the leaf evaluation (action `<<A>>_v` + ENABLED) is 35-82 %. Java does the same duplicated work (`LiveCheck.addNextState`: `oos.checkAction` for every checker) |
