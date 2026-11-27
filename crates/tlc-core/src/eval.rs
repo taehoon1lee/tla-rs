@@ -229,6 +229,8 @@ pub struct Ev {
     pub splitting: Cell<bool>,
     /// memo for `Ev::action_simple`: (node address, mode) -> may the action enumerator produce at most one continuation
     pub simple_memo: RefCell<HashMap<(usize, bool), bool>>,
+    /// `actions.rs` `or_plan`: (disjunction node address) -> its guard-dispatch plan, if it has one
+    pub or_plans: RefCell<HashMap<usize, Option<Rc<crate::actions::OrPlan>>, std::hash::BuildHasherDefault<PtrHasher>>>,
     /// Java: Tool.getNextStatesAllAssigned: once every variable is assigned the remaining conjuncts are only evaluated
     pub eval_only: Cell<bool>,
     /// bumped whenever the state data a cached lazy value may depend on changes (see `LazyArg::cache`)
@@ -391,6 +393,7 @@ impl Ev {
             node_info: RefCell::new(HashMap::default()),
             splitting: Cell::new(false),
             simple_memo: RefCell::new(HashMap::new()),
+            or_plans: RefCell::new(HashMap::default()),
             eval_only: Cell::new(false),
             epoch: Cell::new(1),
             slot_pool: RefCell::new(Vec::new()),
@@ -476,6 +479,46 @@ impl Ev {
 
     pub fn run_captured_in(&self, cap: &Captured, assigns: &[(u32, Slot)], code: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
         self.run_frame_in(&cap.frame, &cap.substs, assigns, code, s0, s1)
+    }
+
+    /// apply a LAMBDA closure in the current state: `run_frame_in` with the captured frame and the current substitutions (which
+    /// `apply_closure_slots` passes unchanged), the arguments moved into the parameter slots (`def.nslots + i`), then the closure
+    /// itself into `self_slot`
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn run_lambda(&self, c: &Rc<OpClosure>, def: &LambdaDef, frame: &[Slot], self_slot: Option<u32>, params: &mut [Slot], s0: &[Value], s1: &[Value]) -> R<Value> {
+        let old_base = self.base.get();
+        let nb = {
+            let st = self.stack.borrow_mut();
+            let nb = st.len();
+            st.extend(frame.iter().cloned());
+            for (i, p) in params.iter_mut().enumerate() {
+                let idx = nb + def.nslots + i;
+                if idx >= st.len() {
+                    st.resize(idx + 1, Slot::Unset);
+                }
+                st[idx] = std::mem::replace(p, Slot::Unset);
+            }
+            if let Some(ss) = self_slot {
+                let idx = nb + ss as usize;
+                if idx >= st.len() {
+                    st.resize(idx + 1, Slot::Unset);
+                }
+                st[idx] = Slot::Op(c.clone());
+            }
+            nb
+        };
+        self.base.set(nb);
+        self.depth.set(self.depth.get() + 1);
+        let r = if self.depth.get() > MAX_DEPTH {
+            fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
+        } else {
+            self.eval(&def.body, s0, s1)
+        };
+        self.depth.set(self.depth.get() - 1);
+        self.stack.borrow_mut().truncate(nb);
+        self.base.set(old_base);
+        r
     }
 
     /// evaluate `code` in a copy of `frame` under the substitutions `substs`, in the states `s0`, `s1`
@@ -943,6 +986,16 @@ impl Ev {
     }
 
     fn apply_closure(&self, c: &Rc<OpClosure>, args: &[Arg], s0: &[Value], s1: &[Value]) -> R<Value> {
+        if let OpClosure::Lambda { def, frame, self_slot } = &**c {
+            if args.len() <= 4 {
+                // the arguments are evaluated in the caller's frame, then moved into the LAMBDA's frame (no vectors)
+                let mut a: [Slot; 4] = [Slot::Unset, Slot::Unset, Slot::Unset, Slot::Unset];
+                for (i, x) in args.iter().enumerate() {
+                    a[i] = self.eval_arg(x, s0, s1)?;
+                }
+                return self.run_lambda(c, def, frame, *self_slot, &mut a[..args.len()], s0, s1);
+            }
+        }
         let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
         for a in args {
             slots.push(self.eval_arg(a, s0, s1)?);
@@ -959,6 +1012,10 @@ impl Ev {
                     vals.push(self.force_slot(s, s0, s1)?);
                 }
                 self.apply_builtin(*b, vals)
+            }
+            OpClosure::Lambda { def, frame, self_slot } if slots.len() <= 4 => {
+                let mut slots = slots;
+                self.run_lambda(c, def, frame, *self_slot, &mut slots[..], s0, s1)
             }
             OpClosure::Lambda { def, frame, self_slot } => {
                 // runs right now in the current state: no need to copy the states into a `Captured`

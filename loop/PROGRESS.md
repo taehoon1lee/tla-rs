@@ -156,3 +156,6 @@ Next: H26 algebraic Fcn hash (prototype, needs the fingerprint rule relaxed), H2
 ## 2026-11-27 perf H22 -- ACCEPT: invariants / constraints skip what the predecessor already proved (Opus 5.5)
 `AB RESULT: ACCEPT (geomean new/base 0.958, best 0.837 MCbtree, worst 1.042, models 15, reps 2)`: EWD998Small x0.859, SimpleRegular x0.888, MCLamportMutex x0.889; gate -j 2 rc 0 (364/364).
 Next: H27 one-allocation Tuple with cached hash, H15 closures (SlidingPuzzles), H28 FpSet prefetch.
+
+## 2026-11-27 perf H29 -- ACCEPT: PlusCal label dispatch + allocation-free LAMBDA calls (H2 + H15) (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.981, best 0.859 MCBakery, worst 1.019, models 15, reps 2)`: SimpleRegular x0.898, SlushSmall x0.923, SlidingPuzzles x0.960; gate -j 2 rc 0 (364/364).

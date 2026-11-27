@@ -75,6 +75,45 @@ fn first_test(d: &Rc<CompiledDef>) -> Option<Ex> {
         .clone()
 }
 
+/// A disjunction `A1(a..) \/ A2(a..) \/ ..` of calls with the same plain arguments whose bodies start with a test of the same
+/// expression against different constants (`pc[self] = "lbl"`, PlusCal): the expression is evaluated once and compared with each
+/// constant in turn; only the calls whose test holds are entered (no counterpart in Java, which sets up every call and evaluates
+/// the expression again).  The order of the comparisons, and so of the successors and of any error, is that of the disjunction.
+pub struct OrPlan {
+    /// the calls, in order (nested disjunctions flattened: `a \/ b \/ c` is `(a \/ b) \/ c`)
+    calls: Vec<Ex>,
+    /// the tested expression (in the callee frame: the arguments are its first slots)
+    lhs: Ex,
+    /// per disjunct: the constant it is compared with
+    consts: Vec<Value>,
+    nslots: usize,
+}
+
+/// structural equality of the plain expressions `first_test` accepts (enough to recognize `pc[self]` in each label action)
+fn same_plain(a: &Ex, b: &Ex) -> bool {
+    match (&**a, &**b) {
+        (Node::Var(x), Node::Var(y)) | (Node::Local(x), Node::Local(y)) => x == y,
+        (Node::Const(x), Node::Const(y)) => match (x, y) {
+            (Value::Int(p), Value::Int(q)) => p == q,
+            (Value::Str(p), Value::Str(q)) | (Value::Model(p), Value::Model(q)) => p == q,
+            (Value::Bool(p), Value::Bool(q)) => p == q,
+            _ => false,
+        },
+        (Node::FcnApply(f, x), Node::FcnApply(g, y)) => same_plain(f, g) && same_plain(x, y),
+        (Node::Record(x, f), Node::Record(y, g)) => f == g && same_plain(x, y),
+        _ => false,
+    }
+}
+
+/// the arguments are the same plain expressions (frame slots of the caller or constants)
+fn same_args(a: &[Arg], b: &[Arg]) -> bool {
+    a.len() == b.len()
+        && a.iter().zip(b.iter()).all(|(x, y)| match (x, y) {
+            (Arg::Val(e, false), Arg::Val(f, false)) => matches!(&**e, Node::Local(_) | Node::Const(_)) && same_plain(e, f),
+            _ => false,
+        })
+}
+
 fn body_loc(d: &tla_sany::sem::OpDef) -> tla_sany::ast::Loc {
     match d.body() {
         Some(b) => b.loc,
@@ -344,9 +383,7 @@ impl Ev {
                     }
                     *self.cur_label.borrow_mut() = saved;
                 } else {
-                    for it in items {
-                        self.enum_action(it, mode, s0, buf, k)?;
-                    }
+                    return self.enum_or(ex, items, mode, s0, buf, k);
                 }
                 Ok(())
             }
@@ -996,7 +1033,142 @@ to argument {}, which is not in the domain of the function.",
     }
 
     /// Java: getNextStatesApplImpl for a user-defined operator: continue with the operator's body
+    /// the disjuncts of `ex` one after the other (with an `OrPlan`: only those whose guard holds)
+    #[inline(never)]
+    fn enum_or(&self, ex: &Ex, items: &[Ex], mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        if mode == Mode::Next && !self.eval_only.get() && !self.tracking.get() && items.len() >= 2 && self.depth.get() + 1 < 3000 {
+            if let Some(plan) = self.or_plan(ex, items) {
+                if let Some(r) = self.enum_or_planned(&plan, s0, buf, k) {
+                    return r;
+                }
+            }
+        }
+        for it in items {
+            self.enum_action(it, mode, s0, buf, k)?;
+        }
+        Ok(())
+    }
+
+    fn or_plan(&self, ex: &Ex, items: &[Ex]) -> Option<Rc<OrPlan>> {
+        let key = Rc::as_ptr(ex) as usize;
+        if let Some(p) = self.or_plans.borrow().get(&key) {
+            return p.clone();
+        }
+        fn leaves(items: &[Ex], out: &mut Vec<Ex>) {
+            for it in items {
+                match &**it {
+                    Node::Or(sub) => leaves(sub, out),
+                    _ => out.push(it.clone()),
+                }
+            }
+        }
+        let mut calls = vec![];
+        leaves(items, &mut calls);
+        let plan = (|| {
+            let mut lhs: Option<Ex> = None;
+            let mut first_args: Option<&[Arg]> = None;
+            let mut consts = vec![];
+            let mut nslots = 0usize;
+            for it in &calls {
+                let Node::Call(d, args, _) = &**it else { return None };
+                if d.native.get().is_some() || d.body.borrow().is_none() || d.level < tla_sany::sem::Level::State || d.nparams != args.len() {
+                    return None;
+                }
+                match first_args {
+                    None => first_args = Some(args),
+                    Some(a0) => {
+                        if !same_args(a0, args) {
+                            return None;
+                        }
+                    }
+                }
+                let t = first_test(d)?;
+                let Node::Eq(l, r) = &*t else { return None };
+                let Node::Const(c) = &**r else { return None };
+                if !matches!(c, Value::Int(_) | Value::Str(_) | Value::Model(_) | Value::Bool(_)) {
+                    return None;
+                }
+                match &lhs {
+                    None => lhs = Some(l.clone()),
+                    Some(l0) => {
+                        if !same_plain(l0, l) {
+                            return None;
+                        }
+                    }
+                }
+                consts.push(c.clone());
+                nslots = nslots.max(d.nslots.get().max(args.len()));
+            }
+            Some(Rc::new(OrPlan { calls: calls.clone(), lhs: lhs?, consts, nslots }))
+        })();
+        self.or_plans.borrow_mut().insert(key, plan.clone());
+        plan
+    }
+
+    /// `None`: the plan does not apply here (an argument is passed by name): enumerate the disjuncts the usual way
+    fn enum_or_planned(&self, plan: &OrPlan, s0: &[Value], buf: &Buf, k: &mut Cont) -> Option<R<()>> {
+        let items = &plan.calls;
+        let Node::Call(_, args, _) = &*items[0] else { return None };
+        // the arguments in a frame of their own, then the tested expression (as `enum_def_call` + `first_test` evaluate it)
+        let nb = self.stack.borrow().len();
+        for a in args.iter() {
+            let s = {
+                let b = buf.borrow();
+                self.eval_arg_pub(a, s0, &b)
+            };
+            match s {
+                Ok(s) => self.stack.borrow_mut().push(s),
+                Err(_) => {
+                    self.stack.borrow_mut().truncate(nb);
+                    return None;
+                }
+            }
+        }
+        if self.stack.borrow()[nb..].iter().any(|s| !matches!(s, Slot::V(_))) {
+            self.stack.borrow_mut().truncate(nb);
+            return None;
+        }
+        crate::eval::grow_unset(&mut self.stack.borrow_mut(), nb + plan.nslots);
+        let caller_base = self.base.get();
+        self.base.set(nb);
+        let v = {
+            let b = buf.borrow();
+            self.eval(&plan.lhs, s0, &b)
+        };
+        self.base.set(caller_base);
+        self.stack.borrow_mut().truncate(nb);
+        let v = match v {
+            Ok(v) => v,
+            // the first call reports it, as before
+            Err(_) => return None,
+        };
+        for (it, c) in items.iter().zip(plan.consts.iter()) {
+            let Node::Call(d, args, _) = &**it else { return None };
+            match v.eq_val(c) {
+                Ok(true) => {
+                    if let Err(e) = self.enum_def_call_impl(d, args, Mode::Next, s0, buf, k, true) {
+                        return Some(Err(e));
+                    }
+                }
+                Ok(false) => {}
+                // the comparison of this disjunct fails: enter it the usual way (its test raises the error)
+                Err(_) => {
+                    if let Err(e) = self.enum_def_call(d, args, Mode::Next, s0, buf, k) {
+                        return Some(Err(e));
+                    }
+                }
+            }
+        }
+        Some(Ok(()))
+    }
+
     fn enum_def_call(&self, d: &Rc<CompiledDef>, args: &[Arg], mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont) -> R<()> {
+        self.enum_def_call_impl(d, args, mode, s0, buf, k, false)
+    }
+
+    /// `known`: the first conjunct of the body (`first_test`) is known to hold (`enum_or_planned` evaluated it)
+    #[allow(clippy::too_many_arguments)]
+    fn enum_def_call_impl(&self, d: &Rc<CompiledDef>, args: &[Arg], mode: Mode, s0: &[Value], buf: &Buf, k: &mut Cont, known: bool) -> R<()> {
         // the arguments are evaluated in the caller's frame and pushed directly into the callee's frame
         let nb = self.stack.borrow().len();
         for a in args {
@@ -1054,7 +1226,9 @@ to argument {}, which is not in the domain of the function.",
             let mut start = 0usize;
             let mut rejected = false;
             let mut failure: Option<Box<TlcErr>> = None;
-            if mode == Mode::Next && !self.splitting.get() && !self.eval_only.get() {
+            if known {
+                start = 1;
+            } else if mode == Mode::Next && !self.splitting.get() && !self.eval_only.get() {
                 if let Some(t) = first_test(d) {
                     let by_name = self.stack.borrow()[nb..nb + args.len()].iter().any(|s| matches!(s, Slot::Lazy(_)));
                     if !by_name {
@@ -1342,5 +1516,26 @@ impl Ev {
             Err(e) if e.code == -777 => Ok(true),
             Err(e) => Err(e),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `OrPlan` recognizes the same tested expression in each disjunct, and only plain arguments
+    #[test]
+    fn or_plan_matches_plain_expressions_only() {
+        let pc = |slot: u32| -> Ex { Rc::new(Node::FcnApply(Rc::new(Node::Var(2)), Rc::new(Node::Local(slot)))) };
+        assert!(same_plain(&pc(0), &pc(0)));
+        assert!(!same_plain(&pc(0), &pc(1)));
+        let c = |v: Value| -> Ex { Rc::new(Node::Const(v)) };
+        assert!(same_plain(&c(Value::str("a1")), &c(Value::str("a1"))));
+        assert!(!same_plain(&c(Value::str("a1")), &c(Value::str("a2"))));
+        let a = vec![Arg::Val(Rc::new(Node::Local(0)), false)];
+        let b = vec![Arg::Val(Rc::new(Node::Local(0)), false)];
+        let by_name = vec![Arg::Val(Rc::new(Node::Local(0)), true)];
+        assert!(same_args(&a, &b));
+        assert!(!same_args(&a, &by_name));
     }
 }

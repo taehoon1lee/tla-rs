@@ -389,3 +389,5 @@
 - H22 (perf pass 10): invariants/constraints of a successor skip the pure conjuncts whose variables are the predecessor's very objects
   (`CheckPlan` in bfs.rs) and test only the changed parts of `x \in [S -> T]` (`member_diff`). Full set geomean 0.958. Keep such helpers
   `#[inline(never)]`: inlined into `Checker::run`, the same code made SlidingPuzzles 26 % slower although it never ran there.
+- H29: `A \/ B \/ C` compiles to nested binary `Or` nodes; anything that looks at "the disjuncts" must flatten them. PlusCal label actions
+  `pc[self] = "lbl"` are now dispatched once per disjunction (MCBakery x0.859, SimpleRegular x0.898, Slush x0.923).
