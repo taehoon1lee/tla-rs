@@ -201,3 +201,39 @@ MCBakery's and EWD998PCal's "rest" is not leaf evaluation (0 leaf evaluations): 
 Next candidates (backlog H21-H23 in `loop/PERF.md`): SCC per PEM (Elevator ~70 % of what is left), invariant/constraint conjuncts
 skipped when their variables did not change (BFS models, 14-55 % in invariants), cheaper eval-mode `x' = [x EXCEPT ..]` (SpanTreeRandom).
 Symmetry `fp` (canonicalization) is 47-69 % of MultiPaxos / Checkpoint / FastPaxos (not in the FULL set).
+
+# Fourth pass (2026-11-27, HEAD 3c24d66): the models where Rust is closest to Java
+
+Java alone vs Rust (364-model sequential run, before H25): MCLamportMutex x0.927, EWD998Small x0.848, SlidingPuzzles x0.813,
+GameOfLife x0.794, MCBakery x0.713, MCDisruptor_MPMC x0.707, SimpleRegular x0.694, MultiPaxos_MC_small x0.689, SlushSmall x0.662.
+These runs are long, so Java's JIT is warm: what decides is the raw cost per operation, not start-up.
+
+Where the time goes (rdtsc phases; node profile restricted to a phase with `TLCRS_PROF_PHASE`):
+| model | phases | hottest nodes (node self time) |
+|---|---|---|
+| MCLamportMutex | enum 65, inv 14 (+5 outside the constraint), fp 8, constraint 4 | enum: Except 24, Eq/Neq 20, Head/Tail/Append 11; inv: In 41 |
+| EWD998Small | enum 39, inv 16 + 17 outside the constraint, constraint 17 | inv: In 16, FoldFunctionOnSet 13, Rng 12, Sum 7 |
+| SimpleRegular | enum 54, inv 25, fp 14 | In 21, Except 20, Eq 13 |
+| GameOfLife | enum 98 | FcnApply 15 (lazy `sc`), Call(Sum) 13, Or 8, SetMinus 7 |
+| MCBakery | init 45 (`ISpec`), enum 44 | In 16, And 12, IInv 12, Eq 11, Except 9 |
+| SlidingPuzzles | enum 94 | CallLocal 17 (LAMBDA), FcnApply 12, Tuple 9 |
+| MCDisruptor_MPMC | enum 65, inv 20 | SubstIn 14, Except 12, In 9 |
+| SlushSmall | enum 87 | Eq 25, Except 11, Memo(SubsetOf) 10 |
+Sampling (MCLamportMutex): clone/drop/alloc ~16 %, hash_into 7.8 %, needs_normalize 4 %, member_impl 4.6 %, interpreter dispatch ~25 %.
+
+Results on this set (A/B against the previous HEAD):
+- H25 (committed): GameOfLife x0.904, EWD998Small x0.950, SimpleRegular x0.969, Disruptor x0.979, Slush x0.983, LamportMutex x0.985,
+  Bakery x0.988, SlidingPuzzles x0.991 = geomean ~0.97 on the 8 models; also Huang x0.944, EWD998PCal x0.956.
+- H24 Fcn membership memo: no effect (functions over `1..N` are Tuples). s11 no value memo for cheap defs: no effect.
+- H26 prototype (algebraic Fcn hash, O(1) update by EXCEPT; `tmp/perf_research/h26_algebraic_fcn_hash.patch`, not committed: changes
+  fingerprint values, which PROMPT_PERF.md forbids): SimpleRegular x0.924, Disruptor x0.971, but EWD998Small x1.017, LamportMutex x1.012,
+  MultiPaxos x1.023 (records and other freshly built functions pay one finalizer per pair). Would need a cheaper pair combiner.
+
+Conclusion: no local change left gives >= 10 % on these models; each remaining item is 2-5 %. What is left (expected gain):
+1. H27 one-allocation Tuple/Set with a header (cached hash, normal-form flag): every state fingerprint rehashes `1..N` functions
+   (fp phase LamportMutex 7.6 %, Disruptor 6.6 %, Slush 6.5 %, Bakery 5.6 %), two allocations per tuple, `needs_normalize` 4 %.
+   Estimate LamportMutex -8..10 %, Bakery/Slush/Disruptor -5..7 %. Large refactor (`Rc<Vec<Value>>` everywhere); a thin DST needs `unsafe`.
+2. H15 LAMBDA / operator-argument calls (SlidingPuzzles CallLocal 17 %): -8..10 % there.
+3. Invariants of successors outside the constraint checked once per distinct state (EWD998Small: 1.6M checks, 1.18M distinct): <= -4.6 %.
+4. H28 FpSet prefetch (MCBakery FpSet::insert 4.5 %): <= -3 %.
+5. Interpreter dispatch (eval_inner + enum_* ~25 %): only a closure/bytecode compilation would move it; weeks of work.
