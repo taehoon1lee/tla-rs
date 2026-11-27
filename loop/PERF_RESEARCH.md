@@ -237,3 +237,23 @@ Conclusion: no local change left gives >= 10 % on these models; each remaining i
 3. Invariants of successors outside the constraint checked once per distinct state (EWD998Small: 1.6M checks, 1.18M distinct): <= -4.6 %.
 4. H28 FpSet prefetch (MCBakery FpSet::insert 4.5 %): <= -3 %.
 5. Interpreter dispatch (eval_inner + enum_* ~25 %): only a closure/bytecode compilation would move it; weeks of work.
+
+# Fifth pass (2026-11-27, HEAD 78655c3): cumulative result on the models closest to Java
+
+Java alone vs the build before this research (5d01875, H20; `tmp/h20.exe`, built in the same directory) vs HEAD (H25 + H22 + H29),
+interleaved per model, sequential, min of 3, all signatures identical (`cmp3.py`-style run, scratch script):
+| model | Java alone | H20 | HEAD | HEAD/H20 | HEAD/Java |
+|---|---|---|---|---|---|
+| MCLamportMutex | 11.04 | 10.17 | 8.94 | **x0.880** | x0.810 |
+| EWD998Small | 24.32 | 20.19 | 17.08 | **x0.846** | x0.703 |
+| SlidingPuzzles | 1.47 | 1.18 | 1.12 | x0.948 | x0.757 |
+| GameOfLife | 9.11 | 7.24 | 6.50 | **x0.898** | x0.714 |
+| MCBakery | 7.60 | 5.55 | 4.76 | **x0.858** | x0.626 |
+| MCDisruptor_MPMC | 2.98 | 2.05 | 1.97 | x0.961 | x0.662 |
+| SimpleRegular | 3.51 | 2.42 | 1.92 | **x0.792** | x0.547 |
+| MultiPaxos_MC_small | 16.34 | 11.16 | 10.12 | x0.907 | x0.619 |
+| SlushSmall | 5.57 | 3.75 | 3.38 | x0.901 | x0.608 |
+| **geomean (9)** | | | | **x0.887** | x0.667 (was x0.753) |
+What did it, by model: invariants/constraints of successors (H22: EWD998Small, MCLamportMutex, SimpleRegular, MultiPaxos), PlusCal label
+dispatch (H29: MCBakery, SimpleRegular, Slush), EXCEPT path + memo lookups + Sum memo (H25: GameOfLife, EWD998Small), LAMBDA calls (H15: SlidingPuzzles).
+Still open: H27 (Tuple header: fingerprint 7-15 %, needs the fingerprint rule relaxed for the hash cache), H28 FpSet prefetch, symmetry (MultiPaxos fp 46 %).
