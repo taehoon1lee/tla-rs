@@ -140,3 +140,7 @@ Next: H13 (Huang `TypeOK`, ~50 % of what is left); add symmetry models (MultiPax
 ## 2026-11-27 perf H18 -- ACCEPT: store-forwarding-free `Clone` for `Value`/`Slot` + merge-based set ops + `\o` + FxHasher in live.rs (Sonnet 5.5)
 `AB RESULT: ACCEPT (geomean new/base 0.888, best 0.787 bcastByz, worst 0.975 SimpleRegular, models 15, reps 2)`: every model of the full set is faster; gate see below.
 Cause: the derived `Clone` moved a freshly built enum with a wide load after two narrow stores (store-forwarding stall, 7 ns per `Vec<Value>` element). Next: more stall sites (scalar constructors in `Arith`/comparisons), `except1` bulk copy, H15 closures.
+
+## 2026-11-27 perf H19 (no code) -- NEUTRAL: bulk `Vec<Value>` copies, `needs_normalize` prefilter, shared `[S -> T]` domain (Sonnet 5.5)
+`AB RESULT: NEUTRAL (geomean 0.990 on LamportMutex/EWD998Small/Bakery/MCbtree, reps 3; quick 1.008 at `--reps 5`)`: after H18 the per-element clone is cheap enough that bulk copies are below the noise. Code reverted.
+Next: profile after H18 shows `hash_into` 7.5 %, `Value::clone` call overhead 5 % (out of line, jump table), `FpSet::insert` 2-3 %, `enum_def_call`/`enum_action_inner` 14 %: H15 closures, cheaper `hash_into`.
