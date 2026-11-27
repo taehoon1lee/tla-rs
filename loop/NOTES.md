@@ -386,3 +386,6 @@
   `hash_into` values are only used inside one run (FpSet, fp_index, memo keys, trace reconstruction, `TLCFP` whose value never matched
   Java's FP64); symmetry uses `abs_hash`, the liveness successor order `jfp::fp64`. So the hash scheme could change without changing output,
   but PROMPT_PERF.md says "fingerprints: unchanged": H26/H27 need the owner's decision.
+- H22 (perf pass 10): invariants/constraints of a successor skip the pure conjuncts whose variables are the predecessor's very objects
+  (`CheckPlan` in bfs.rs) and test only the changed parts of `x \in [S -> T]` (`member_diff`). Full set geomean 0.958. Keep such helpers
+  `#[inline(never)]`: inlined into `Checker::run`, the same code made SlidingPuzzles 26 % slower although it never ran there.

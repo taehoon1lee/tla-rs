@@ -168,27 +168,257 @@ pub(crate) fn step_action_ok(setup: &Setup, cur: &[Value], succ: &[Value]) -> R<
 /// check the invariants on a state; `Some(name)` if one is violated
 pub(crate) fn state_check_invariants(setup: &Setup, vals: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
     for inv in &setup.invariants {
-        match setup.run_top(inv, vals, &setup.ev.empty()) {
-            Ok(Value::Bool(true)) => {}
-            Ok(Value::Bool(false)) => return Ok(Some(inv.name.clone())),
-            Ok(other) => {
-                return Err((
-                    Box::new(TlcErr {
-                        code: ec::GENERAL,
-                        msg: format!("The invariant {} evaluated to the non-boolean value\n{}", inv.name, other.to_tla()),
-                        not_ported: false,
-                        trail: vec![],
-                        fp_exc: false,
-                        frames: vec![], vsrc: vec![],
-                        pass: false,
-                    }),
-                    inv.name.clone(),
-                ))
-            }
-            Err(e) => return Err((e, inv.name.clone())),
+        match check_one_invariant(setup, inv, vals) {
+            Ok(None) => {}
+            other => return other,
         }
     }
     Ok(None)
+}
+
+/// a conjunct of an invariant or a state constraint (`CheckPlan`): evaluated in the frame of the definition whose body it is
+pub(crate) struct Conj {
+    ex: tlc_core::ir::Ex,
+    frame: FrameOf,
+    /// values of the bound variables of the top-level expression (first slots), empty inside a definition
+    bound: Vec<Value>,
+    /// the state variables it reads
+    vars: Vec<u32>,
+}
+
+/// whose frame a conjunct is evaluated in: the top-level expression's or a definition's (its slot count is read when it runs)
+enum FrameOf {
+    Top(Rc<std::cell::Cell<usize>>),
+    Def(Rc<tlc_core::ir::CompiledDef>),
+}
+
+impl FrameOf {
+    fn nslots(&self) -> usize {
+        match self {
+            FrameOf::Top(n) => n.get(),
+            FrameOf::Def(d) => d.nslots.get(),
+        }
+    }
+}
+
+/// Invariants and state constraints split into their conjuncts (the top-level `/\` and, through nullary definitions, the `/\` of
+/// their bodies).  The state a successor comes from satisfies every invariant and every constraint (it was expanded), so a pure
+/// conjunct that reads only variables the successor shares with it (the same value objects) holds again and is not evaluated
+/// (no counterpart in Java).  Only expressions all of whose conjuncts are pure get a plan; when an evaluated conjunct is not
+/// `TRUE`, the whole expression is evaluated the usual way, which reports exactly what it reported before.
+pub(crate) struct CheckPlan {
+    inv: Vec<Option<Vec<Conj>>>,
+    cons: Vec<Option<Vec<Conj>>>,
+}
+
+impl CheckPlan {
+    pub(crate) fn build(setup: &Setup) -> CheckPlan {
+        CheckPlan { inv: setup.invariants.iter().map(Self::split).collect(), cons: setup.constraints.iter().map(Self::split).collect() }
+    }
+
+    fn split(t: &tlc_core::spec::Top) -> Option<Vec<Conj>> {
+        let mut out = vec![];
+        if !Self::flatten(&t.ex, &FrameOf::Top(t.nslots.clone()), &t.bound, &mut out, 0) {
+            return None;
+        }
+        Some(out)
+    }
+
+    fn flatten(ex: &tlc_core::ir::Ex, frame: &FrameOf, bound: &[Value], out: &mut Vec<Conj>, depth: u32) -> bool {
+        use tlc_core::ir::Node;
+        match &**ex {
+            Node::And(items) => items.iter().all(|it| Self::flatten(it, frame, bound, out, depth)),
+            Node::Call(d, args, _) if args.is_empty() && d.native.get().is_none() && d.nparams == 0 && depth < 16 => {
+                let body = d.body.borrow().clone();
+                match body {
+                    Some(b) => Self::flatten(&b, &FrameOf::Def(d.clone()), &[], out, depth + 1),
+                    None => false,
+                }
+            }
+            _ => match tlc_core::deps::expr_reads(ex) {
+                // the only free slots are the bound variables of the top-level expression
+                Some((vars, slots)) if slots.iter().all(|&s| (s as usize) < bound.len()) => {
+                    let frame = match frame {
+                        FrameOf::Top(n) => FrameOf::Top(n.clone()),
+                        FrameOf::Def(d) => FrameOf::Def(d.clone()),
+                    };
+                    out.push(Conj { ex: ex.clone(), frame, bound: bound.to_vec(), vars });
+                    true
+                }
+                _ => false,
+            },
+        }
+    }
+}
+
+/// `a` and `b` are the same value object (or equal scalars): what is computed from one is computed from the other
+#[inline]
+fn same_value(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Int(x), Value::Int(y)) => x == y,
+        (Value::Bool(x), Value::Bool(y)) => x == y,
+        (Value::Str(x), Value::Str(y)) | (Value::Model(x), Value::Model(y)) => x == y,
+        (Value::Set(x), Value::Set(y)) | (Value::Tuple(x), Value::Tuple(y)) => Rc::ptr_eq(x, y),
+        (Value::Fcn(x), Value::Fcn(y)) => Rc::ptr_eq(x, y),
+        (Value::Interval(a0, a1), Value::Interval(b0, b1)) => a0 == b0 && a1 == b1,
+        _ => false,
+    }
+}
+
+/// `new \in set`, knowing that `old \in set` holds (`old` is the value of the same variable in the predecessor and `set` does not
+/// depend on the state): only the parts of `new` that are not the very objects of `old` are tested; a function or record with the
+/// domain of `old` is an element when its changed values are.  `None`: undecided (the conjunct is evaluated the usual way)
+/// the expression is a function / record set (`[S -> T]`, `[f: S, ..]`), possibly remembered or folded
+fn fcn_set_node(b: &tlc_core::ir::Ex) -> bool {
+    use tlc_core::ir::Node;
+    match &**b {
+        Node::SetOfFcns(..) | Node::SetOfRcds(..) => true,
+        Node::Memo(m) => fcn_set_node(&m.inner),
+        Node::Fold(n, _) => fcn_set_node(n),
+        Node::Const(v) => matches!(v, Value::SetOfFcns(_) | Value::SetOfRcds(_)),
+        _ => false,
+    }
+}
+
+#[inline(never)]
+fn member_diff(set: &Value, new: &Value, old: &Value, depth: u32) -> Option<bool> {
+    if same_value(new, old) {
+        return Some(true);
+    }
+    if depth > 8 {
+        return None;
+    }
+    match (set, new, old) {
+        (Value::SetOfFcns(p), Value::Tuple(n), Value::Tuple(o)) if n.len() == o.len() => {
+            for (x, y) in n.iter().zip(o.iter()) {
+                if member_diff(&p.1, x, y, depth + 1) != Some(true) {
+                    return None;
+                }
+            }
+            Some(true)
+        }
+        (Value::SetOfFcns(p), Value::Fcn(n), Value::Fcn(o)) if Rc::ptr_eq(&n.dom, &o.dom) => {
+            for (x, y) in n.vals.iter().zip(o.vals.iter()) {
+                if member_diff(&p.1, x, y, depth + 1) != Some(true) {
+                    return None;
+                }
+            }
+            Some(true)
+        }
+        (Value::SetOfRcds(fs), Value::Fcn(n), Value::Fcn(o)) if Rc::ptr_eq(&n.dom, &o.dom) => {
+            for ((d, x), y) in n.dom.iter().zip(n.vals.iter()).zip(o.vals.iter()) {
+                if same_value(x, y) {
+                    continue;
+                }
+                let Value::Str(id) = d else { return None };
+                let (_, s) = fs.iter().find(|(nm, _)| nm == id)?;
+                if member_diff(s, x, y, depth + 1) != Some(true) {
+                    return None;
+                }
+            }
+            Some(true)
+        }
+        _ => match set.member(new) {
+            Ok(true) => Some(true),
+            _ => None,
+        },
+    }
+}
+
+/// every conjunct holds in `vals` (those that read only variables `vals` shares with `parent` are not evaluated); `false` also
+/// when a conjunct is not `TRUE` or fails (the caller then evaluates the whole expression)
+#[inline(never)]
+fn conjs_hold(setup: &Setup, conjs: &[Conj], vals: &[Value], parent: &[Value]) -> bool {
+    setup.ev.epoch.set(setup.ev.epoch.get() + 1);
+    let empty = setup.ev.empty();
+    for c in conjs {
+        if c.vars.iter().all(|&i| match (vals.get(i as usize), parent.get(i as usize)) {
+            (Some(a), Some(b)) => same_value(a, b),
+            _ => false,
+        }) {
+            continue;
+        }
+        let r = setup.ev.with_frame(c.frame.nslots().max(c.bound.len()), |ev| {
+            for (i, v) in c.bound.iter().enumerate() {
+                ev.set_slot(i as u32, tlc_core::ir::Slot::V(v.clone()));
+            }
+            // `x \in S` with `S` independent of the state: test only what changed in `x` (`member_diff`)
+            if let tlc_core::ir::Node::In(a, b) = &*c.ex {
+                if let tlc_core::ir::Node::Var(i) = &**a {
+                    if c.vars.len() == 1 && c.vars[0] == *i && fcn_set_node(b) {
+                        if let (Some(nv @ (Value::Tuple(_) | Value::Fcn(_))), Some(ov)) = (vals.get(*i as usize), parent.get(*i as usize)) {
+                            if let Ok(set) = ev.eval(b, vals, &empty) {
+                                if member_diff(&set, nv, ov, 0) == Some(true) {
+                                    return Ok(Value::Bool(true));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            ev.eval(&c.ex, vals, &empty)
+        });
+        if !matches!(r, Ok(Value::Bool(true))) {
+            return false;
+        }
+    }
+    true
+}
+
+/// `state_in_model` of a successor of `parent` (see `CheckPlan`)
+#[inline(never)]
+pub(crate) fn state_in_model_from(setup: &Setup, plan: &CheckPlan, vals: &[Value], parent: &[Value]) -> R<bool> {
+    for (i, c) in setup.constraints.iter().enumerate() {
+        if let Some(Some(conjs)) = plan.cons.get(i) {
+            if conjs_hold(setup, conjs, vals, parent) {
+                continue;
+            }
+        }
+        match setup.run_top(c, vals, &setup.ev.empty())? {
+            Value::Bool(true) => {}
+            Value::Bool(false) => return Ok(false),
+            _ => return fail_code(ec::TLC_EXPECTED_VALUE, format!("TLC expected a boolean value, but did not find one. {}", setup.constraint_exprs[i])),
+        }
+    }
+    Ok(true)
+}
+
+/// `state_check_invariants` of a successor of `parent` (see `CheckPlan`)
+#[inline(never)]
+pub(crate) fn state_check_invariants_from(setup: &Setup, plan: &CheckPlan, vals: &[Value], parent: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
+    for (k, inv) in setup.invariants.iter().enumerate() {
+        if let Some(Some(conjs)) = plan.inv.get(k) {
+            if conjs_hold(setup, conjs, vals, parent) {
+                continue;
+            }
+        }
+        match check_one_invariant(setup, inv, vals) {
+            Ok(None) => {}
+            other => return other,
+        }
+    }
+    Ok(None)
+}
+
+/// one invariant, evaluated the usual way: `Some(name)` if it is violated
+fn check_one_invariant(setup: &Setup, inv: &tlc_core::spec::Top, vals: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
+    match setup.run_top(inv, vals, &setup.ev.empty()) {
+        Ok(Value::Bool(true)) => Ok(None),
+        Ok(Value::Bool(false)) => Ok(Some(inv.name.clone())),
+        Ok(other) => Err((
+            Box::new(TlcErr {
+                code: ec::GENERAL,
+                msg: format!("The invariant {} evaluated to the non-boolean value\n{}", inv.name, other.to_tla()),
+                not_ported: false,
+                trail: vec![],
+                fp_exc: false,
+                frames: vec![], vsrc: vec![],
+                pass: false,
+            }),
+            inv.name.clone(),
+        )),
+        Err(e) => Err((e, inv.name.clone())),
+    }
 }
 
 /// Java: `Tool.getImpliedActions` checks on the step `cur -> succ`
@@ -295,6 +525,8 @@ struct Checker<'a> {
     no_summary: bool,
     /// the state being expanded (an error then ends the run with the summary of `printSummary(false, ..)`)
     cur_head: Option<usize>,
+    /// invariants and constraints split into conjuncts (`CheckPlan`)
+    plan: CheckPlan,
     /// does the specification draw random numbers (`RandomElement`, `Randomization`)?
     uses_random: bool,
     /// Java: after the failed evaluation of an invariant / action property the replay of the state is silent and `printSummary(true)` follows
@@ -839,6 +1071,22 @@ While working on the initial state:
 
     fn in_model(&self, vals: &[Value]) -> R<bool> {
         state_in_model(self.setup, vals)
+    }
+
+    /// `in_model` of a successor of the expanded state `parent`
+    fn in_model_from(&self, vals: &[Value], parent: &[Value]) -> R<bool> {
+        if self.opts.continue_after_error {
+            return self.in_model(vals);
+        }
+        state_in_model_from(self.setup, &self.plan, vals, parent)
+    }
+
+    /// `check_invariants` of a successor of the expanded state `parent` (with `-continue` a violating state is expanded too: no plan)
+    fn check_invariants_from(&self, vals: &[Value], parent: &[Value]) -> Result<Option<String>, (Box<TlcErr>, String)> {
+        if self.opts.continue_after_error {
+            return self.check_invariants(vals);
+        }
+        state_check_invariants_from(self.setup, &self.plan, vals, parent)
     }
 
     fn action_ok(&self, cur: &[Value], succ: &[Value]) -> R<bool> {
@@ -1563,7 +1811,7 @@ Reason:
                 self.set_counters(cur_level as i64 + 1, (self.states.len() - head - 1) as i64);
                 prof_phase_on("constraint");
                 let t_c = prof_now();
-                let ok = match self.in_model(&st).and_then(|m| if m { self.action_ok(&cur, &st) } else { Ok(false) }) {
+                let ok = match self.in_model_from(&st, &cur).and_then(|m| if m { self.action_ok(&cur, &st) } else { Ok(false) }) {
                     Ok(b) => b,
                     Err(e) => {
                         let code = self.report_err(&e, ec::exit_status::FAILURE_SPEC_EVAL);
@@ -1577,7 +1825,7 @@ Reason:
                 let implied_vals = if self.setup.implied_actions.is_empty() { None } else { Some((st.clone(), label.clone())) };
                 if !ok && !self.setup.invariants.is_empty() {
                     // Java: a successor outside the model is not stored but is `unseen`: its invariants are still checked
-                    let inv_r = self.check_invariants(&st);
+                    let inv_r = self.check_invariants_from(&st, &cur);
                     match inv_r {
                         Ok(None) => {}
                         Ok(Some(name)) => {
@@ -1676,7 +1924,7 @@ Reason:
                         let idx = self.states.len() - 1;
                         let t_i = prof_now();
                         prof_phase_on("inv");
-                        let inv_r = self.check_invariants(&self.states[idx].vals);
+                        let inv_r = self.check_invariants_from(&self.states[idx].vals, &cur);
                         prof_phase_off();
                         prof_add(4, t_i);
                         match inv_r {
@@ -2404,6 +2652,7 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
     let live = !setup.live.oss.is_empty();
     let uses_random = tlc_core::natives::random_used();
     let mut ck = Checker {
+        plan: CheckPlan::build(setup),
         setup,
         rep,
         states: Vec::new(),
@@ -2482,5 +2731,35 @@ pub fn model_check(setup: &Rc<Setup>, opts: &TlcOptions, rep: &mut Reporter, sta
             }
             finish(ck.rep, start, code)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// `member_diff` decides membership from the parts that changed, and leaves everything it cannot decide to the full test
+    #[test]
+    fn member_diff_tests_only_changed_parts() {
+        let ints = Value::Interval(1, 3);
+        let row_set = Value::SetOfFcns(Rc::new((Value::Interval(1, 2), ints.clone())));
+        let set = Value::SetOfFcns(Rc::new((Value::Interval(1, 2), row_set)));
+        let r1 = Value::tuple(vec![Value::Int(1), Value::Int(2)]);
+        let r2 = Value::tuple(vec![Value::Int(3), Value::Int(3)]);
+        let old = Value::tuple(vec![r1.clone(), r2.clone()]);
+        // the same object
+        assert_eq!(member_diff(&set, &old, &old, 0), Some(true));
+        // one row replaced by an element of the row set: decided from that row only
+        let new = Value::tuple(vec![r1.clone(), Value::tuple(vec![Value::Int(2), Value::Int(1)])]);
+        assert_eq!(member_diff(&set, &new, &old, 0), Some(true));
+        // a changed value outside the range: undecided (the conjunct is evaluated the usual way and is FALSE)
+        let bad = Value::tuple(vec![r1.clone(), Value::tuple(vec![Value::Int(2), Value::Int(9)])]);
+        assert_eq!(member_diff(&set, &bad, &old, 0), None);
+        assert!(!set.member(&bad).unwrap());
+        // another shape (a different length): undecided
+        let short = Value::tuple(vec![r1]);
+        assert_eq!(member_diff(&set, &short, &old, 0), None);
+        assert!(same_value(&r2, &r2.clone()));
+        assert!(!same_value(&r2, &Value::tuple(vec![Value::Int(3), Value::Int(3)])));
     }
 }
