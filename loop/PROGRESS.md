@@ -148,3 +148,7 @@ Next: profile after H18 shows `hash_into` 7.5 %, `Value::clone` call overhead 5 
 ## 2026-11-27 perf H20 -- ACCEPT: liveness leaves shared by all orders of solution (Opus 5.5)
 `AB RESULT: ACCEPT (geomean new/base 0.866, best 0.239 MCFlashWithMutexLive, worst 1.027, models 15, reps 2)`; Elevator x0.611, bcastByz x0.743, Huang x0.946; gate -j 2 rc 0 (verdict/trace 364/364).
 Found by rdtsc phase counters (loop/PERF_RESEARCH.md "Third pass"): fairness leaves were re-evaluated for every PROPERTY (12x on FlashMutexLive). Next: H21 SCC per PEM (Elevator), H22 invariant conjuncts on unchanged variables (BFS models), H23 eval-mode EXCEPT.
+
+## 2026-11-27 perf H25 -- ACCEPT (targeted): EXCEPT path + allocation-free memo lookups + Sum memo (H13) (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.938, best 0.904 GameOfLife, worst 0.956, models 4, reps 3)`; full set NEUTRAL 0.988; gate -j 2 rc 0 (364/364). H24 (Fcn membership memo) and s11 (no value memo for cheap defs) REJECT.
+Next: H26 algebraic Fcn hash (prototype, needs the fingerprint rule relaxed), H27 one-allocation Tuple with cached hash, H28 FpSet prefetch.

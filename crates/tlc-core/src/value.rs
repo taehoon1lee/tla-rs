@@ -1401,6 +1401,78 @@ impl Value {
     }
 
     /// `[f EXCEPT ![path] = v]` with a single path component
+    /// `EXCEPT` on a tuple or a function in normal form: the position of `arg` as `apply` finds it (the same search: the same errors);
+    /// `Ok(None)` for every other value and for an argument outside the domain (the general path handles those)
+    #[inline]
+    pub fn except_pos(&self, arg: &Value) -> R<Option<usize>> {
+        match self {
+            Value::Tuple(t) => Ok(match arg {
+                Value::Int(i) if *i >= 1 && (*i as usize) <= t.len() => Some(*i as usize - 1),
+                _ => None,
+            }),
+            Value::Fcn(f) => Self::search(&f.dom, arg),
+            _ => Ok(None),
+        }
+    }
+
+    /// the element at a position found by `except_pos`
+    #[inline]
+    pub fn elem_at(&self, pos: usize) -> &Value {
+        match self {
+            Value::Tuple(t) => &t[pos],
+            Value::Fcn(f) => &f.vals[pos],
+            _ => unreachable!("elem_at on a value without positions"),
+        }
+    }
+
+    /// the element at `pos`, moved out when nothing else refers to this value (it is replaced by `replace_at` afterwards)
+    pub fn take_or_clone_at(&mut self, pos: usize) -> Value {
+        match self {
+            Value::Tuple(t) => match Rc::get_mut(t) {
+                Some(v) => std::mem::replace(&mut v[pos], Value::Undef),
+                None => t[pos].clone(),
+            },
+            Value::Fcn(f) => match Rc::get_mut(f) {
+                Some(fc) => std::mem::replace(&mut fc.vals[pos], Value::Undef),
+                None => f.vals[pos].clone(),
+            },
+            _ => unreachable!("take_or_clone_at on a value without positions"),
+        }
+    }
+
+    /// the value with the element at `pos` replaced (in place when nothing else refers to it)
+    pub fn replace_at(self, pos: usize, nv: Value) -> Value {
+        match self {
+            Value::Tuple(mut t) => {
+                if let Some(v) = Rc::get_mut(&mut t) {
+                    v[pos] = nv;
+                    return Value::Tuple(t);
+                }
+                let mut n = Vec::with_capacity(t.len());
+                n.extend_from_slice(&t[..pos]);
+                n.push(nv);
+                n.extend_from_slice(&t[pos + 1..]);
+                Value::tuple(n)
+            }
+            Value::Fcn(mut f) => {
+                if let Some(fc) = Rc::get_mut(&mut f) {
+                    fc.vals[pos] = nv;
+                    // the memos describe the old contents
+                    fc.fp.set(0);
+                    fc.norm_ok.set(false);
+                    fc.has_model.set(0);
+                    return Value::Fcn(f);
+                }
+                let mut n = Vec::with_capacity(f.vals.len());
+                n.extend_from_slice(&f.vals[..pos]);
+                n.push(nv);
+                n.extend_from_slice(&f.vals[pos + 1..]);
+                Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), n)))
+            }
+            _ => unreachable!("replace_at on a value without positions"),
+        }
+    }
+
     pub fn except1(&self, arg: &Value, v: Value) -> R<Value> {
         match self {
             Value::Tuple(t) => match arg {
@@ -2736,6 +2808,37 @@ mod tests {
         assert!(t.apply_ref(&Value::Int(0)).is_none());
         assert!(t.apply_ref(&Value::Int(3)).is_none());
         assert!(Value::Int(1).apply_ref(&Value::Int(1)).is_none());
+    }
+
+    /// `EXCEPT` helpers: a shared value is copied (the original stays intact), a value nothing else refers to is updated in place
+    /// with its memos cleared; the result equals and hashes like the value built from scratch
+    #[test]
+    fn except_replace_copies_shared_and_updates_unique() {
+        let fp = |v: &Value| {
+            let mut h = Hasher::new();
+            v.hash_into(&mut h).unwrap();
+            h.finish()
+        };
+        let t = Value::tuple(vec![Value::Int(1), Value::Int(2), Value::Int(3)]);
+        let keep = t.clone();
+        assert_eq!(t.except_pos(&Value::Int(2)).unwrap(), Some(1));
+        assert_eq!(t.except_pos(&Value::Int(4)).unwrap(), None);
+        let n = t.replace_at(1, Value::Int(9));
+        assert_eq!(keep.to_tla(), "<<1, 2, 3>>");
+        assert_eq!(n.to_tla(), "<<1, 9, 3>>");
+        let n2 = n.replace_at(0, Value::Int(7));
+        assert_eq!(n2.to_tla(), "<<7, 9, 3>>");
+        let dom = Rc::new(vec![Value::Int(0), Value::Int(1)]);
+        let f = Value::Fcn(Rc::new(Fcn::new(dom.clone(), vec![Value::Int(5), Value::Int(6)])));
+        let _ = fp(&f);
+        let mut owned = f;
+        assert_eq!(owned.except_pos(&Value::Int(1)).unwrap(), Some(1));
+        let old = owned.take_or_clone_at(1);
+        assert!(matches!(old, Value::Int(6)));
+        let g = owned.replace_at(1, Value::Int(8));
+        let fresh = Value::Fcn(Rc::new(Fcn::new(dom, vec![Value::Int(5), Value::Int(8)])));
+        assert!(g.eq_val(&fresh).unwrap());
+        assert_eq!(fp(&g), fp(&fresh));
     }
 
     /// a lazy huge set must not be enumerated just to build a memo key (`1..MaxInt` has 2^31 elements)

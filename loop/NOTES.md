@@ -374,3 +374,15 @@
   graphs; only the ids of SYMMETRY actual states (`fresh` in `build_graph_incr`) are per graph. H20 shares them (`SharedMemo`).
 - A leaf result may only be shared when the leaf cannot print / read TLC registers / draw random numbers: `memo::side_effect_free`
   (like `memo::scan`, but state variables allowed; INSTANCE substitution values and operator arguments are scanned explicitly).
+
+## Perf pass 10 (2026-11-27, H24-H25): the models closest to Java (MCLamportMutex x0.93, EWD998Small x0.85, SlidingPuzzles, GameOfLife, MCBakery)
+- Phase split (rdtsc): successor generation 39-98 %; invariants MCLamportMutex 22 %, EWD998Small 39 % (17 % of it on successors OUTSIDE the
+  constraint: Java checks their invariants too, every time they are generated: 1.6M checks, 1.18M distinct), SimpleRegular 25 %, Disruptor 24 %
+  (upper bounds measured by dropping INVARIANT lines from a copy of the cfg); MCBakery 45 % in the initial states (`ISpec`: Init = TypeOK /\ IInv
+  enumerates ~1.7M candidates; pruning early would change error behaviour).
+- `profnode.py ... TLCRS_PROF_PHASE=enum|inv` restricts the node profile to one phase (useful); node self time of a memoized `Call(X)`
+  overstates its cost (see LEDGER s11).
+- Functions over `1..N` are `Tuple`s: no `fp` / `norm_ok` / membership memo can be attached, every state fingerprint rehashes them.
+  `hash_into` values are only used inside one run (FpSet, fp_index, memo keys, trace reconstruction, `TLCFP` whose value never matched
+  Java's FP64); symmetry uses `abs_hash`, the liveness successor order `jfp::fp64`. So the hash scheme could change without changing output,
+  but PROMPT_PERF.md says "fingerprints: unchanged": H26/H27 need the owner's decision.

@@ -48,6 +48,8 @@ struct FrameCtx {
     next_slot: u32,
     max_slot: Rc<Cell<usize>>,
     at_slots: Vec<u32>,
+    /// per entry of `at_slots`: `@` occurred in the value expression
+    at_used: Vec<bool>,
     /// recursive LET operators compiled as closures: def id -> slot holding the closure
     rec_lets: HashMap<usize, u32>,
     /// number of slot allocations / slot references so far: an expression compiled without any is closed w.r.t. the frame
@@ -58,7 +60,7 @@ struct FrameCtx {
 
 impl FrameCtx {
     fn new() -> FrameCtx {
-        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], rec_lets: HashMap::new(), events: 0, let_memo: HashMap::new() }
+        FrameCtx { locals: HashMap::new(), lets: HashMap::new(), next_slot: 0, max_slot: Rc::new(Cell::new(0)), at_slots: vec![], at_used: vec![], rec_lets: HashMap::new(), events: 0, let_memo: HashMap::new() }
     }
     fn alloc(&mut self) -> u32 {
         self.events += 1;
@@ -549,6 +551,9 @@ impl Compiler {
             EKind::At => match self.fc().at_slots.last().copied() {
                 Some(s) => {
                     self.fc().events += 1;
+                    if let Some(u) = self.fc().at_used.last_mut() {
+                        *u = true;
+                    }
                     Rc::new(Node::Local(s))
                 }
                 None => self.unsupported("@ outside EXCEPT"),
@@ -631,9 +636,11 @@ impl Compiler {
                     }
                     let at = self.fc().alloc();
                     self.fc().at_slots.push(at);
+                    self.fc().at_used.push(false);
                     let val = self.expr(&s.val);
                     self.fc().at_slots.pop();
-                    out.push(ExceptIr { path, at_slot: at, val });
+                    let at_used = self.fc().at_used.pop().unwrap_or(true);
+                    out.push(ExceptIr { path, at_slot: at, at_used, val });
                 }
                 let floc = format!("line {}, col {} to line {}, col {} of module {}", f.loc.bl, f.loc.bc, f.loc.el, f.loc.ec, self.cur_module);
                 Rc::new(Node::Except(fe, out, Rc::from(floc.as_str())))

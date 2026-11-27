@@ -240,6 +240,8 @@ pub struct ExceptIr {
     pub path: Vec<PathIr>,
     /// slot holding `@` while evaluating `val`
     pub at_slot: u32,
+    /// `val` mentions `@` (otherwise the slot is not written)
+    pub at_used: bool,
     pub val: Ex,
 }
 

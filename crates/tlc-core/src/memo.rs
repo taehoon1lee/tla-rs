@@ -31,6 +31,36 @@ struct Scan {
     frozen: u32,
 }
 
+/// an operator argument inside the body of a memoized operator: a builtin operator, a LAMBDA, or a definition (with no operator
+/// parameters of its own) whose body is pure; an operator parameter or a constant operator is not (the value of the call would
+/// depend on what it stands for)
+fn op_arg_pure(o: &OpArg, st: &mut Scan) -> bool {
+    match o {
+        OpArg::Builtin(..) => true,
+        OpArg::Lambda(d) => match d.body() {
+            Some(b) => scan(&b, st),
+            None => false,
+        },
+        OpArg::Callee(Callee::Def(d), _) => {
+            let o = d.original();
+            if crate::natives::lookup(&o.module, &o.name).is_some() {
+                return pure_native(&o.module, &o.name);
+            }
+            if d.params.borrow().iter().any(|p| p.arity > 0) {
+                return false;
+            }
+            if !st.seen.insert(d.id) {
+                return true;
+            }
+            match d.body() {
+                Some(b) => scan(&b, st),
+                None => false,
+            }
+        }
+        OpArg::Callee(..) => false,
+    }
+}
+
 fn scan(e: &Expr, st: &mut Scan) -> bool {
     st.steps += 1;
     if st.steps > 20_000 {
@@ -43,8 +73,10 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
         EKind::Bi(B::Subset, _) => st.heavy = true,
         EKind::Apply(callee, args) => {
             for a in args {
-                if let Arg::Op(_) = a {
-                    return false;
+                if let Arg::Op(o) = a {
+                    if !op_arg_pure(o, st) {
+                        return false;
+                    }
                 }
             }
             match callee {
@@ -53,6 +85,10 @@ fn scan(e: &Expr, st: &mut Scan) -> bool {
                     if crate::natives::lookup(&o.module, &o.name).is_some() {
                         if !pure_native(&o.module, &o.name) && st.frozen == 0 {
                             return false;
+                        }
+                        // these iterate over a set / function
+                        if matches!(&*o.name, "FoldFunctionOnSet" | "FoldFunction" | "FoldSet" | "Quantify") {
+                            st.heavy = true;
                         }
                     } else if st.seen.insert(d.id) {
                         if d.params.borrow().iter().any(|p| p.arity > 0) {

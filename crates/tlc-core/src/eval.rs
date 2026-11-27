@@ -764,29 +764,42 @@ impl Ev {
                         }
                 };
                 if d.memo_kind.get() == 1 && substs_ok {
-                    let vals: Option<Vec<Value>> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
-                    if let Some(vals) = vals {
+                    // the arguments are hashed and compared where they are (the callee's frame); they are copied only for a new entry
+                    let key = {
+                        let st = self.stack.borrow();
                         let mut h = Hasher::new();
-                        if vals.iter().all(|v| v.hash_is_cheap()) && vals.iter().all(|v| v.hash_into(&mut h).is_ok()) {
-                            let key = h.finish();
-                            d.memo_calls.set(d.memo_calls.get() + 1);
-                            if let Some(bucket) = d.memo.borrow().get(&key) {
-                                for (a, r) in bucket {
-                                    if a.len() == vals.len() && a.iter().zip(vals.iter()).all(|(x, y)| x.eq_val(y).unwrap_or(false)) {
-                                        d.memo_hits.set(d.memo_hits.get() + 1);
-                                        self.stack.borrow_mut().truncate(nb);
-                                        return Ok(r.clone());
-                                    }
-                                }
-                            }
-                            if d.memo_calls.get() >= 128 && d.memo_hits.get() * 2 < d.memo_calls.get() {
-                                // the arguments hardly ever repeat: hashing them costs more than it saves
-                                d.memo_kind.set(2);
-                                d.memo.borrow_mut().clear();
-                            } else {
-                                memo_key = Some((key, vals));
-                            }
+                        let ok = st[nb..].iter().all(|s| matches!(s, Slot::V(v) if v.hash_is_cheap() && v.hash_into(&mut h).is_ok()));
+                        if ok {
+                            Some(h.finish())
+                        } else {
+                            None
                         }
+                    };
+                    d.memo_calls.set(d.memo_calls.get() + 1);
+                    if let Some(key) = key {
+                        let hit = {
+                            let st = self.stack.borrow();
+                            let a1 = &st[nb..];
+                            d.memo.borrow().get(&key).and_then(|bucket| {
+                                bucket
+                                    .iter()
+                                    .find(|(a, _)| a.len() == a1.len() && a.iter().zip(a1.iter()).all(|(x, y)| matches!(y, Slot::V(yv) if x.eq_val(yv).unwrap_or(false))))
+                                    .map(|(_, r)| r.clone())
+                            })
+                        };
+                        if let Some(r) = hit {
+                            d.memo_hits.set(d.memo_hits.get() + 1);
+                            self.stack.borrow_mut().truncate(nb);
+                            return Ok(r);
+                        }
+                    }
+                    if d.memo_calls.get() >= 128 && d.memo_hits.get() * 2 < d.memo_calls.get() {
+                        // the arguments hardly ever repeat (or cannot be hashed): hashing them costs more than it saves
+                        d.memo_kind.set(2);
+                        d.memo.borrow_mut().clear();
+                    } else if let Some(key) = key {
+                        let vals: Vec<Value> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { v.clone() } else { Value::Undef }).collect();
+                        memo_key = Some((key, vals));
                     }
                 }
             }
@@ -1955,18 +1968,27 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                 if specs.len() == 1 && specs[0].path.len() == 1 {
                     if let PathIr::Index(x) = &specs[0].path[0] {
                         let arg = self.eval(x, s0, s1)?;
-                        return self.except_path(&cur, std::slice::from_ref(&arg), 0, specs[0].at_slot, &specs[0].val, s0, s1, floc);
+                        return self.except_path(cur, std::slice::from_ref(&arg), 0, &specs[0], s0, s1, floc);
                     }
                 }
                 for sp in specs {
-                    let mut idx = Vec::with_capacity(sp.path.len());
-                    for p in &sp.path {
-                        match p {
-                            PathIr::Field(n) => idx.push(Value::Str(*n)),
-                            PathIr::Index(x) => idx.push(self.eval(x, s0, s1)?),
+                    // the path (at most 4 steps without an allocation)
+                    let mut small: [Value; 4] = [Value::Undef, Value::Undef, Value::Undef, Value::Undef];
+                    let mut big: Vec<Value> = Vec::new();
+                    let n = sp.path.len();
+                    for (j, p) in sp.path.iter().enumerate() {
+                        let v = match p {
+                            PathIr::Field(n) => Value::Str(*n),
+                            PathIr::Index(x) => self.eval(x, s0, s1)?,
+                        };
+                        if n <= 4 {
+                            small[j] = v;
+                        } else {
+                            big.push(v);
                         }
                     }
-                    cur = self.except_path(&cur, &idx, 0, sp.at_slot, &sp.val, s0, s1, floc)?;
+                    let idx: &[Value] = if n <= 4 { &small[..n] } else { &big };
+                    cur = self.except_path(cur, idx, 0, sp, s0, s1, floc)?;
                 }
                 Ok(cur)
             }
@@ -2201,7 +2223,31 @@ in a quantifier or set constructor.",
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn except_path(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
+    /// `[cur EXCEPT !idx[k]..idx[last] = sp.val]`.  For a tuple or a function in normal form the position of the argument is found
+    /// once, with the search `apply` does (same errors), the element is borrowed on the way down, the copy is built without the
+    /// replaced element, and a value nothing else refers to (the result of an earlier EXCEPT clause) is updated in place.  Any other
+    /// value, and an argument outside the domain, take `except_path_general`.
+    #[allow(clippy::too_many_arguments)]
+    fn except_path(&self, mut cur: Value, idx: &[Value], k: usize, sp: &ExceptIr, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
+        let pos = match cur.except_pos(&idx[k])? {
+            Some(p) => p,
+            None => return self.except_path_general(&cur, idx, k, sp.at_slot, &sp.val, s0, s1, floc),
+        };
+        let nv = if k + 1 == idx.len() {
+            if sp.at_used {
+                self.set_slot(sp.at_slot, Slot::V(cur.elem_at(pos).clone()));
+            }
+            self.eval(&sp.val, s0, s1)?
+        } else {
+            let sub = cur.take_or_clone_at(pos);
+            self.except_path(sub, idx, k + 1, sp, s0, s1, floc)?
+        };
+        Ok(cur.replace_at(pos, nv))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn except_path_general(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
         let arg = &idx[k];
         let sub = match cur.apply(arg) {
             Ok(v) => Some(v),
@@ -2237,7 +2283,7 @@ in a quantifier or set constructor.",
             let nv = self.eval(val, s0, s1)?;
             cur.except1(arg, nv)
         } else {
-            let inner = self.except_path(&sub.unwrap(), idx, k + 1, at_slot, val, s0, s1, floc)?;
+            let inner = self.except_path_general(&sub.unwrap(), idx, k + 1, at_slot, val, s0, s1, floc)?;
             cur.except1(arg, inner)
         }
     }
