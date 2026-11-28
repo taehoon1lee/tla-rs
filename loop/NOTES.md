@@ -319,3 +319,75 @@
   sampling profile (`tools/prof.py`) for proportions. Under Git Bash, an id filter like `/MCBakery` is rewritten to a Windows path: pass it without `/`.
 - Still open: EWD998PCal is ~10 % slower than Java alone (32.5 vs 29.7 s): the refinement mapping (`token` = CHOOSE over the network, `pending`) is re-evaluated
   per transition; closures capture the whole frame (free-variable analysis, see "Remaining perf ideas"); `enum_action_inner` disjunction path.
+
+## Perf pass 7 (2026-11-26, H8-H11)
+- Java short-circuits `<A>_e` / `[A]_e` (Tool.eval OPCODE_aa/sa): `e` is not evaluated when A decides. The port evaluated `vars` twice per fairness action and edge (Huang: 10 WF actions x 1.17M edges).
+- A nullary state-level definition that only builds a tuple of variables (`vars`) must not go through the state caches: 3 variable hashes + lookup cost more than the 3-tuple (`CompiledDef::cheap_body`).
+- Value-keyed memo keys must never hash a lazy huge set (`Value::hash_is_cheap`): `SingletonOf(RandomSubset(..), 1..(MaxInt-1))` hung `tt/ModuleSemanticsAssumeTest` once H8 made such operators memoizable.
+- Identical sources built in different directories differ by up to +12 % on 1-3 s models; compare same-path builds, re-measure a lone REJECT with `--reps 5`.
+- Details of the H8 research (profile aggregate, rejected E4/E5, PGO impossible): `loop/PERF_RESEARCH.md`.
+
+## Parallel search `-workers N` (2026-11-27, `crates/tlc-check/src/par.rs`, `crates/tlc-core/src/senc.rs`)
+- The harness always runs `-workers 1`: that path is unchanged (`par` is `None`). `-workers auto` still means 1.
+- Why not `Arc`: the evaluator (`Ev`, `Value`) is `Rc`/`RefCell`. Each worker thread builds its own `Setup` (`lib.rs: make_worker_setup`: SANY + `spec::setup`,
+  the `.cfg` text is parsed again because `ModelConfig` holds `Rc` values) and states cross threads as bytes (`senc::encode_state` / `decode_state`).
+- The sequential loop (`Checker::run`) hands the rest of the search over at a level boundary (`try_parallel`): >= 200 ms into the search and >= 256 states in
+  the level (`TLCRS_PAR_FORCE=1`: from level 1 on, for tests). The pass is level-synchronous (barrier per level), fingerprints are in 256 mutex-protected
+  shards (top byte), new states go to per-worker arenas. Generated / distinct / depth are exactly the sequential ones; only the out-degree statistics
+  depend on which worker found a state first (Java's differ run to run as well).
+- It only ever COMPLETES a violation-free exploration. Any violation, deadlock, evaluation error, incomplete successor, non-encodable value, panic, `Print`
+  output / warning / `TLCSet` register (checked after every state) makes it return `None`; the sequential loop then continues from the same level (the pass
+  changed nothing in `Checker`) and reports exactly what `-workers 1` reports. Cost of a failing pass: the work it did up to the abort.
+- Not used with liveness (`live`) or `RandomElement` (`uses_random`). `TLCGet("generated"|"distinct")` inside a spec sees approximate totals.
+- Measured (16 cores, one model run alone): MCLamportMutex 11.4 s (1 worker) -> 6.98 / 3.48 / 2.09 / 1.63 s (2 / 4 / 8 / 16); Java `-workers 8`: 3.6 s.
+- Unrelated finding: for a spec that EXTENDS Integers Java uses `Integers.Divide` (floor, and `-2147483648 \div -1` is an overflow error), the port always uses the
+  Naturals semantics: `(0-1) \div 7` gives 0 (Java: -1). Not fixed (needs the module of the extending spec in `natives::lookup`).
+
+## Perf pass 8 (2026-11-27, H18): store-to-load forwarding stalls in `Value` moves (geomean 0.888, every model of the full set faster)
+- Root cause found with an assembly dump of a plain `Vec<Value>` clone loop (`tmp/vbench`, `cargo rustc --release -- --emit asm`):
+  rustc builds a `Value` in a stack temporary with a 1-byte tag store and a 4/8-byte payload store (`movb $2,40(%rsp)` / `movl %eax,44(%rsp)`)
+  and then moves it with ONE 16-byte load (`movups 40(%rsp),%xmm0`). A load that spans two smaller stores cannot be store-forwarded: ~25 cycles
+  per value (7 ns per element of `Vec<Value>::clone`, 50 `Int`s: 391 ns; Java does an `arraycopy`). LLVM's `X86AvoidStoreForwardingBlocks` does not
+  fire because the stores are in other basic blocks (a jump table per variant).
+- Fix: `Clone for Value` / `Slot` = bump the `Rc` count of the variant, then `ptr::read(self)` (a 16-byte copy of the SOURCE, written long ago, so
+  nothing to forward). 50 `Int`s: 391 -> 164 ns; with a plain-data bulk `copy_nonoverlapping` 104 ns (of which drop 67 ns). The earlier "hand-written
+  Clone with a scalar fast path" (PERF.md s9) still built the new enum from partial stores, which is why it did not help.
+- The same hazard applies to every freshly built `Value` that is then moved as a whole (return slots of `eval`, `Slot::V(v)` pushes, `Vec::push`).
+  Not fixed: constructors are `Value::Int(..)` at thousands of sites. Idea (open): construct scalars with one 8-byte store (`#[repr(u8)]` layout +
+  a transmute helper) in the hottest producers (`Arith`, comparisons).
+- Other pieces of H18: `\o` has a `Fast::F2` entry and allocates once; `Value::merge_sets` (linear merge / binary search + segment copies) for
+  `\cup` `\cap` `\` of two `Set`s (micro `Cardinality(S \cup {x})` was 2.5x Java: 56 % in `set_from`'s sort+dedup); no `vals.clone()` before
+  `check_invariants`; the next-state label is shared by all expanded states; `FxHasher` (multiplicative) for the maps of `live.rs` and `fp_index`.
+- Method: micro-benchmarks that run one operation inside `ASSUME \A i \in 1..n : ...` must depend on `i` (a constant body is cached by Rust and by nothing
+  in Java); `ab.py compare` must run on an idle box - editing files or running scripts during an A/B turned two models x1.2 (REJECT) that measured
+  x0.80 / x0.91 when re-run idle.
+
+## Perf pass 9 (2026-11-27, H20): where the time goes per phase, and the liveness duplicate work
+- Measure phases with rdtsc counters in a THROW-AWAY build (`CARGO_TARGET_DIR=target-meas`, then `git checkout -- crates`): the
+  non-`prof` `prof_now`/`prof_add` in `bfs.rs` become `_rdtsc()` + static `AtomicU64` (single thread: Relaxed), dumped after `ck.run()`.
+  The `tlc-check/prof` feature is useless for this (a `getenv` per phase call); the sampling profile cannot attribute inclusive time
+  (80 % "?": no frame chain through leaf functions). `TLCRS_LIVE_DEBUG=1` prints the liveness stage times of the normal build.
+- Phase split of the FULL set + heavy models (table in `loop/PERF_RESEARCH.md`, "Third pass"): 7 of 15 FULL models spend > 50 % in the
+  final liveness check, mostly in leaf evaluation (`<<A>>_v` per edge, ENABLED per state); BFS models: invariants 14-55 %.
+- The liveness formula is translated and tagged ONCE (`process_oss`, `tag_expr(1)`); each PROPERTY (DNF disjunct) becomes its own Oos,
+  but the leaves are the same `Rc` objects with the same tags. Memo keys `(state, tag)` / `(tag, state, edge)` are therefore valid across
+  graphs; only the ids of SYMMETRY actual states (`fresh` in `build_graph_incr`) are per graph. H20 shares them (`SharedMemo`).
+- A leaf result may only be shared when the leaf cannot print / read TLC registers / draw random numbers: `memo::side_effect_free`
+  (like `memo::scan`, but state variables allowed; INSTANCE substitution values and operator arguments are scanned explicitly).
+
+## Perf pass 10 (2026-11-27, H24-H25): the models closest to Java (MCLamportMutex x0.93, EWD998Small x0.85, SlidingPuzzles, GameOfLife, MCBakery)
+- Phase split (rdtsc): successor generation 39-98 %; invariants MCLamportMutex 22 %, EWD998Small 39 % (17 % of it on successors OUTSIDE the
+  constraint: Java checks their invariants too, every time they are generated: 1.6M checks, 1.18M distinct), SimpleRegular 25 %, Disruptor 24 %
+  (upper bounds measured by dropping INVARIANT lines from a copy of the cfg); MCBakery 45 % in the initial states (`ISpec`: Init = TypeOK /\ IInv
+  enumerates ~1.7M candidates; pruning early would change error behaviour).
+- `profnode.py ... TLCRS_PROF_PHASE=enum|inv` restricts the node profile to one phase (useful); node self time of a memoized `Call(X)`
+  overstates its cost (see LEDGER s11).
+- Functions over `1..N` are `Tuple`s: no `fp` / `norm_ok` / membership memo can be attached, every state fingerprint rehashes them.
+  `hash_into` values are only used inside one run (FpSet, fp_index, memo keys, trace reconstruction, `TLCFP` whose value never matched
+  Java's FP64); symmetry uses `abs_hash`, the liveness successor order `jfp::fp64`. So the hash scheme could change without changing output,
+  but PROMPT_PERF.md says "fingerprints: unchanged": H26/H27 need the owner's decision.
+- H22 (perf pass 10): invariants/constraints of a successor skip the pure conjuncts whose variables are the predecessor's very objects
+  (`CheckPlan` in bfs.rs) and test only the changed parts of `x \in [S -> T]` (`member_diff`). Full set geomean 0.958. Keep such helpers
+  `#[inline(never)]`: inlined into `Checker::run`, the same code made SlidingPuzzles 26 % slower although it never ran there.
+- H29: `A \/ B \/ C` compiles to nested binary `Or` nodes; anything that looks at "the disjuncts" must flatten them. PlusCal label actions
+  `pc[self] = "lbl"` are now dispatched once per disjunction (MCBakery x0.859, SimpleRegular x0.898, Slush x0.923).

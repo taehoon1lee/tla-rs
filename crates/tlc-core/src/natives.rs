@@ -292,40 +292,48 @@ fn len1(v: &Value) -> R<Value> {
 fn concat(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
     let x = arg(ev, a, 0, s0, s1)?;
     let y = arg(ev, a, 1, s0, s1)?;
+    concat2(&x, &y)
+}
+
+/// `x \o y` on values: one allocation of the final size (Java: `new Value[n + m]` + two `arraycopy`)
+fn concat2(x: &Value, y: &Value) -> R<Value> {
     let evaluating = |form: &str, what: &str, v: &Value| -> R<Value> {
         fail_code(
             ec::TLC_MODULE_EVALUATING,
             format!("Evaluating an expression of the form {} when s is not a {}:\n{}", form, what, crate::pprint::ppr(&v.to_tla())),
         )
     };
-    if let Value::Str(i1) = &x {
-        return match &y {
+    if let Value::Str(i1) = x {
+        return match y {
             Value::Str(i2) => {
                 let (u1, u2) = (intern::name_of(*i1), intern::name_of(*i2));
                 Ok(Value::str(&format!("{}{}", u1, u2)))
             }
-            _ => evaluating(r"t \o s", "string", &y),
+            _ => evaluating(r"t \o s", "string", y),
         };
     }
-    let seq_of = |v: &Value| -> R<Option<Vec<Value>>> {
+    let seq_of = |v: &Value| -> R<Option<Rc<Vec<Value>>>> {
         Ok(match v {
-            Value::Tuple(t) => Some(t.to_vec()),
+            Value::Tuple(t) => Some(t.clone()),
             Value::FcnLam(_) => match v.force_fcn()? {
-                Value::Tuple(t) => Some(t.to_vec()),
+                Value::Tuple(t) => Some(t),
                 _ => None,
             },
             _ => None,
         })
     };
-    let mut s = match seq_of(&x)? {
+    let s = match seq_of(x)? {
         Some(s) => s,
-        None => return evaluating(r"s \o t", "sequence", &x),
+        None => return evaluating(r"s \o t", "sequence", x),
     };
-    match seq_of(&y)? {
-        Some(t) => s.extend(t),
-        None => return evaluating(r"t \o s", "sequence", &y),
-    }
-    Ok(Value::tuple(s))
+    let t = match seq_of(y)? {
+        Some(t) => t,
+        None => return evaluating(r"t \o s", "sequence", y),
+    };
+    let mut out = Vec::with_capacity(s.len() + t.len());
+    out.extend_from_slice(&s);
+    out.extend_from_slice(&t);
+    Ok(Value::tuple(out))
 }
 
 fn append(ev: &Ev, a: &mut Vec<Slot>, s0: &[Value], s1: &[Value]) -> R<Value> {
@@ -2269,6 +2277,7 @@ pub fn lookup_fast(module: &str, name: &str) -> Fast {
         ("Sequences", "Head") => Fast::F1(head1),
         ("Sequences", "Tail") => Fast::F1(tail1),
         ("Sequences", "Append") => Fast::F2(append2),
+        ("Sequences", "\\o") => Fast::F2(concat2),
         ("FiniteSets", "Cardinality") => Fast::F1(cardinality1),
         _ => Fast::None,
     }

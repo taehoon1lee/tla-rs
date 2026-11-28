@@ -96,6 +96,22 @@ pub fn state_reads_decls(d: &Rc<CompiledDef>) -> Option<(Vec<u32>, Vec<usize>)> 
     Some((w.vars, w.decls))
 }
 
+/// the state variables and the free frame slots a pure expression reads (sorted), or `None` when its value may depend on anything
+/// else (the conditions of `is_pure_state_expr`)
+pub fn expr_reads(e: &Ex) -> Option<(Vec<u32>, Vec<u32>)> {
+    let mut w = Walk::new(false);
+    if !w.node(e) {
+        return None;
+    }
+    let bound: HashSet<u32> = w.slots_bound.iter().copied().collect();
+    let mut slots: Vec<u32> = w.slots_read.iter().copied().filter(|s| !bound.contains(s)).collect();
+    slots.sort_unstable();
+    slots.dedup();
+    w.vars.sort_unstable();
+    w.vars.dedup();
+    Some((w.vars, slots))
+}
+
 /// the expression reads state variables, constants and frame slots only: no primed variables, no impure natives, no
 /// operator parameters, no INSTANCE substitutions (so evaluating it earlier or later in the same states gives the same value)
 pub fn is_pure_state_expr(e: &Ex) -> bool {

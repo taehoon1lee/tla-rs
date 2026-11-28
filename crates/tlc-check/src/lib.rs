@@ -8,6 +8,7 @@
 
 mod bfs;
 mod live;
+mod par;
 
 use std::rc::Rc;
 use tla_sany::Resolver;
@@ -179,8 +180,24 @@ to an element in its putative domain.".to_string()
             eprintln!("TOK {} {}", n, tla_sany::intern::intern(n));
         }
     }
+    // `-workers N`: each worker thread of the parallel search builds its own evaluator state from the same files
+    let make_worker_setup = || -> Option<spec::Setup> {
+        let mut sink = std::io::sink();
+        // the configuration holds `Rc` values: every thread parses its own
+        let cfg = config::parse(&cfg_text).ok()?;
+        let spec = tla_sany::frontend(&opts.spec_file(), resolver, &mut sink).ok()?;
+        let sem = spec.sem.as_ref()?;
+        let dir = opts.spec_file().parent().map(|p| p.to_path_buf()).unwrap_or_default();
+        let dir = if dir.as_os_str().is_empty() { std::path::PathBuf::from(".") } else { dir };
+        tlc_core::spec::set_user_overrides(tlc_core::classfile::load_user_overrides(&dir, sem).values);
+        let analyze = |src: &str| tla_sany::analyze_generated_module(&spec, resolver, src);
+        let setup = spec::setup(sem, &cfg, opts.max_set_size, opts.seed, &analyze).ok();
+        let _ = spec::take_pending_warnings();
+        setup
+    };
+    let par: Option<par::Factory> = if opts.workers > 1 { Some(&make_worker_setup) } else { None };
     let setup = Rc::new(setup);
-    let code = bfs::model_check(&setup, opts, rep, start);
+    let code = bfs::model_check(&setup, opts, rep, start, par);
     rep.flush();
     code
 }

@@ -229,6 +229,8 @@ pub struct Ev {
     pub splitting: Cell<bool>,
     /// memo for `Ev::action_simple`: (node address, mode) -> may the action enumerator produce at most one continuation
     pub simple_memo: RefCell<HashMap<(usize, bool), bool>>,
+    /// `actions.rs` `or_plan`: (disjunction node address) -> its guard-dispatch plan, if it has one
+    pub or_plans: RefCell<HashMap<usize, Option<Rc<crate::actions::OrPlan>>, std::hash::BuildHasherDefault<PtrHasher>>>,
     /// Java: Tool.getNextStatesAllAssigned: once every variable is assigned the remaining conjuncts are only evaluated
     pub eval_only: Cell<bool>,
     /// bumped whenever the state data a cached lazy value may depend on changes (see `LazyArg::cache`)
@@ -391,6 +393,7 @@ impl Ev {
             node_info: RefCell::new(HashMap::default()),
             splitting: Cell::new(false),
             simple_memo: RefCell::new(HashMap::new()),
+            or_plans: RefCell::new(HashMap::default()),
             eval_only: Cell::new(false),
             epoch: Cell::new(1),
             slot_pool: RefCell::new(Vec::new()),
@@ -476,6 +479,46 @@ impl Ev {
 
     pub fn run_captured_in(&self, cap: &Captured, assigns: &[(u32, Slot)], code: &Ex, s0: &[Value], s1: &[Value]) -> R<Value> {
         self.run_frame_in(&cap.frame, &cap.substs, assigns, code, s0, s1)
+    }
+
+    /// apply a LAMBDA closure in the current state: `run_frame_in` with the captured frame and the current substitutions (which
+    /// `apply_closure_slots` passes unchanged), the arguments moved into the parameter slots (`def.nslots + i`), then the closure
+    /// itself into `self_slot`
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn run_lambda(&self, c: &Rc<OpClosure>, def: &LambdaDef, frame: &[Slot], self_slot: Option<u32>, params: &mut [Slot], s0: &[Value], s1: &[Value]) -> R<Value> {
+        let old_base = self.base.get();
+        let nb = {
+            let st = self.stack.borrow_mut();
+            let nb = st.len();
+            st.extend(frame.iter().cloned());
+            for (i, p) in params.iter_mut().enumerate() {
+                let idx = nb + def.nslots + i;
+                if idx >= st.len() {
+                    st.resize(idx + 1, Slot::Unset);
+                }
+                st[idx] = std::mem::replace(p, Slot::Unset);
+            }
+            if let Some(ss) = self_slot {
+                let idx = nb + ss as usize;
+                if idx >= st.len() {
+                    st.resize(idx + 1, Slot::Unset);
+                }
+                st[idx] = Slot::Op(c.clone());
+            }
+            nb
+        };
+        self.base.set(nb);
+        self.depth.set(self.depth.get() + 1);
+        let r = if self.depth.get() > MAX_DEPTH {
+            fail_code(crate::ec::SYSTEM_STACK_OVERFLOW, "Java StackOverflowError: the evaluation recursed too deeply")
+        } else {
+            self.eval(&def.body, s0, s1)
+        };
+        self.depth.set(self.depth.get() - 1);
+        self.stack.borrow_mut().truncate(nb);
+        self.base.set(old_base);
+        r
     }
 
     /// evaluate `code` in a copy of `frame` under the substitutions `substs`, in the states `s0`, `s1`
@@ -660,6 +703,31 @@ impl Ev {
             }
     }
 
+    /// `vars == <<x, y, z>>`: building the tuple costs less than the lookups of the state-level caches below (state pointer, variable
+    /// values, hash of the values); such a definition is evaluated directly
+    #[inline]
+    fn cheap_def(d: &CompiledDef) -> bool {
+        match d.cheap_body.get() {
+            1 => true,
+            2 => false,
+            _ => Self::classify_cheap_def(d),
+        }
+    }
+
+    #[inline(never)]
+    fn classify_cheap_def(d: &CompiledDef) -> bool {
+        fn cheap(n: &Node) -> bool {
+            match n {
+                Node::Var(_) | Node::PrimedVar(..) | Node::Const(_) => true,
+                Node::Tuple(v) => v.len() <= 8 && v.iter().all(|e| cheap(e)),
+                _ => false,
+            }
+        }
+        let ok = d.body.borrow().as_ref().map_or(false, |b| cheap(b));
+        d.cheap_body.set(if ok { 1 } else { 2 });
+        ok
+    }
+
     fn call_def(&self, d: &Rc<CompiledDef>, args: &[Arg], s0: &[Value], s1: &[Value]) -> R<Value> {
         if d.native.get().is_none() {
             let cacheable = d.nparams == 0 && d.level == sem::Level::Const;
@@ -670,7 +738,7 @@ impl Ev {
             }
             // a state-level definition without parameters: its value depends only on the state and on the INSTANCE
             // substitutions in scope (the same substitution list object = the same scope)
-            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State;
+            let state_cacheable = args.is_empty() && d.nparams == 0 && d.level == sem::Level::State && !Self::cheap_def(d);
             if state_cacheable {
                 if let Some(c) = &*d.state_cache.borrow() {
                     if c.s0_ptr == s0.as_ptr() as usize && c.s0_len == s0.len() && c.epoch == self.epoch.get() && c.substs.same(&self.substs.borrow()) {
@@ -739,29 +807,42 @@ impl Ev {
                         }
                 };
                 if d.memo_kind.get() == 1 && substs_ok {
-                    let vals: Option<Vec<Value>> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { Some(v.clone()) } else { None }).collect();
-                    if let Some(vals) = vals {
+                    // the arguments are hashed and compared where they are (the callee's frame); they are copied only for a new entry
+                    let key = {
+                        let st = self.stack.borrow();
                         let mut h = Hasher::new();
-                        if vals.iter().all(|v| v.hash_into(&mut h).is_ok()) {
-                            let key = h.finish();
-                            d.memo_calls.set(d.memo_calls.get() + 1);
-                            if let Some(bucket) = d.memo.borrow().get(&key) {
-                                for (a, r) in bucket {
-                                    if a.len() == vals.len() && a.iter().zip(vals.iter()).all(|(x, y)| x.eq_val(y).unwrap_or(false)) {
-                                        d.memo_hits.set(d.memo_hits.get() + 1);
-                                        self.stack.borrow_mut().truncate(nb);
-                                        return Ok(r.clone());
-                                    }
-                                }
-                            }
-                            if d.memo_calls.get() >= 128 && d.memo_hits.get() * 2 < d.memo_calls.get() {
-                                // the arguments hardly ever repeat: hashing them costs more than it saves
-                                d.memo_kind.set(2);
-                                d.memo.borrow_mut().clear();
-                            } else {
-                                memo_key = Some((key, vals));
-                            }
+                        let ok = st[nb..].iter().all(|s| matches!(s, Slot::V(v) if v.hash_is_cheap() && v.hash_into(&mut h).is_ok()));
+                        if ok {
+                            Some(h.finish())
+                        } else {
+                            None
                         }
+                    };
+                    d.memo_calls.set(d.memo_calls.get() + 1);
+                    if let Some(key) = key {
+                        let hit = {
+                            let st = self.stack.borrow();
+                            let a1 = &st[nb..];
+                            d.memo.borrow().get(&key).and_then(|bucket| {
+                                bucket
+                                    .iter()
+                                    .find(|(a, _)| a.len() == a1.len() && a.iter().zip(a1.iter()).all(|(x, y)| matches!(y, Slot::V(yv) if x.eq_val(yv).unwrap_or(false))))
+                                    .map(|(_, r)| r.clone())
+                            })
+                        };
+                        if let Some(r) = hit {
+                            d.memo_hits.set(d.memo_hits.get() + 1);
+                            self.stack.borrow_mut().truncate(nb);
+                            return Ok(r);
+                        }
+                    }
+                    if d.memo_calls.get() >= 128 && d.memo_hits.get() * 2 < d.memo_calls.get() {
+                        // the arguments hardly ever repeat (or cannot be hashed): hashing them costs more than it saves
+                        d.memo_kind.set(2);
+                        d.memo.borrow_mut().clear();
+                    } else if let Some(key) = key {
+                        let vals: Vec<Value> = self.stack.borrow()[nb..].iter().map(|s| if let Slot::V(v) = s { v.clone() } else { Value::Undef }).collect();
+                        memo_key = Some((key, vals));
                     }
                 }
             }
@@ -905,6 +986,16 @@ impl Ev {
     }
 
     fn apply_closure(&self, c: &Rc<OpClosure>, args: &[Arg], s0: &[Value], s1: &[Value]) -> R<Value> {
+        if let OpClosure::Lambda { def, frame, self_slot } = &**c {
+            if args.len() <= 4 {
+                // the arguments are evaluated in the caller's frame, then moved into the LAMBDA's frame (no vectors)
+                let mut a: [Slot; 4] = [Slot::Unset, Slot::Unset, Slot::Unset, Slot::Unset];
+                for (i, x) in args.iter().enumerate() {
+                    a[i] = self.eval_arg(x, s0, s1)?;
+                }
+                return self.run_lambda(c, def, frame, *self_slot, &mut a[..args.len()], s0, s1);
+            }
+        }
         let mut slots: Vec<Slot> = Vec::with_capacity(args.len());
         for a in args {
             slots.push(self.eval_arg(a, s0, s1)?);
@@ -921,6 +1012,10 @@ impl Ev {
                     vals.push(self.force_slot(s, s0, s1)?);
                 }
                 self.apply_builtin(*b, vals)
+            }
+            OpClosure::Lambda { def, frame, self_slot } if slots.len() <= 4 => {
+                let mut slots = slots;
+                self.run_lambda(c, def, frame, *self_slot, &mut slots[..], s0, s1)
             }
             OpClosure::Lambda { def, frame, self_slot } => {
                 // runs right now in the current state: no need to copy the states into a `Captured`
@@ -1002,6 +1097,17 @@ impl Ev {
                     }
                     if is_empty(&vals[1]) {
                         return Ok(vals[0].clone());
+                    }
+                }
+                // two normalized sets: one merge (`Value::merge_sets`); a failing comparison takes the general path below
+                if let (Value::Set(x), Value::Set(y)) = (&vals[0], &vals[1]) {
+                    let op = match b {
+                        B::Union => SetOp::Cup,
+                        B::Intersect => SetOp::Cap,
+                        _ => SetOp::Diff,
+                    };
+                    if let Some(v) = merge_sets(op, x, y) {
+                        return Ok(Value::Set(Rc::new(v)));
                     }
                 }
                 let p = Rc::new((vals[0].clone(), vals[1].clone()));
@@ -1399,6 +1505,31 @@ impl Ev {
                         ArithOp::Le => return Ok(Value::Bool(p <= q)),
                         ArithOp::Ge => return Ok(Value::Bool(p >= q)),
                         ArithOp::DotDot => return Ok(Value::Interval(p, q)),
+                        // the natives (`Naturals.%`, `\div`, `^`) handle the error cases: a non-positive modulus, a zero divisor, a
+                        // negative exponent, `0^0` and an overflow fall through to them with the evaluated values
+                        ArithOp::Mod => {
+                            if q > 0 {
+                                let r = p % q;
+                                return Ok(Value::Int(if r < 0 { r + q } else { r }));
+                            }
+                        }
+                        ArithOp::Div => {
+                            if q != 0 {
+                                // Java: `Naturals.IntegerDivision`: truncating division corrected towards minus infinity
+                                let mut d = p.wrapping_div(q);
+                                if d < 0 && d.wrapping_mul(q) != p {
+                                    d -= 1;
+                                }
+                                return Ok(Value::Int(d));
+                            }
+                        }
+                        ArithOp::Pow => {
+                            if q >= 0 && !(p == 0 && q == 0) {
+                                if let Some(r) = p.checked_pow(q as u32) {
+                                    return Ok(Value::Int(r));
+                                }
+                            }
+                        }
                     }
                 }
                 nf(self, &mut vec![Slot::V(x), Slot::V(y)], s0, s1)
@@ -1894,23 +2025,36 @@ to arguments ({}), which is undefined.", dr.name, shown.join(", ")));
                 if specs.len() == 1 && specs[0].path.len() == 1 {
                     if let PathIr::Index(x) = &specs[0].path[0] {
                         let arg = self.eval(x, s0, s1)?;
-                        return self.except_path(&cur, std::slice::from_ref(&arg), 0, specs[0].at_slot, &specs[0].val, s0, s1, floc);
+                        return self.except_path(cur, std::slice::from_ref(&arg), 0, &specs[0], s0, s1, floc);
                     }
                 }
                 for sp in specs {
-                    let mut idx = Vec::with_capacity(sp.path.len());
-                    for p in &sp.path {
-                        match p {
-                            PathIr::Field(n) => idx.push(Value::Str(*n)),
-                            PathIr::Index(x) => idx.push(self.eval(x, s0, s1)?),
+                    // the path (at most 4 steps without an allocation)
+                    let mut small: [Value; 4] = [Value::Undef, Value::Undef, Value::Undef, Value::Undef];
+                    let mut big: Vec<Value> = Vec::new();
+                    let n = sp.path.len();
+                    for (j, p) in sp.path.iter().enumerate() {
+                        let v = match p {
+                            PathIr::Field(n) => Value::Str(*n),
+                            PathIr::Index(x) => self.eval(x, s0, s1)?,
+                        };
+                        if n <= 4 {
+                            small[j] = v;
+                        } else {
+                            big.push(v);
                         }
                     }
-                    cur = self.except_path(&cur, &idx, 0, sp.at_slot, &sp.val, s0, s1, floc)?;
+                    let idx: &[Value] = if n <= 4 { &small[..n] } else { &big };
+                    cur = self.except_path(cur, idx, 0, sp, s0, s1, floc)?;
                 }
                 Ok(cur)
             }
             Node::ActionSub { boxed, act, sub } => {
                 let a = self.eval(act, s0, s1)?.as_bool()?;
+                // Java: Tool.eval OPCODE_aa / OPCODE_sa: `<A>_e` is false when A is and `[A]_e` is true when A is; `e` is not evaluated then
+                if a == *boxed {
+                    return Ok(Value::Bool(a));
+                }
                 let unchanged = {
                     let cur = self.eval(sub, s0, s1)?;
                     let empty = self.empty();
@@ -2136,7 +2280,31 @@ in a quantifier or set constructor.",
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn except_path(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
+    /// `[cur EXCEPT !idx[k]..idx[last] = sp.val]`.  For a tuple or a function in normal form the position of the argument is found
+    /// once, with the search `apply` does (same errors), the element is borrowed on the way down, the copy is built without the
+    /// replaced element, and a value nothing else refers to (the result of an earlier EXCEPT clause) is updated in place.  Any other
+    /// value, and an argument outside the domain, take `except_path_general`.
+    #[allow(clippy::too_many_arguments)]
+    fn except_path(&self, mut cur: Value, idx: &[Value], k: usize, sp: &ExceptIr, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
+        let pos = match cur.except_pos(&idx[k])? {
+            Some(p) => p,
+            None => return self.except_path_general(&cur, idx, k, sp.at_slot, &sp.val, s0, s1, floc),
+        };
+        let nv = if k + 1 == idx.len() {
+            if sp.at_used {
+                self.set_slot(sp.at_slot, Slot::V(cur.elem_at(pos).clone()));
+            }
+            self.eval(&sp.val, s0, s1)?
+        } else {
+            let sub = cur.take_or_clone_at(pos);
+            self.except_path(sub, idx, k + 1, sp, s0, s1, floc)?
+        };
+        Ok(cur.replace_at(pos, nv))
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[inline(never)]
+    fn except_path_general(&self, cur: &Value, idx: &[Value], k: usize, at_slot: u32, val: &Ex, s0: &[Value], s1: &[Value], floc: &str) -> R<Value> {
         let arg = &idx[k];
         let sub = match cur.apply(arg) {
             Ok(v) => Some(v),
@@ -2172,7 +2340,7 @@ in a quantifier or set constructor.",
             let nv = self.eval(val, s0, s1)?;
             cur.except1(arg, nv)
         } else {
-            let inner = self.except_path(&sub.unwrap(), idx, k + 1, at_slot, val, s0, s1, floc)?;
+            let inner = self.except_path_general(&sub.unwrap(), idx, k + 1, at_slot, val, s0, s1, floc)?;
             cur.except1(arg, inner)
         }
     }

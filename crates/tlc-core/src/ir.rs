@@ -12,7 +12,6 @@ use tla_sany::sem::{self, B};
 pub type Ex = Rc<Node>;
 
 /// a value held in a frame slot
-#[derive(Clone)]
 pub enum Slot {
     Unset,
     V(Value),
@@ -25,6 +24,26 @@ pub enum Slot {
     /// memoized value of a nullary LET definition: (value, address and length of the current state, evaluation epoch);
     /// valid while the same state is evaluated and nothing was assigned (Java: `LazyValue`)
     Memo(Rc<MemoVal>),
+}
+
+/// Same as `Value::clone`: bump the reference count, then copy the 16 bytes as they are (see the comment there: building the new
+/// enum from a tag store and a payload store and moving it with one wide load stalls on store forwarding).
+impl Clone for Slot {
+    #[inline]
+    fn clone(&self) -> Slot {
+        match self {
+            // a boxed error is cloned for real (it owns its data)
+            Slot::Poison(e) => return Slot::Poison(e.clone()),
+            Slot::V(v) => v.bump_rc(),
+            Slot::Unset => {}
+            // SAFETY: each is a live `Rc`; the bitwise copy below is the second owner the increment accounts for
+            Slot::Op(r) => unsafe { Rc::increment_strong_count(Rc::as_ptr(r)) },
+            Slot::Lazy(r) => unsafe { Rc::increment_strong_count(Rc::as_ptr(r)) },
+            Slot::Memo(r) => unsafe { Rc::increment_strong_count(Rc::as_ptr(r)) },
+        }
+        // SAFETY: every other variant is plain data or exactly one `Rc` whose count was just incremented
+        unsafe { std::ptr::read(self) }
+    }
 }
 
 /// the payload of `Slot::Memo` (boxed to keep `Slot` small)
@@ -167,6 +186,9 @@ pub struct CompiledDef {
     /// calls looked up / found in `memo`: remembering stops when fewer than half of the calls are found
     pub memo_calls: Cell<u32>,
     pub memo_hits: Cell<u32>,
+    /// state-level definition without parameters whose body only builds a tuple of variables / constants (`vars == <<a, b, c>>`):
+    /// 0 = not analysed yet, 1 = cheaper to evaluate than to look up in the state caches, 2 = not
+    pub cheap_body: Cell<u8>,
     /// constant declarations the memoized operator can reach (`memo::memoizable`); `None` = it contains INSTANCE substitutions,
     /// so its calls are only remembered when no substitution is in scope
     pub memo_decls: RefCell<Option<Vec<usize>>>,
@@ -218,6 +240,8 @@ pub struct ExceptIr {
     pub path: Vec<PathIr>,
     /// slot holding `@` while evaluating `val`
     pub at_slot: u32,
+    /// `val` mentions `@` (otherwise the slot is not written)
+    pub at_used: bool,
     pub val: Ex,
 }
 
@@ -256,6 +280,10 @@ pub enum ArithOp {
     Le,
     Ge,
     DotDot,
+    /// `%` (second operand > 0), `\div` (second operand != 0), `^` (exponent >= 0, not `0^0`, result fits an Int)
+    Mod,
+    Div,
+    Pow,
 }
 
 pub enum Node {

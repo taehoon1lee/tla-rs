@@ -124,3 +124,38 @@ Next: re-run `ab.py time --set full` to refresh STANDING; remaining over Java al
 SpanTreeRandom 4.44 -> 2.05 s (x0.46, Java alone x0.47): `Nbrs(n)` reaches `Edges == .. RandomElement(..)`, which runs once (cached), so `Nbrs` is now remembered by its argument.
 `AB RESULT` (full, 2 reps): REJECT only because of MCDisruptor_MPMC x1.136; re-measured `--reps 5`: x0.991 (noise, longer run is final). Others within +-3 %. gate: no regressions.
 Next: every model of the full set is now <= Java alone; lower the geomean further (H2 disjunction/failing guards, H4 TypeOK membership, `EWD998!vars` 12 % of PCal).
+
+## 2026-11-26 perf H8 -- ACCEPT: memo of more pure operators + cheaper value comparison (Sonnet 5.5)
+Huang x0.66, MCKVsnap x0.85, SpanTreeRandom x0.83, Sailfish x0.91; 14 slowest models -10.4 % wall. `AB RESULT: ACCEPT (geomean new/base 0.958, best 0.829, worst 1.048, models 15, reps 2)`; gate -j 2 rc 0 (check levels 364/364). H9, H10 NEUTRAL.
+Found while testing: a lazy `1..MaxInt` argument must never be hashed for a memo key (`Value::hash_is_cheap`); identical source built in another directory differs up to +12 % on short models (compare same-path builds only). Next: H11 Huang liveness, H12 symmetry delta hash. See loop/PERF_RESEARCH.md.
+
+## 2026-11-26 perf H11 -- ACCEPT: `<<A>>_vars` short-circuit + cheap tuple-of-variables definitions (Sonnet 5.5)
+Huang 20.66 -> 17.86 s (liveness part -31 %), EWD998PCal x0.84, ElevatorLivenessMedium x0.89. `AB RESULT: ACCEPT (geomean new/base 0.967, best 0.888, worst 1.029, models 15, reps 2)`; gate -j 2 rc 0 (364/364).
+(quick showed SimpleRegular x1.078 REJECT; `--reps 5` x0.965 = layout noise, as before.) Next: H13 (Huang `TypeOK` = 50 % of what is left: `Sum` with `FoldFunction(Add, ..)`), H12 symmetry.
+
+## 2026-11-26 perf H12 -- ACCEPT (targeted): one-traversal symmetry signatures (Sonnet 5.5)
+MultiPaxos_MC_small x0.85, FastPaxos x0.87, MCCheckpointCoordinationFailure x0.91 (`ab.py compare` of the 4 symmetry models: ACCEPT geomean 0.900). `--set full` = NEUTRAL 1.007 only because the FULL set has one symmetry model; gate -j 2 rc 0 (364/364).
+Next: H13 (Huang `TypeOK`, ~50 % of what is left); add symmetry models (MultiPaxos_MC_small, FastPaxos) and Huang to `tools/ab.py` FULL (judge file: not editable by the loop).
+
+## 2026-11-27 perf H18 -- ACCEPT: store-forwarding-free `Clone` for `Value`/`Slot` + merge-based set ops + `\o` + FxHasher in live.rs (Sonnet 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.888, best 0.787 bcastByz, worst 0.975 SimpleRegular, models 15, reps 2)`: every model of the full set is faster; gate see below.
+Cause: the derived `Clone` moved a freshly built enum with a wide load after two narrow stores (store-forwarding stall, 7 ns per `Vec<Value>` element). Next: more stall sites (scalar constructors in `Arith`/comparisons), `except1` bulk copy, H15 closures.
+
+## 2026-11-27 perf H19 (no code) -- NEUTRAL: bulk `Vec<Value>` copies, `needs_normalize` prefilter, shared `[S -> T]` domain (Sonnet 5.5)
+`AB RESULT: NEUTRAL (geomean 0.990 on LamportMutex/EWD998Small/Bakery/MCbtree, reps 3; quick 1.008 at `--reps 5`)`: after H18 the per-element clone is cheap enough that bulk copies are below the noise. Code reverted.
+Next: profile after H18 shows `hash_into` 7.5 %, `Value::clone` call overhead 5 % (out of line, jump table), `FpSet::insert` 2-3 %, `enum_def_call`/`enum_action_inner` 14 %: H15 closures, cheaper `hash_into`.
+
+## 2026-11-27 perf H20 -- ACCEPT: liveness leaves shared by all orders of solution (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.866, best 0.239 MCFlashWithMutexLive, worst 1.027, models 15, reps 2)`; Elevator x0.611, bcastByz x0.743, Huang x0.946; gate -j 2 rc 0 (verdict/trace 364/364).
+Found by rdtsc phase counters (loop/PERF_RESEARCH.md "Third pass"): fairness leaves were re-evaluated for every PROPERTY (12x on FlashMutexLive). Next: H21 SCC per PEM (Elevator), H22 invariant conjuncts on unchanged variables (BFS models), H23 eval-mode EXCEPT.
+
+## 2026-11-27 perf H25 -- ACCEPT (targeted): EXCEPT path + allocation-free memo lookups + Sum memo (H13) (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.938, best 0.904 GameOfLife, worst 0.956, models 4, reps 3)`; full set NEUTRAL 0.988; gate -j 2 rc 0 (364/364). H24 (Fcn membership memo) and s11 (no value memo for cheap defs) REJECT.
+Next: H26 algebraic Fcn hash (prototype, needs the fingerprint rule relaxed), H27 one-allocation Tuple with cached hash, H28 FpSet prefetch.
+
+## 2026-11-27 perf H22 -- ACCEPT: invariants / constraints skip what the predecessor already proved (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.958, best 0.837 MCbtree, worst 1.042, models 15, reps 2)`: EWD998Small x0.859, SimpleRegular x0.888, MCLamportMutex x0.889; gate -j 2 rc 0 (364/364).
+Next: H27 one-allocation Tuple with cached hash, H15 closures (SlidingPuzzles), H28 FpSet prefetch.
+
+## 2026-11-27 perf H29 -- ACCEPT: PlusCal label dispatch + allocation-free LAMBDA calls (H2 + H15) (Opus 5.5)
+`AB RESULT: ACCEPT (geomean new/base 0.981, best 0.859 MCBakery, worst 1.019, models 15, reps 2)`: SimpleRegular x0.898, SlushSmall x0.923, SlidingPuzzles x0.960; gate -j 2 rc 0 (364/364).

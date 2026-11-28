@@ -29,6 +29,9 @@ pub struct Leaf {
     /// values of the enclosing bound variables: they occupy the first slots of the frame
     pub bound: Vec<Value>,
     pub text: String,
+    /// the leaf has no side effect (`memo::side_effect_free`): its value on a state / step may be shared between the orders of
+    /// solution that contain it
+    pub shareable: bool,
 }
 
 impl Leaf {

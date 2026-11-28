@@ -2,11 +2,61 @@
 //! product of the state graph and the tableau), the SCC search that looks for a counterexample of an order of solution
 //! and the construction of the lasso (`LiveWorker.printTrace`: prefix, DFS/BFS postfix).
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::rc::Rc;
 use tlc_core::eval::Ev;
 use tlc_core::liveness::oos::{Oos, Pem};
 use tlc_core::value::*;
+
+/// Multiplicative hasher for the small integer keys of the graph maps (`(state, tableau node)`, fingerprints, ...): the default
+/// SipHash was 4 % of a liveness run (H16).  The iteration order of these maps is never observable (it was random before).
+#[derive(Default, Clone, Copy)]
+pub struct FxHasher(u64);
+
+const FX_K: u64 = 0x517c_c1b7_2722_0a95;
+
+impl FxHasher {
+    #[inline(always)]
+    fn add(&mut self, x: u64) {
+        self.0 = (self.0.rotate_left(5) ^ x).wrapping_mul(FX_K);
+    }
+}
+
+impl std::hash::Hasher for FxHasher {
+    #[inline]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        for b in bytes {
+            self.add(*b as u64);
+        }
+    }
+    #[inline]
+    fn write_u8(&mut self, i: u8) {
+        self.add(i as u64);
+    }
+    #[inline]
+    fn write_u32(&mut self, i: u32) {
+        self.add(i as u64);
+    }
+    #[inline]
+    fn write_i32(&mut self, i: i32) {
+        self.add(i as u32 as u64);
+    }
+    #[inline]
+    fn write_u64(&mut self, i: u64) {
+        self.add(i);
+    }
+    #[inline]
+    fn write_usize(&mut self, i: usize) {
+        self.add(i as u64);
+    }
+}
+
+pub type HashMap<K, V> = std::collections::HashMap<K, V, std::hash::BuildHasherDefault<FxHasher>>;
+pub type HashSet<K> = std::collections::HashSet<K, std::hash::BuildHasherDefault<FxHasher>>;
 
 /// access to the stored states of the breadth-first search
 pub trait States {
@@ -50,10 +100,55 @@ pub struct Lasso {
     pub stuttering: bool,
 }
 
+/// Values of the side-effect-free leaves (`Leaf::shareable`), shared by the behavior graphs of all orders of solution.  The leaves
+/// are tagged once for the whole formula (`process_oss`: `tag_expr`), and the disjuncts of its normal form hold the same leaf
+/// objects, so a fairness condition common to several properties has the same tag in each order of solution.  Java evaluates it
+/// again for each of them (`LiveCheck.addNextState`: `oos.checkAction` per checker); the value is the same.  Keys use the index of
+/// a stored state (never the id of an actual state that SYMMETRY made differ from the stored one: such ids are per graph).
+#[derive(Default)]
+pub struct SharedMemo {
+    nstates: u32,
+    /// (state, tag) -> value of a state-level leaf
+    state: HashMap<(u32, u32), bool>,
+    /// (tag, source state, edge key) -> value of an action leaf that occurs in more than one order of solution
+    action: HashMap<(u32, u32, u32), bool>,
+    /// tag -> the action leaf occurs in more than one order of solution
+    multi: Vec<bool>,
+}
+
+impl SharedMemo {
+    fn new(nstates: usize, oss: &[Oos]) -> SharedMemo {
+        fn tags(ln: &tlc_core::liveness::ln::Ln, out: &mut Vec<u32>) {
+            use tlc_core::liveness::ln::LnNode;
+            match &*ln.0 {
+                LnNode::Action(a) => out.push(a.tag.get()),
+                LnNode::Neg(b) | LnNode::Even(b) | LnNode::All(b) | LnNode::Next(b) => tags(b, out),
+                LnNode::Conj(v) | LnNode::Disj(v) => v.iter().for_each(|x| tags(x, out)),
+                _ => {}
+            }
+        }
+        let mut count: Vec<u32> = vec![];
+        for oos in oss {
+            let mut t = vec![];
+            oos.check_action.iter().for_each(|c| tags(c, &mut t));
+            t.sort_unstable();
+            t.dedup();
+            for x in t {
+                if count.len() <= x as usize {
+                    count.resize(x as usize + 1, 0);
+                }
+                count[x as usize] += 1;
+            }
+        }
+        SharedMemo { nstates: nstates as u32, multi: count.iter().map(|&c| c > 1).collect(), ..Default::default() }
+    }
+}
+
 /// build the behavior graph of one order of solution (Java: `LiveChecker` / `TableauLiveChecker` fed by `addNextState`)
-pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>]) -> R<Graph> {
+#[allow(clippy::too_many_arguments)]
+pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oos: &Oos, pre: &[Option<Vec<bool>>], shared: &mut SharedMemo) -> R<Graph> {
     if let (Some(gen), true) = (gen, oos.tableau.is_some()) {
-        return build_graph_incr(ev, store, succ, gen, gen_fn, inits, oos, pre);
+        return build_graph_incr(ev, store, succ, gen, gen_fn, inits, oos, pre, shared);
     }
     let alen = oos.check_action.len();
     let nstates = succ.len();
@@ -68,8 +163,8 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&
     };
     // per (state, successor position): results of the action predicates.  A state-level subformula (e.g.
     // `ENABLED <<A>>_v` of a fairness condition) depends on the source state only: it is evaluated once per state.
-    let mut edge_checks: HashMap<(u32, u32), Vec<bool>> = HashMap::new();
-    let mut leaf_memo: HashMap<(u32, u32), bool> = HashMap::new();
+    let mut edge_checks: HashMap<(u32, u32), Vec<bool>> = HashMap::default();
+    let mut leaf_memo: HashMap<(u32, u32), bool> = HashMap::default();
     let mut action_bits = |s: u32, i: usize, edge_checks: &mut HashMap<(u32, u32), Vec<bool>>| -> R<Vec<bool>> {
         if let Some(v) = edge_checks.get(&(s, i as u32)) {
             return Ok(v.clone());
@@ -79,7 +174,7 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&
         let s1 = store.edge_vals(s, i).unwrap_or_else(|| store.vals(t));
         let mut v = Vec::with_capacity(oos.check_action.len());
         for c in oos.check_action.iter() {
-            v.push(eval_memo(c, ev, s, s0, s1, &mut leaf_memo)?);
+            v.push(eval_memo(c, ev, s, i as u32, s0, s1, &mut leaf_memo, shared)?);
         }
         edge_checks.insert((s, i as u32), v.clone());
         Ok(v)
@@ -98,9 +193,9 @@ pub fn build_graph(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&
             g.init = inits.to_vec();
         }
         Some(tb) => {
-            let mut index: HashMap<(u32, i32), u32> = HashMap::new();
+            let mut index: HashMap<(u32, i32), u32> = HashMap::default();
             // memo: (successor state, tableau node) -> consistent?  (keyed by the edge when edges carry their own states)
-            let mut consistent: HashMap<(u64, usize), bool> = HashMap::new();
+            let mut consistent: HashMap<(u64, usize), bool> = HashMap::default();
             let mut is_consistent = |s: u32, vals: Option<&[Value]>, key: u64, t: usize, consistent: &mut HashMap<(u64, usize), bool>| -> R<bool> {
                 if let Some(b) = consistent.get(&(key, t)) {
                     return Ok(*b);
@@ -180,9 +275,9 @@ fn build_graph_incr(
     inits: &[u32],
     oos: &Oos,
     pre: &[Option<Vec<bool>>],
+    shared: &mut SharedMemo,
 ) -> R<Graph> {
-    use std::collections::HashSet;
-    struct B<'a> {
+    struct B<'a, 'm> {
         ev: &'a Ev,
         store: &'a dyn States,
         oos: &'a Oos,
@@ -199,8 +294,9 @@ fn build_graph_incr(
         bits: HashMap<(u32, u32), Vec<bool>>,
         leaf: HashMap<(u32, u32), bool>,
         fresh: u32,
+        shared: &'m mut SharedMemo,
     }
-    impl<'a> B<'a> {
+    impl<'a, 'm> B<'a, 'm> {
         /// does the tableau node `t` accept the state `s` (`vals`: the actual state when it is not the one the node stores)?
         fn consistent(&mut self, s: u32, vals: Option<&[Value]>, t: usize) -> R<bool> {
             match vals {
@@ -228,7 +324,7 @@ fn build_graph_incr(
             }
             let mut v = Vec::with_capacity(self.oos.check_action.len());
             for c in self.oos.check_action.iter() {
-                v.push(eval_memo(c, self.ev, mid, v0, v1, &mut self.leaf)?);
+                v.push(eval_memo(c, self.ev, mid, key, v0, v1, &mut self.leaf, self.shared)?);
             }
             self.bits.insert((mid, key), v.clone());
             Ok(v)
@@ -339,15 +435,16 @@ fn build_graph_incr(
         gen,
         gen_fn,
         g: Graph { nodes: vec![], init: vec![], alen: oos.check_action.len() },
-        index: HashMap::new(),
+        index: HashMap::default(),
         rec: vec![vec![]; n],
         done: vec![false; n],
-        texist: HashSet::new(),
-        cons: HashMap::new(),
+        texist: HashSet::default(),
+        cons: HashMap::default(),
         sc: (0..n).map(|i| pre.get(i).cloned().flatten()).collect(),
-        bits: HashMap::new(),
-        leaf: HashMap::new(),
+        bits: HashMap::default(),
+        leaf: HashMap::default(),
         fresh: n as u32,
+        shared,
     };
     // addInitState: (state, tnode) is a root node if tnode is an initial tableau node consistent with the state
     for &s in inits {
@@ -413,11 +510,14 @@ fn build_graph_incr(
 }
 
 /// `Ln::eval` on the step `s0 -> s1` of the state `s`, remembering the value of every state predicate per state
-fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1: &[Value], memo: &mut HashMap<(u32, u32), bool>) -> R<bool> {
+/// `ek` identifies the step among the steps of `s` (the edge key of `SharedMemo::action`)
+#[allow(clippy::too_many_arguments)]
+fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, ek: u32, s0: &[Value], s1: &[Value], memo: &mut HashMap<(u32, u32), bool>, shared: &mut SharedMemo) -> R<bool> {
     use tlc_core::liveness::ln::LnNode;
     match &*ln.0 {
         LnNode::State(l) => {
             let key = (s, l.tag.get());
+            let memo = if l.leaf.shareable && s < shared.nstates { &mut shared.state } else { memo };
             if let Some(b) = memo.get(&key) {
                 return Ok(*b);
             }
@@ -425,10 +525,19 @@ fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1:
             memo.insert(key, b);
             Ok(b)
         }
-        LnNode::Neg(b) => Ok(!eval_memo(b, ev, s, s0, s1, memo)?),
+        LnNode::Action(a) if a.leaf.shareable && s < shared.nstates && shared.multi.get(a.tag.get() as usize).copied().unwrap_or(false) => {
+            let key = (a.tag.get(), s, ek);
+            if let Some(b) = shared.action.get(&key) {
+                return Ok(*b);
+            }
+            let b = ln.eval(ev, s0, s1)?;
+            shared.action.insert(key, b);
+            Ok(b)
+        }
+        LnNode::Neg(b) => Ok(!eval_memo(b, ev, s, ek, s0, s1, memo, shared)?),
         LnNode::Conj(v) => {
             for x in v {
-                if !eval_memo(x, ev, s, s0, s1, memo)? {
+                if !eval_memo(x, ev, s, ek, s0, s1, memo, shared)? {
                     return Ok(false);
                 }
             }
@@ -436,7 +545,7 @@ fn eval_memo(ln: &tlc_core::liveness::ln::Ln, ev: &Ev, s: u32, s0: &[Value], s1:
         }
         LnNode::Disj(v) => {
             for x in v {
-                if eval_memo(x, ev, s, s0, s1, memo)? {
+                if eval_memo(x, ev, s, ek, s0, s1, memo, shared)? {
                     return Ok(true);
                 }
             }
@@ -556,7 +665,7 @@ fn check_component(
         }
         n1 = com_stack.pop().unwrap();
     }
-    let in_com: std::collections::HashSet<u32> = com.iter().copied().collect();
+    let in_com: HashSet<u32> = com.iter().copied().collect();
     let mut ae_state = vec![false; pem.ae_state.len()];
     let mut ae_action = vec![false; pem.ae_action.len()];
     let mut promise_res = vec![false; oos.promises.len()];
@@ -652,7 +761,7 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
     let cycle_state = states[cycle_pos];
     // component members per state (in the order of insertion into the component table)
     let mut state_order: Vec<u32> = vec![];
-    let mut by_state: HashMap<u32, Vec<u32>> = HashMap::new();
+    let mut by_state: HashMap<u32, Vec<u32>> = HashMap::default();
     for &c in com {
         let s = g.nodes[c as usize].state;
         by_state.entry(s).or_insert_with(|| {
@@ -661,11 +770,11 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
         });
         by_state.get_mut(&s).unwrap().push(c);
     }
-    let in_com: std::collections::HashSet<u32> = com.iter().copied().collect();
+    let in_com: HashSet<u32> = com.iter().copied().collect();
     let eaaction = &pem.ea_action;
     // ---- dfsPostFix
     let mut cycle_stack: Vec<u32> = vec![];
-    let mut seen: std::collections::HashSet<u32> = std::collections::HashSet::new();
+    let mut seen: HashSet<u32> = HashSet::default();
     let mut ae_state_res = vec![false; pem.ae_state.len()];
     let mut ae_action_res = vec![false; pem.ae_action.len()];
     let mut promise_res = vec![false; oos.promises.len()];
@@ -760,9 +869,9 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
     let mut postfix: Vec<u32> = vec![]; // states
     let start_state = g.nodes[end_node as usize].state;
     if end_node != root {
-        let mut seen_states: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        let mut seen_states: HashSet<u32> = HashSet::default();
         let mut queue: VecDeque<(u32, usize)> = VecDeque::new();
-        let mut parent_of: HashMap<u32, usize> = HashMap::new(); // state -> index of its parent in `visit`
+        let mut parent_of: HashMap<u32, usize> = HashMap::default(); // state -> index of its parent in `visit`
         let mut visit: Vec<u32> = vec![];
         let mut cur_state = start_state;
         let mut ploc: usize = usize::MAX;
@@ -837,7 +946,8 @@ fn build_lasso(g: &Graph, oos: &Oos, pem: &Pem, root: u32, com: &[u32], _store: 
 /// the behavior graphs of all orders of solution (Java: the `LiveChecker`s after the state space has been explored)
 #[allow(clippy::too_many_arguments)]
 pub fn build_all(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Option<&[Vec<u32>]>, gen_fn: Option<GenFn>, inits: &[u32], oss: &[Oos], pre: &[Vec<Option<Vec<bool>>>]) -> R<Vec<Graph>> {
-    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, gen_fn, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]))).collect()
+    let mut shared = SharedMemo::new(succ.len(), oss);
+    oss.iter().enumerate().map(|(i, oos)| build_graph(ev, store, succ, gen, gen_fn, inits, oos, pre.get(i).map_or(&[][..], |v| &v[..]), &mut shared)).collect()
 }
 
 /// `LiveWorker.call` over all orders of solution: the first counterexample found
@@ -875,11 +985,11 @@ pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Opti
         succ: &'a [Vec<u32>],
         gen: Option<&'a [Vec<u32>]>,
         tb: &'a tlc_core::liveness::tableau::TbGraph,
-        recorded: std::collections::HashSet<(u32, usize)>,
+        recorded: HashSet<(u32, usize)>,
         nodes_of: HashMap<u32, Vec<usize>>,
         done: Vec<bool>,
         edges: HashMap<(u32, usize), Vec<(u32, usize)>>,
-        edge_set: std::collections::HashSet<((u32, usize), (u32, usize))>,
+        edge_set: HashSet<((u32, usize), (u32, usize))>,
         cons: HashMap<(u32, usize), bool>,
         err: Option<(u32, usize)>,
     }
@@ -955,11 +1065,11 @@ pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Opti
         gen,
         tb,
         recorded: Default::default(),
-        nodes_of: HashMap::new(),
+        nodes_of: HashMap::default(),
         done: vec![false; n],
-        edges: HashMap::new(),
+        edges: HashMap::default(),
         edge_set: Default::default(),
-        cons: HashMap::new(),
+        cons: HashMap::default(),
         err: None,
     };
     // addInitState: (state, tnode) is a root node if tnode is an initial tableau node consistent with the state
@@ -998,8 +1108,8 @@ pub fn safety_shortcut(ev: &Ev, store: &dyn States, succ: &[Vec<u32>], gen: Opti
         }
         if let Some(target) = cx.err {
             // the path (breadth-first over the behavior graph built so far) from a root node to the violating node
-            let mut parent: HashMap<(u32, usize), (u32, usize)> = HashMap::new();
-            let mut seen: std::collections::HashSet<(u32, usize)> = roots.iter().copied().collect();
+            let mut parent: HashMap<(u32, usize), (u32, usize)> = HashMap::default();
+            let mut seen: HashSet<(u32, usize)> = roots.iter().copied().collect();
             let mut q: VecDeque<(u32, usize)> = roots.iter().copied().collect();
             while let Some(cur) = q.pop_front() {
                 if cur == target {

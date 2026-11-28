@@ -63,15 +63,31 @@ static MODEL_NEXT: AtomicU32 = AtomicU32::new(0);
 pub fn register_model(id: u32) {
     if let Some(slot) = MODEL_IDX.get(id as usize) {
         if slot.load(AtomicOrdering::Relaxed) == 0 {
-            slot.store(MODEL_NEXT.fetch_add(1, AtomicOrdering::Relaxed) + 1, AtomicOrdering::Relaxed);
+            let typed = (model_type(id).is_some() as u32) << 31;
+            slot.store((MODEL_NEXT.fetch_add(1, AtomicOrdering::Relaxed) + 1) | typed, AtomicOrdering::Relaxed);
         }
+    }
+}
+
+/// bit 31 of a `MODEL_IDX` entry: the model value is typed (`A_x`), so comparing it can fail
+const TYPED_MASK: u32 = 0x7FFF_FFFF;
+
+/// both registered and both untyped (no error possible): their order is the creation order; `None` = take the general path
+#[inline(always)]
+fn model_cmp_fast(a: u32, b: u32) -> Option<Ordering> {
+    let x = MODEL_IDX.get(a as usize)?.load(AtomicOrdering::Relaxed);
+    let y = MODEL_IDX.get(b as usize)?.load(AtomicOrdering::Relaxed);
+    if x != 0 && y != 0 && (x | y) <= TYPED_MASK {
+        Some(x.cmp(&y))
+    } else {
+        None
     }
 }
 
 #[inline]
 fn model_cmp(a: u32, b: u32) -> Ordering {
     if let (Some(x), Some(y)) = (MODEL_IDX.get(a as usize), MODEL_IDX.get(b as usize)) {
-        let (x, y) = (x.load(AtomicOrdering::Relaxed), y.load(AtomicOrdering::Relaxed));
+        let (x, y) = (x.load(AtomicOrdering::Relaxed) & TYPED_MASK, y.load(AtomicOrdering::Relaxed) & TYPED_MASK);
         if x != 0 && y != 0 {
             return x.cmp(&y);
         }
@@ -98,12 +114,19 @@ fn source_payload(v: &Value) -> Option<usize> {
 
 /// remember the node that built `v` (the last 64 lazy sets: a failure shows the sets that were just built)
 pub fn note_source(v: &Value, node: usize) {
+    if SRC_PAUSED.load(AtomicOrdering::Relaxed) {
+        return;
+    }
     if let Some(p) = source_payload(v) {
         let i = SRC_POS.fetch_add(1, AtomicOrdering::Relaxed) % SRC_N;
         SRC_RING[i].0.store(p, AtomicOrdering::Relaxed);
         SRC_RING[i].1.store(node, AtomicOrdering::Relaxed);
     }
 }
+
+/// while set, `note_source` records nothing: the worker threads of the parallel search build values the main thread never sees,
+/// and would push its remembered sources out of the ring
+pub static SRC_PAUSED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 fn lookup_source(p: usize) -> Option<usize> {
     let pos = SRC_POS.load(AtomicOrdering::Relaxed);
@@ -160,7 +183,6 @@ pub struct FcnLam {
     pub body: Option<Rc<dyn std::any::Any>>,
 }
 
-#[derive(Clone)]
 pub enum Value {
     Bool(bool),
     Int(i32),
@@ -193,6 +215,50 @@ pub enum Value {
     StringSet,
     /// value of a variable that is not (yet) assigned in a state
     Undef,
+}
+
+/// `Value::clone` = bump the reference count of the `Rc` the variant holds (if any), then copy the 16 bytes as they are.
+///
+/// Perf (H18, see loop/PERF.md): the derived `Clone` builds the new enum in a stack temporary with a 1-byte tag store and a
+/// 4/8-byte payload store and then moves it with one 16-byte load; the load cannot be forwarded from the two smaller stores, so
+/// every clone paid a store-forwarding stall (~25 cycles: 7 ns per element in `Vec<Value>::clone`).  Reading the source value
+/// as a whole has no such stall.
+///
+/// Safety argument: every variant is either plain data (`Copy`-like: bool, ints, interned ids, intervals, constants) or exactly one
+/// `Rc`.  After `Rc::increment_strong_count` the bitwise copy is a second owner that is accounted for in the count, which is
+/// what `Rc::clone` does.  Nothing else in `Value` owns a resource.
+impl Clone for Value {
+    #[inline]
+    fn clone(&self) -> Value {
+        self.bump_rc();
+        // SAFETY: see above
+        unsafe { std::ptr::read(self) }
+    }
+}
+
+impl Value {
+    /// add one strong reference to the `Rc` held by this value (nothing for plain-data variants)
+    #[inline(always)]
+    pub(crate) fn bump_rc(&self) {
+        macro_rules! bump {
+            ($r:expr) => {
+                // SAFETY: `$r` is a live `Rc`, so the pointer comes from a valid `Rc` allocation
+                unsafe { Rc::increment_strong_count(Rc::as_ptr($r)) }
+            };
+        }
+        match self {
+            Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) | Value::Interval(..) => {}
+            Value::NatSet | Value::IntSet | Value::RealSet | Value::StringSet | Value::Undef => {}
+            Value::Set(r) | Value::Tuple(r) | Value::SetU(r) | Value::SetOfTuples(r) => bump!(r),
+            Value::Fcn(r) => bump!(r),
+            Value::SetPred(r) => bump!(r),
+            Value::FcnLam(r) => bump!(r),
+            Value::Subset(r) | Value::BigUnion(r) | Value::SeqOf(r) => bump!(r),
+            Value::KSubset(r) => bump!(r),
+            Value::SetOfFcns(r) | Value::SetCup(r) | Value::SetCap(r) | Value::SetDiff(r) => bump!(r),
+            Value::SetOfRcds(r) => bump!(r),
+        }
+    }
 }
 
 /// The subsets of the normalized set `base` in the normalized order of sets (by size, then lexicographically by element),
@@ -1335,6 +1401,78 @@ impl Value {
     }
 
     /// `[f EXCEPT ![path] = v]` with a single path component
+    /// `EXCEPT` on a tuple or a function in normal form: the position of `arg` as `apply` finds it (the same search: the same errors);
+    /// `Ok(None)` for every other value and for an argument outside the domain (the general path handles those)
+    #[inline]
+    pub fn except_pos(&self, arg: &Value) -> R<Option<usize>> {
+        match self {
+            Value::Tuple(t) => Ok(match arg {
+                Value::Int(i) if *i >= 1 && (*i as usize) <= t.len() => Some(*i as usize - 1),
+                _ => None,
+            }),
+            Value::Fcn(f) => Self::search(&f.dom, arg),
+            _ => Ok(None),
+        }
+    }
+
+    /// the element at a position found by `except_pos`
+    #[inline]
+    pub fn elem_at(&self, pos: usize) -> &Value {
+        match self {
+            Value::Tuple(t) => &t[pos],
+            Value::Fcn(f) => &f.vals[pos],
+            _ => unreachable!("elem_at on a value without positions"),
+        }
+    }
+
+    /// the element at `pos`, moved out when nothing else refers to this value (it is replaced by `replace_at` afterwards)
+    pub fn take_or_clone_at(&mut self, pos: usize) -> Value {
+        match self {
+            Value::Tuple(t) => match Rc::get_mut(t) {
+                Some(v) => std::mem::replace(&mut v[pos], Value::Undef),
+                None => t[pos].clone(),
+            },
+            Value::Fcn(f) => match Rc::get_mut(f) {
+                Some(fc) => std::mem::replace(&mut fc.vals[pos], Value::Undef),
+                None => f.vals[pos].clone(),
+            },
+            _ => unreachable!("take_or_clone_at on a value without positions"),
+        }
+    }
+
+    /// the value with the element at `pos` replaced (in place when nothing else refers to it)
+    pub fn replace_at(self, pos: usize, nv: Value) -> Value {
+        match self {
+            Value::Tuple(mut t) => {
+                if let Some(v) = Rc::get_mut(&mut t) {
+                    v[pos] = nv;
+                    return Value::Tuple(t);
+                }
+                let mut n = Vec::with_capacity(t.len());
+                n.extend_from_slice(&t[..pos]);
+                n.push(nv);
+                n.extend_from_slice(&t[pos + 1..]);
+                Value::tuple(n)
+            }
+            Value::Fcn(mut f) => {
+                if let Some(fc) = Rc::get_mut(&mut f) {
+                    fc.vals[pos] = nv;
+                    // the memos describe the old contents
+                    fc.fp.set(0);
+                    fc.norm_ok.set(false);
+                    fc.has_model.set(0);
+                    return Value::Fcn(f);
+                }
+                let mut n = Vec::with_capacity(f.vals.len());
+                n.extend_from_slice(&f.vals[..pos]);
+                n.push(nv);
+                n.extend_from_slice(&f.vals[pos + 1..]);
+                Value::Fcn(Rc::new(Fcn::new(f.dom.clone(), n)))
+            }
+            _ => unreachable!("replace_at on a value without positions"),
+        }
+    }
+
     pub fn except1(&self, arg: &Value, v: Value) -> R<Value> {
         match self {
             Value::Tuple(t) => match arg {
@@ -1384,6 +1522,10 @@ impl Value {
         match (self, o) {
             (Value::Int(a), Value::Int(b)) => Ok(a.cmp(b)),
             (Value::Str(a), Value::Str(b)) => Ok(a.cmp(b)),
+            (Value::Model(a), Value::Model(b)) => match model_cmp_fast(*a, *b) {
+                Some(c) => Ok(c),
+                None => self.cmp_val_slow(o),
+            },
             _ => self.cmp_val_slow(o),
         }
     }
@@ -1395,6 +1537,19 @@ impl Value {
             (Set(a), Set(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
             (Tuple(a), Tuple(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
             (Fcn(a), Fcn(b)) if Rc::ptr_eq(a, b) => Ok(Ordering::Equal),
+            // the general set arm below enumerates both sets (a clone of the `Rc` each) and compares size, then elements
+            (Set(a), Set(b)) => {
+                if a.len() != b.len() {
+                    return Ok(a.len().cmp(&b.len()));
+                }
+                for (x, y) in a.iter().zip(b.iter()) {
+                    let c = x.cmp_val(y)?;
+                    if c != Ordering::Equal {
+                        return Ok(c);
+                    }
+                }
+                Ok(Ordering::Equal)
+            }
             (Int(a), Int(b)) => Ok(a.cmp(b)),
             (Str(a), Str(b)) => Ok(a.cmp(b)),
             (Bool(a), Bool(b)) => Ok(a.cmp(b)),
@@ -2000,6 +2155,30 @@ impl Value {
         }
     }
 
+    /// Can `hash_into` fingerprint this value in bounded time?  A lazy set is enumerated by it (`1..MaxInt` visits 2^31 elements), so a call
+    /// whose arguments are not cheap is not remembered by the values of its arguments (`call_def`).  Only scalars, small intervals and
+    /// sets / tuples / functions of such values are cheap; every other lazy value is not.
+    pub fn hash_is_cheap(&self) -> bool {
+        fn go(v: &Value, budget: &mut i64) -> bool {
+            *budget -= 1;
+            if *budget < 0 {
+                return false;
+            }
+            match v {
+                Value::Bool(_) | Value::Int(_) | Value::Str(_) | Value::Model(_) | Value::Undef => true,
+                Value::Interval(lo, hi) => {
+                    *budget -= (*hi as i64 - *lo as i64 + 1).max(0);
+                    *budget >= 0
+                }
+                Value::Set(e) | Value::Tuple(e) => e.iter().all(|x| go(x, budget)),
+                // the hash of a function is cached in `fp` once computed
+                Value::Fcn(f) => f.fp.get() != 0 || (f.dom.iter().all(|x| go(x, budget)) && f.vals.iter().all(|x| go(x, budget))),
+                _ => false,
+            }
+        }
+        go(self, &mut 100_000)
+    }
+
     /// a `SUBSET S` that stays lazy when it is bound to a variable (Java keeps the `SubsetValue`, which prints as `SUBSET S`): more
     /// than 2^16 elements (the ones TLC would never enumerate are in it)
     pub fn is_huge_subset(&self) -> bool {
@@ -2026,6 +2205,112 @@ impl Value {
     }
 }
 
+
+// ---------------------------------------------------------------------------------------------- set operations on sorted lists
+
+/// the set operation `merge_sets` computes
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SetOp {
+    /// `a \cup b`
+    Cup,
+    /// `a \cap b`
+    Cap,
+    /// `a \ b`
+    Diff,
+}
+
+/// `a op b` for two normalized (sorted, duplicate-free) element lists.  A linear merge: |a| + |b| comparisons and one allocation of
+/// the result (the general path concatenates, sorts and removes duplicates: three passes and two allocations).  A small `b`
+/// (`S \cup {x}`, `S \ {x}`) is located in `a` by binary search and the stretches in between are copied.  The elements of the
+/// result are `a`'s where both lists hold an equal element (what the stable sort of the general path keeps).
+/// `None` when a comparison fails: the caller then takes the general path, which reports the error exactly as before.
+pub fn merge_sets(op: SetOp, a: &[Value], b: &[Value]) -> Option<Vec<Value>> {
+    if b.len() <= 4 && a.len() >= 16 {
+        // first index of `a[from..]` that is >= x, and whether it equals x
+        let locate = |from: usize, x: &Value| -> Option<(usize, bool)> {
+            let (mut lo, mut hi) = (from, a.len());
+            while lo < hi {
+                let mid = lo + (hi - lo) / 2;
+                match a[mid].cmp_val(x).ok()? {
+                    Ordering::Less => lo = mid + 1,
+                    _ => hi = mid,
+                }
+            }
+            let found = lo < a.len() && a[lo].cmp_val(x).ok()? == Ordering::Equal;
+            Some((lo, found))
+        };
+        let mut out: Vec<Value> = Vec::with_capacity(if op == SetOp::Cap { b.len() } else { a.len() + b.len() });
+        let mut start = 0usize;
+        for y in b {
+            let (pos, found) = locate(start, y)?;
+            match op {
+                SetOp::Cup => {
+                    out.extend_from_slice(&a[start..pos]);
+                    if found {
+                        out.push(a[pos].clone());
+                        start = pos + 1;
+                    } else {
+                        out.push(y.clone());
+                        start = pos;
+                    }
+                }
+                SetOp::Diff => {
+                    out.extend_from_slice(&a[start..pos]);
+                    start = if found { pos + 1 } else { pos };
+                }
+                SetOp::Cap => {
+                    if found {
+                        out.push(a[pos].clone());
+                        start = pos + 1;
+                    } else {
+                        start = pos;
+                    }
+                }
+            }
+        }
+        if op != SetOp::Cap {
+            out.extend_from_slice(&a[start..]);
+        }
+        return Some(out);
+    }
+    let cap = match op {
+        SetOp::Cup => a.len() + b.len(),
+        SetOp::Cap => a.len().min(b.len()),
+        SetOp::Diff => a.len(),
+    };
+    let mut out: Vec<Value> = Vec::with_capacity(cap);
+    let (mut i, mut j) = (0usize, 0usize);
+    while i < a.len() && j < b.len() {
+        match a[i].cmp_val(&b[j]).ok()? {
+            Ordering::Less => {
+                if op != SetOp::Cap {
+                    out.push(a[i].clone());
+                }
+                i += 1;
+            }
+            Ordering::Greater => {
+                if op == SetOp::Cup {
+                    out.push(b[j].clone());
+                }
+                j += 1;
+            }
+            Ordering::Equal => {
+                if op != SetOp::Diff {
+                    out.push(a[i].clone());
+                }
+                i += 1;
+                j += 1;
+            }
+        }
+    }
+    if op != SetOp::Cap {
+        out.extend_from_slice(&a[i..]);
+    }
+    if op == SetOp::Cup {
+        out.extend_from_slice(&b[j..]);
+    }
+    Some(out)
+}
 
 // ---------------------------------------------------------------------------------------------- unnormalized set enumerations
 
@@ -2525,6 +2810,68 @@ mod tests {
         assert!(Value::Int(1).apply_ref(&Value::Int(1)).is_none());
     }
 
+    /// `EXCEPT` helpers: a shared value is copied (the original stays intact), a value nothing else refers to is updated in place
+    /// with its memos cleared; the result equals and hashes like the value built from scratch
+    #[test]
+    fn except_replace_copies_shared_and_updates_unique() {
+        let fp = |v: &Value| {
+            let mut h = Hasher::new();
+            v.hash_into(&mut h).unwrap();
+            h.finish()
+        };
+        let t = Value::tuple(vec![Value::Int(1), Value::Int(2), Value::Int(3)]);
+        let keep = t.clone();
+        assert_eq!(t.except_pos(&Value::Int(2)).unwrap(), Some(1));
+        assert_eq!(t.except_pos(&Value::Int(4)).unwrap(), None);
+        let n = t.replace_at(1, Value::Int(9));
+        assert_eq!(keep.to_tla(), "<<1, 2, 3>>");
+        assert_eq!(n.to_tla(), "<<1, 9, 3>>");
+        let n2 = n.replace_at(0, Value::Int(7));
+        assert_eq!(n2.to_tla(), "<<7, 9, 3>>");
+        let dom = Rc::new(vec![Value::Int(0), Value::Int(1)]);
+        let f = Value::Fcn(Rc::new(Fcn::new(dom.clone(), vec![Value::Int(5), Value::Int(6)])));
+        let _ = fp(&f);
+        let mut owned = f;
+        assert_eq!(owned.except_pos(&Value::Int(1)).unwrap(), Some(1));
+        let old = owned.take_or_clone_at(1);
+        assert!(matches!(old, Value::Int(6)));
+        let g = owned.replace_at(1, Value::Int(8));
+        let fresh = Value::Fcn(Rc::new(Fcn::new(dom, vec![Value::Int(5), Value::Int(8)])));
+        assert!(g.eq_val(&fresh).unwrap());
+        assert_eq!(fp(&g), fp(&fresh));
+    }
+
+    /// a lazy huge set must not be enumerated just to build a memo key (`1..MaxInt` has 2^31 elements)
+    #[test]
+    fn hash_is_cheap_rejects_huge_lazy_sets() {
+        assert!(Value::Int(3).hash_is_cheap());
+        assert!(Value::Interval(1, 100).hash_is_cheap());
+        assert!(!Value::Interval(1, i32::MAX - 1).hash_is_cheap());
+        let small = Value::set_from(vec![Value::tuple(vec![Value::Int(1), Value::Bool(false)]), Value::tuple(vec![Value::Int(2), Value::Bool(true)])]).unwrap();
+        assert!(small.hash_is_cheap());
+        let nested = Value::tuple(vec![Value::Int(1), Value::Interval(1, i32::MAX - 1)]);
+        assert!(!nested.hash_is_cheap());
+        assert!(!Value::NatSet.hash_is_cheap());
+    }
+
+    /// `Set` vs `Set` compares size first, then the elements in order; model values by creation order
+    #[test]
+    fn set_and_model_comparison_fast_paths() {
+        use std::cmp::Ordering::*;
+        let s = |v: &[i32]| Value::set_from(v.iter().map(|i| Value::Int(*i)).collect()).unwrap();
+        assert_eq!(s(&[1, 2]).cmp_val(&s(&[1, 2, 3])).unwrap(), Less);
+        assert_eq!(s(&[1, 3]).cmp_val(&s(&[1, 2])).unwrap(), Greater);
+        assert_eq!(s(&[1, 2]).cmp_val(&s(&[1, 2])).unwrap(), Equal);
+        let (ia, ib) = (intern::intern("fastcmp_b"), intern::intern("fastcmp_a"));
+        register_model(ia);
+        register_model(ib);
+        let (a, b) = (Value::Model(ia), Value::Model(ib));
+        // creation order, not name order
+        assert_eq!(a.cmp_val(&b).unwrap(), Less);
+        assert_eq!(b.cmp_val(&a).unwrap(), Greater);
+        assert_eq!(a.cmp_val(&a).unwrap(), Equal);
+    }
+
     #[test]
     fn set_normalization_and_membership() {
         let s = Value::set_from(vec![Value::Int(3), Value::Int(1), Value::Int(3), Value::Int(2)]).unwrap();
@@ -2656,5 +3003,87 @@ mod size_tests {
         eprintln!("size Value = {}", std::mem::size_of::<super::Value>());
         eprintln!("size Slot = {}", std::mem::size_of::<crate::ir::Slot>());
         eprintln!("size Node = {}", std::mem::size_of::<crate::ir::Node>());
+    }
+}
+
+#[cfg(test)]
+mod merge_tests {
+    use super::*;
+
+    fn ints(v: &[i32]) -> Vec<Value> {
+        v.iter().map(|&i| Value::Int(i)).collect()
+    }
+
+    /// the general path: concatenate, sort, remove duplicates (`set_from`), filter by membership
+    fn reference(op: SetOp, a: &[Value], b: &[Value]) -> Vec<Value> {
+        match op {
+            SetOp::Cup => {
+                let mut all = a.to_vec();
+                all.extend(b.iter().cloned());
+                match Value::set_from(all).unwrap() {
+                    Value::Set(r) => r.to_vec(),
+                    _ => unreachable!(),
+                }
+            }
+            SetOp::Cap => a.iter().filter(|x| b.iter().any(|y| y.eq_val(x).unwrap())).cloned().collect(),
+            SetOp::Diff => a.iter().filter(|x| !b.iter().any(|y| y.eq_val(x).unwrap())).cloned().collect(),
+        }
+    }
+
+    fn same(x: &[Value], y: &[Value]) -> bool {
+        x.len() == y.len() && x.iter().zip(y).all(|(p, q)| p.eq_val(q).unwrap())
+    }
+
+    #[test]
+    fn merge_sets_agrees_with_the_general_path() {
+        // a deterministic pseudo random generator is enough: small sets of a small universe, sizes around the small-`b` threshold
+        let mut seed = 12345u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            (seed >> 33) as u32
+        };
+        for round in 0..400 {
+            let na = (next() % 40) as usize;
+            let nb = if round % 2 == 0 { (next() % 6) as usize } else { (next() % 40) as usize };
+            let mut a: Vec<i32> = (0..na).map(|_| (next() % 60) as i32).collect();
+            let mut b: Vec<i32> = (0..nb).map(|_| (next() % 60) as i32).collect();
+            a.sort();
+            a.dedup();
+            b.sort();
+            b.dedup();
+            let (a, b) = (ints(&a), ints(&b));
+            for op in [SetOp::Cup, SetOp::Cap, SetOp::Diff] {
+                let got = merge_sets(op, &a, &b).expect("integers are comparable");
+                assert!(same(&got, &reference(op, &a, &b)), "{:?} {} {}", op, a.len(), b.len());
+            }
+        }
+    }
+
+    #[test]
+    fn merge_sets_gives_up_on_incomparable_elements() {
+        let a: Vec<Value> = (0..20).map(Value::Int).collect();
+        let b = vec![Value::str("x")];
+        for op in [SetOp::Cup, SetOp::Cap, SetOp::Diff] {
+            assert!(merge_sets(op, &a, &b).is_none());
+            assert!(merge_sets(op, &b, &a).is_none());
+        }
+    }
+
+    #[test]
+    fn clone_is_a_second_owner() {
+        let s = Value::set_from(vec![Value::Int(1), Value::Int(2)]).unwrap();
+        let t = Value::tuple(vec![s.clone(), s.clone()]);
+        let u = t.clone();
+        drop(t);
+        drop(s);
+        match &u {
+            Value::Tuple(v) => assert!(v[0].eq_val(&v[1]).unwrap()),
+            _ => unreachable!(),
+        }
+        if let Value::Tuple(v) = &u {
+            if let Value::Set(r) = &v[0] {
+                assert_eq!(Rc::strong_count(r), 1 + 1); // v[0] and v[1] share the set
+            }
+        }
     }
 }
