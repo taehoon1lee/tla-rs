@@ -32,6 +32,10 @@ loop/
   TASKS.md                    milestone task list M1~M9 (ticked off by Haiku)
   PROGRESS.md / NOTES.md      iteration log / knowledge base (memory across sessions)
   run-loop.ps1                loop driver
+  PROMPT_PERF.md              procedure for one iteration of the performance loop (do not edit)
+  PERF.md                     performance backlog, standing vs Java, LEDGER of every experiment
+  PERF_RESEARCH.md            performance research notes (profiles, measured tables, rejected ideas)
+tools/                        perf/diagnostic tools (not used by the harness): ab.py = A/B judge, prof.py, profnode.py
 CLAUDE.md                     rules every session reads automatically
 docs/JAVA_MAP.md              Java file ↔ Rust module map
 ```
@@ -54,7 +58,12 @@ TLC test models also get their JUnit flags (`-deadlock`, `-continue`, `-view`, .
 Java > 60 s are "heavy" and only run with `--heavy`.
 
 ## Current status
-M0 only (2026-11-22): the environment is built; tlc-rs reports "not ported" everywhere.
+2026-11-28, `python harness/check.py --gate -j 2` on 551888d: every scored TLC model gives Java's answer at trace level.
+
+| Level | Score |
+|---|---|
+| syntax / parse / parse_msg | 1140 / 1132 / 1126 of 1140 SANY modules |
+| front / init / verdict / trace / perf | 364 / 364 / 364 / 364 / 364 of 364 TLC models |
 
 | Corpus | Java golden outcome |
 |---|---|
@@ -64,6 +73,80 @@ M0 only (2026-11-22): the environment is built; tlc-rs reports "not ported" ever
 
 Java total over the 364 scored models: 758 s (single worker, wall time incl. JVM start).
 Full gate with a fast Rust: a few minutes (`-j8`).
+
+## Performance
+All numbers: one worker (the harness setting), process wall time including start-up, identical output.
+
+**Whole corpus.** The gate on 551888d measured Rust 183 s against Java's 756 s over the 364 scored models (x0.24), and
+every model passes the `perf` level. When the performance loop started (2026-11-25, 68d4fd9) the same gate measured 272 s,
+so the optimizations since then removed about a third of Rust's time. Caveats: the gate runs 2 models in parallel and
+the goldens' Java times were taken with 3-4 JVMs in parallel (Java alone is 7-19 % faster), so these totals are rough.
+
+**Slowest models relative to Java alone.** The 15 models of the `tools/ab.py` full set, Java alone and Rust measured
+sequentially on the same machine (min of 2, Rust at 78655c3):
+
+| model | Java alone | Rust | Rust/Java |
+|---|---:|---:|---:|
+| ex/lamport_mutex/MCLamportMutex | 11.39 s | 8.94 s | x0.785 |
+| ex/SlidingPuzzles/SlidingPuzzles | 1.53 s | 1.14 s | x0.747 |
+| ex/ewd998/EWD998Small | 25.36 s | 17.42 s | x0.687 |
+| ex/Disruptor/MCDisruptor_MPMC | 3.08 s | 2.03 s | x0.659 |
+| ex/Bakery-Boulangerie/MCBakery | 7.79 s | 4.77 s | x0.612 |
+| ex/YoYo/YoYoAllGraphs | 5.29 s | 2.95 s | x0.558 |
+| ex/TeachingConcurrency/SimpleRegular | 3.75 s | 1.96 s | x0.523 |
+| ex/allocator/AllocatorImplementation | 6.88 s | 3.22 s | x0.468 |
+| ex/KeyValueStore/MCKVsnap | 8.96 s | 3.00 s | x0.335 |
+| ex/SpanningTree/SpanTreeRandom | 4.36 s | 1.30 s | x0.298 |
+| ex/byzpaxos/VoteProof | 9.90 s | 2.91 s | x0.294 |
+| ex/btree/MCbtree | 26.24 s | 7.03 s | x0.268 |
+| ex/bcastByz/bcastByz | 11.67 s | 2.25 s | x0.193 |
+| ex/MultiCarElevator/ElevatorLivenessMedium | 18.16 s | 1.38 s | x0.076 |
+| ex/FlashProtocol/MCFlashWithMutexLive | 11.02 s | 0.69 s | x0.063 |
+
+**Last research pass: the models closest to Java** (H25 + H22 + H29, 2026-11-27; 3 interleaved reps, same-path builds,
+identical outputs; `loop/PERF_RESEARCH.md` "Fifth pass"):
+
+| model | Java alone | before (5d01875) | after (78655c3) | after/before |
+|---|---:|---:|---:|---:|
+| MCLamportMutex | 11.04 s | 10.17 s | 8.94 s | x0.880 |
+| EWD998Small | 24.32 s | 20.19 s | 17.08 s | x0.846 |
+| SlidingPuzzles | 1.47 s | 1.18 s | 1.12 s | x0.948 |
+| GameOfLife | 9.11 s | 7.24 s | 6.50 s | x0.898 |
+| MCBakery | 7.60 s | 5.55 s | 4.76 s | x0.858 |
+| MCDisruptor_MPMC | 2.98 s | 2.05 s | 1.97 s | x0.961 |
+| SimpleRegular | 3.51 s | 2.42 s | 1.92 s | x0.792 |
+| MultiPaxos_MC_small | 16.34 s | 11.16 s | 10.12 s | x0.907 |
+| SlushSmall | 5.57 s | 3.75 s | 3.38 s | x0.901 |
+| **geomean** | | Rust/Java x0.753 | Rust/Java x0.667 | **x0.887** |
+
+**What made it faster** (details and every rejected attempt: the LEDGER in `loop/PERF.md`):
+
+| id | change | effect |
+|---|---|---|
+| s1-s4 | no `thread_local!` on hot paths; `Len`/`Head`/`Append` and `x[a][b]` reads without copies; small pure functions built eagerly | 6-16 % per model |
+| H3 | value-keyed memo of state-level definitions without parameters (key = the variables they read) | EWD998PCal x0.61 |
+| H7, H8 | pure constant-level operators remembered by argument values; cheaper value comparison | SpanTreeRandom x0.46, Huang x0.66 |
+| H11 | `<<A>>_v` / `[A]_v` decided by `A` first; tuple-of-variables definitions evaluated directly | Huang x0.86 |
+| H12 | symmetry: signatures of all symmetric values from one traversal of the state | MultiPaxos x0.85 |
+| H18 | bit-copy `Clone` for `Value` (the derived one stalled store-to-load forwarding); set union/intersection by merge | full-set geomean x0.888, every model faster |
+| H20 | liveness: fairness leaves shared by all PROPERTIES / orders of solution | MCFlashWithMutexLive x0.24, ElevatorLivenessMedium x0.61; geomean x0.866 |
+| H22 | successor invariants / constraints skip conjuncts whose variables still hold the predecessor's values; `x \in [S -> T]` tests only the changed parts | MCbtree x0.84, EWD998Small x0.86; geomean x0.958 |
+| H25 | `EXCEPT` path without copies of the replaced element; memo lookups without allocation; `FoldFunctionOnSet` sums remembered | GameOfLife x0.90 |
+| H29 | PlusCal: `pc[self] = "lbl"` evaluated once per disjunction of label actions; LAMBDA calls without allocation | MCBakery x0.86, SimpleRegular x0.90 |
+| P1 | `-workers N`: parallel BFS for violation-free searches (falls back to the sequential search otherwise) | EWD998Small 23.4 s -> 3.5 s at 16 workers |
+
+Measured and rejected, among others: `lto = "fat"` + `codegen-units = 1`, `-C target-cpu=native`, PGO (no
+`profiler_builtins` for this windows-gnu toolchain), a hash of functions that changes fingerprint values (H26).
+
+**How a change is judged.** `tools/ab.py` (rules: `loop/PROMPT_PERF.md`) runs the base build and the new build
+interleaved, sequentially, min of N, and requires identical results (state counts, traces, errors, Print output).
+Nothing may change observable behaviour, fingerprints, error texts or set order, and model-specific code is forbidden.
+```powershell
+python tools/ab.py snapshot                      # build HEAD, keep it as the BASE
+python tools/ab.py compare --set full --reps 2   # BASE vs target/release/tlc-rs.exe -> ACCEPT / NEUTRAL / REJECT / MISMATCH
+python tools/ab.py time --set full               # current build vs Java alone
+python tools/prof.py <check-id>                  # sampling profile (build: tools/README.md)
+```
 
 ## Running the Haiku loop
 
